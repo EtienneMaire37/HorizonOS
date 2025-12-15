@@ -117,6 +117,8 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                 pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model[last_char_index] = 0;
             else
                 pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model[40] = 0;
+
+            pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].lock = MUTEX_INIT;
         }
     }
 
@@ -321,6 +323,8 @@ bool ata_pio_read_sectors(pci_ide_controller_data_t* controller, uint8_t channel
         sector_count = controller->channels[channel].devices[drive].size - lba;
     }
 
+    acquire_mutex(&controller->channels[channel].devices[drive].lock);
+
     ata_write_command_block_register(controller, channel, ATA_REG_HDDEVSEL, 0xe0 | (drive << 4) | ((lba >> 24) & 0x0f));
     // ata_write_command_block_register(controller, channel, ATA_REG_FEATURES, 0);
 
@@ -334,11 +338,16 @@ bool ata_pio_read_sectors(pci_ide_controller_data_t* controller, uint8_t channel
     for (uint8_t i = 0; i < sector_count; i++)
     {
         if (!ata_poll(controller, channel))
+        {
+            release_mutex(&controller->channels[channel].devices[drive].lock);
             return false;
+        }
 
         for (uint16_t j = 0; j < 256; j++)
             buffer[i * 256 + j] = inw(controller->channels[channel].base_address + ATA_REG_DATA);
     }
+
+    release_mutex(&controller->channels[channel].devices[drive].lock);
 
     return true;
 }
@@ -377,6 +386,8 @@ bool ata_pio_read_bytes(pci_ide_controller_data_t* controller, uint8_t channel, 
         sector_count = controller->channels[channel].devices[drive].size - lba;
     }
 
+    acquire_mutex(&controller->channels[channel].devices[drive].lock);
+
     ata_write_command_block_register(controller, channel, ATA_REG_HDDEVSEL, 0xe0 | (drive << 4) | ((lba >> 24) & 0x0f));
     // ata_write_command_block_register(controller, channel, ATA_REG_FEATURES, 0);
 
@@ -392,7 +403,10 @@ bool ata_pio_read_bytes(pci_ide_controller_data_t* controller, uint8_t channel, 
     for (uint8_t i = 0; i < sector_count; i++)
     {
         if (!ata_poll(controller, channel))
+        {
+            release_mutex(&controller->channels[channel].devices[drive].lock);
             return false;
+        }
 
         for (uint16_t j = 0; j < 256; j++)
         {
@@ -405,6 +419,8 @@ bool ata_pio_read_bytes(pci_ide_controller_data_t* controller, uint8_t channel, 
                 buffer[buf_idx++] = word >> 8;
         }
     }
+
+    release_mutex(&controller->channels[channel].devices[drive].lock);
 
     return true;
 }

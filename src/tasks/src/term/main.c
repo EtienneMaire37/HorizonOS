@@ -204,7 +204,7 @@ int main(int argc, char** argv)
             if (status != -1) 
             {
                 if (WIFSIGNALED(status))
-                    printf("\n%s\n", strsignal(WTERMSIG(status)));
+                    printf("%s\n", strsignal(WTERMSIG(status)));
             }
             char buf[16];
             snprintf(buf, sizeof(buf), "%d", status);

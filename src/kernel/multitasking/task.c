@@ -283,10 +283,10 @@ void task_kill(uint16_t index)
 
 void task_copy_file_table(uint16_t from, uint16_t to, bool cloexec)
 {
-    acquire_spinlock(&file_table_spinlock);
+    acquire_mutex(&file_table_lock);
     for (int i = 3; i < OPEN_MAX; i++)
     {
-        if (cloexec && tasks[from].file_table[i] == invalid_fd && (file_table[tasks[to].file_table[i]].flags & O_CLOEXEC))
+        if (tasks[from].file_table[i] == invalid_fd || (cloexec && (file_table[tasks[from].file_table[i]].flags & O_CLOEXEC)))
             tasks[to].file_table[i] = invalid_fd;
         else
         {
@@ -295,7 +295,7 @@ void task_copy_file_table(uint16_t from, uint16_t to, bool cloexec)
                 file_table[tasks[to].file_table[i]].used++;
         }
     }
-    release_spinlock(&file_table_spinlock);
+    release_mutex(&file_table_lock);
 }
 
 void copy_task(uint16_t index)

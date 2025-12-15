@@ -62,8 +62,8 @@ void pci_scan_buses()
 
                 #ifdef PRINT_PCI_INFO
                     printf("PCI Device at 0x%x:0x%x:0x%x (Header type : %u) :\n", i, j, k, header_type);
-                    printf("    Device ID: 0x%x | Vendor ID: 0x%x\n", device_id, vendor_id);
-                    printf("    Class : 0x%x.0x%x\n", class_code, subclass);
+                    // printf("    Device ID: 0x%x | Vendor ID: 0x%x\n", device_id, vendor_id);
+                    // printf("    Class : 0x%x.0x%x\n", class_code, subclass);
                     printf("    Vendor : ");
 
                     tty_set_color(FG_LIGHTGREEN, BG_BLACK);

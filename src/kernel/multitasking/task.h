@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../io/keyboard.h"
+#include "mutex.h"
 
 #define THREAD_NAME_MAX 64
 
@@ -34,6 +35,8 @@ typedef struct thread
 
     file_table_index_t file_table[OPEN_MAX];
 } thread_t;
+
+mutex_t file_table_lock = MUTEX_INIT;
 
 #define __CURRENT_TASK      tasks[current_task_index]
 
@@ -70,18 +73,18 @@ void task_kill(uint16_t index);
 void apic_enable();
 void apic_disable();
 
-atomic_flag task_queue_spinlock;
-
 void lock_task_queue()
 {
     // lapic_disable();
-    acquire_spinlock(&task_queue_spinlock);
+    disable_interrupts();
+    // acquire_spinlock(&task_queue_spinlock);
 }
 
 void unlock_task_queue()
 {
     // lapic_enable();
-    release_spinlock(&task_queue_spinlock);
+    enable_interrupts();
+    // release_spinlock(&task_queue_spinlock);
 }
 
 int vfs_allocate_thread_file(int index)

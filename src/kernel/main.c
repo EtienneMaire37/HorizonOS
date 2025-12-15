@@ -150,6 +150,7 @@ initrd_file_t* commit_file;
 #include "multitasking/loader.c"
 #include "../libc/src/startup_data.c"
 #include "vfs/vfs.c"
+#include "multitasking/mutex.c"
 #include "../liballoc/liballoc.c"
 #include "memalloc/liballoc_hooks.c"
 

@@ -3,6 +3,274 @@
 #include "../initrd/vfs.c"
 #include "vfs.h"
 
+void vfs_init_file_table()
+{
+    acquire_mutex(&file_table_lock);
+    for (int i = 0; i < MAX_FILE_TABLE_ENTRIES; i++)
+    {
+        if (i < 3)  file_table[i].used = 1; // * Should always be used
+        else        file_table[i].used = 0;
+    }
+    
+    file_table[0].entry_type = ET_FILE;
+    file_table[0].tnode.file = vfs_get_file_tnode("/devices/stdin", NULL);
+    file_table[0].position = 0;
+    file_table[0].flags = O_RDONLY;
+
+    file_table[1].entry_type = ET_FILE;
+    file_table[1].tnode.file = vfs_get_file_tnode("/devices/stdout", NULL);
+    file_table[1].position = 0;
+    file_table[1].flags = O_WRONLY;
+
+    file_table[2].entry_type = ET_FILE;
+    file_table[2].tnode.file = vfs_get_file_tnode("/devices/stderr", NULL);
+    file_table[2].position = 0;
+    file_table[2].flags = O_WRONLY;
+
+    release_mutex(&file_table_lock);
+}
+
+int vfs_allocate_global_file()
+{
+    acquire_mutex(&file_table_lock);
+    for (int i = 3; i < MAX_FILE_TABLE_ENTRIES; i++)
+    {
+        if (file_table[i].used == 0)
+        {
+            file_table[i].used = 1;
+            release_mutex(&file_table_lock);
+            return i;
+        }
+    }
+    release_mutex(&file_table_lock);
+    return -1;
+}
+
+void vfs_remove_global_file(int fd)
+{
+    acquire_mutex(&file_table_lock);
+    if (fd >= 3 && fd < MAX_FILE_TABLE_ENTRIES)
+    {
+        file_table[fd].used--;
+        if (file_table[fd].used <= 0)
+            file_table[fd].used = 0;
+        release_mutex(&file_table_lock);
+        return;
+    }
+    release_mutex(&file_table_lock);
+}
+
+ino_t vfs_generate_inode_number()
+{
+    static ino_t current_inode_number = 1;
+    return current_inode_number++;
+}
+
+dev_t vfs_generate_device_id()
+{
+    static dev_t current_device_id = 1;
+    return current_device_id++;
+}
+
+vfs_folder_inode_t* vfs_create_empty_folder_inode(vfs_folder_tnode_t* parent, uint8_t flags,
+    dev_t device_id, mode_t mode, uid_t uid, gid_t gid,
+    drive_t drive)
+{
+    vfs_folder_inode_t* inode = malloc(sizeof(vfs_folder_inode_t));
+
+    inode->files = NULL;
+    inode->folders = NULL;
+
+    inode->flags = flags;
+
+    inode->st.st_dev = device_id;
+    inode->st.st_ino = vfs_generate_inode_number();
+    inode->st.st_mode = mode;
+    inode->st.st_nlink = 1;
+    inode->st.st_uid = uid;
+    inode->st.st_gid = gid;
+    inode->st.st_rdev = 0;
+    inode->st.st_size = 0;
+    inode->st.st_blksize = 0;
+    inode->st.st_blocks = 0;
+    inode->st.st_atime = 0;
+    inode->st.st_mtime = 0;
+    inode->st.st_ctime = 0;
+
+    inode->drive = drive;
+
+    inode->parent = parent;
+    inode->lock = MUTEX_INIT;
+
+    return inode;
+}
+
+vfs_folder_tnode_t* vfs_create_empty_folder_tnode(const char* name, vfs_folder_tnode_t* parent, uint8_t flags,
+    dev_t device_id, mode_t mode, uid_t uid, gid_t gid,
+    drive_t drive)
+{
+    vfs_folder_tnode_t* tnode = malloc(sizeof(vfs_folder_tnode_t));
+    if (!tnode)
+    {
+        LOG(ERROR, "Couldn't allocate tnode");
+        return NULL;
+    }
+    tnode->name = strdup(name);
+    if (!tnode->name)
+    {
+        free(tnode);
+        LOG(ERROR, "Couldn't allocate name");
+        return NULL;
+    }
+    tnode->next = NULL;
+    tnode->inode = vfs_create_empty_folder_inode(parent, flags, device_id, mode, uid, gid, drive);
+    if (!tnode->inode)
+    {
+        free(tnode->name);
+        free(tnode);
+        LOG(ERROR, "Couldn't allocate inode");
+        return NULL;
+    }
+    return tnode;
+}
+
+vfs_file_inode_t* vfs_create_special_file_inode(vfs_folder_tnode_t* parent, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t), uid_t uid, gid_t gid)
+{
+    vfs_file_inode_t* inode = malloc(sizeof(vfs_file_inode_t));
+    if (!inode) return NULL;
+
+    inode->drive.type = DT_VIRTUAL;
+    inode->io_func = fun;
+    inode->parent = parent;
+    
+    inode->st.st_dev = 0;   // * root device
+    inode->st.st_ino = vfs_generate_inode_number();
+    inode->st.st_mode = mode;
+    inode->st.st_nlink = 1;
+    inode->st.st_uid = uid;
+    inode->st.st_gid = gid;
+    inode->st.st_rdev = vfs_generate_device_id();
+    inode->st.st_size = 0;
+    inode->st.st_blksize = 0;
+    inode->st.st_blocks = 0;
+    inode->st.st_atime = 0;
+    inode->st.st_mtime = 0;
+    inode->st.st_ctime = 0;
+
+    return inode;
+}
+
+vfs_file_tnode_t* vfs_create_special_file_tnode(const char* name, vfs_folder_tnode_t* parent, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t), uid_t uid, gid_t gid)
+{
+    vfs_file_tnode_t* tnode = malloc(sizeof(vfs_file_tnode_t));
+    if (!tnode)
+    {
+        LOG(ERROR, "Couldn't allocate tnode");
+        return NULL;
+    }
+    tnode->name = strdup(name);
+    if (!tnode->name)
+    {
+        free(tnode);
+        LOG(ERROR, "Couldn't allocate name");
+        return NULL;
+    }
+    tnode->next = NULL;
+    tnode->inode = vfs_create_special_file_inode(parent, mode, fun, uid, gid);
+    if (!tnode->inode)
+    {
+        free(tnode->name);
+        free(tnode);
+        LOG(ERROR, "Couldn't allocate inode");
+        return NULL;
+    }
+    return tnode;
+}
+
+void vfs_mount_device(const char* name, drive_t drive, uid_t uid, gid_t gid)
+{
+    LOG(DEBUG, "Mounting device %s at /%s", get_drive_type_string(drive.type), name);
+
+    acquire_mutex(&vfs_root->inode->lock);
+
+    vfs_folder_tnode_t** current = &vfs_root->inode->folders;
+
+    if (!(*current)) 
+        goto mount;
+
+    while (*current)
+    {
+        if (strcmp(name, (*current)->name) == 0)
+        {
+            LOG(ERROR, "vfs_mount_device: Couldn't mount partition: Mount point already exists");
+            release_mutex(&vfs_root->inode->lock);
+            return;
+        }
+
+        current = &(*current)->next;
+    }
+
+mount: 
+    (*current) = vfs_create_empty_folder_tnode(name, vfs_root, 
+            VFS_NODE_INIT, 
+            drive.type == DT_VIRTUAL ? 0 : vfs_generate_device_id(), 
+            S_IFDIR | 
+            S_IRUSR | S_IXUSR |
+            S_IRGRP | S_IXGRP |
+            S_IROTH | S_IXOTH, 
+            uid, gid,
+            drive);
+    
+    release_mutex(&vfs_root->inode->lock);
+
+    return;
+}
+
+static void vfs_unload_folder_helper(vfs_folder_tnode_t* tnode)
+{
+    if (!tnode) return;
+    if (tnode->inode->parent == tnode) return;
+
+    acquire_mutex(&tnode->inode->lock);
+
+    while (tnode->inode->folders)
+    {
+        vfs_folder_tnode_t* next_folder_tnode = tnode->inode->folders->next;
+        vfs_unload_folder_helper(tnode->inode->folders);
+        tnode->inode->folders = next_folder_tnode;
+    }
+
+    while (tnode->inode->files)
+    {
+        vfs_file_tnode_t* file_tnode = tnode->inode->files; 
+        free(file_tnode->inode);
+        free(file_tnode->name);
+        tnode->inode->files = tnode->inode->files->next;
+        free(file_tnode);
+    }
+
+    // * useless
+    // release_mutex(&tnode->inode->lock);
+
+    free(tnode->inode);
+    free(tnode->name);
+    free(tnode);
+}
+
+void vfs_unload_folder(vfs_folder_tnode_t* tnode)
+{
+    vfs_folder_tnode_t* parent = tnode->inode->parent;
+    acquire_mutex(&parent->inode->lock);
+    vfs_folder_tnode_t** current_folder = &parent->inode->folders;
+    while (*current_folder && (*current_folder) != tnode)
+        current_folder = &(*current_folder)->next;
+    if (!*current_folder)
+        abort();     // !!! Should be impossible
+    *current_folder = tnode->next;
+    release_mutex(&parent->inode->lock);
+    vfs_unload_folder_helper(tnode);
+}
+
 bool file_string_cmp(const char* s1, const char* s2)
 {
     if (s1 == s2) return true;
@@ -136,11 +404,15 @@ vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t m
         return NULL;
     }
 
+    acquire_mutex(&parent->inode->lock);
+
     vfs_file_tnode_t** current_tnode = &parent->inode->files;
     while (*current_tnode)
         current_tnode = &(*current_tnode)->next;
 
     *current_tnode = vfs_create_special_file_tnode(name, parent, mode, fun, uid, gid);
+
+    release_mutex(&parent->inode->lock);
 
     return *current_tnode;
 }

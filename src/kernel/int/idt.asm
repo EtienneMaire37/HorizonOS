@@ -120,7 +120,15 @@ _interrupt_handler:
     push rax
     
     mov rdi, rsp
+
+    ; * "The common recommendation is to use interrupt gates so that the assembly part of the interrupt handler 
+    ; * can fully save all necessary registers to the stack before conditionally enabling interrupts 
+    ; * (if "enough" stack space is left for the kernel, for some measure of "enough"). 
+    ; * This way, interrupts are enabled most of the time."
+    ; * -> nullplan
+    sti
     call interrupt_handler
+    cli
     
     ; mov rdi, 'A'
     ; call putchar

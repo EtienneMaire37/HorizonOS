@@ -8,7 +8,7 @@ void acquire_spinlock(atomic_flag* spinlock)
 
 bool try_acquire_spinlock(atomic_flag* spinlock)
 {
-	return !atomic_flag_test_and_set_explicit(spinlock, memory_order_acquire);
+	return atomic_flag_test_and_set_explicit(spinlock, memory_order_acquire);
 }
 
 void release_spinlock(atomic_flag* spinlock)

@@ -2,6 +2,7 @@
 
 #include "mbr.h"
 #include "../vfs/vfs.h"
+#include "../multitasking/mutex.h"
 
 #define IDE_MAX     4
 
@@ -77,6 +78,8 @@ typedef struct ide_device
     uint32_t command_sets;
     uint64_t size;          // Sector count
     char model[41];         // Model string
+
+    mutex_t lock;
 
     uint8_t boot_sector[512];
 } ide_device_t;
