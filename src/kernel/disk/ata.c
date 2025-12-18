@@ -139,6 +139,9 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                 }
                 if (magnitude_value >= 1024)
                     magnitude++;
+                if (magnitude == 0)
+                    magnitude_value *= 1024;
+                    
                 LOG(INFO, "Found drive \"%s\" (%llu bytes) [%llu.%llu%llu %s]", 
                     pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model, 
                    bytes, magnitude_value / 1024, (magnitude_value * 10 / 1024) % 10, (magnitude_value * 100 / 1024) % 10, magnitude_text[magnitude]);

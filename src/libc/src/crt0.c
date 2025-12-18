@@ -1,4 +1,4 @@
-extern void* _break_address;
+extern void* _end;
 extern void call_main_exit(int argc, char** argv);
 
 extern uint64_t kernel_data;
@@ -12,10 +12,10 @@ void _main()
     fd_creation_mask = S_IWGRP | S_IWOTH;
 
     heap_size = 0;
-    break_address = (uint64_t)&_break_address;
+    break_address = (uint64_t)&_end;
     break_address = ((break_address + 4095) / 4096) * 4096;
     heap_address = break_address;
-    alloc_break_address = break_address;
+    alloc_end = break_address;
 
     malloc_bitmap_init();
 

@@ -78,7 +78,6 @@ src/tasks/bin/init.elf: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/ec
 	"src/tasks/bin/init.o" \
 	"src/libc/lib/crt0.o" \
 	"src/libc/lib/libc.a" \
-	"src/libc/lib/libm.a" \
 	-ffreestanding -nostdlib \
 	-lgcc
 

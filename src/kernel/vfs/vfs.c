@@ -560,6 +560,23 @@ int vfs_stat(const char* path, vfs_folder_tnode_t* pwd, struct stat* st)
     return ENOENT;
 }
 
+int vfs_fstat(int fd, vfs_folder_tnode_t* pwd, struct stat* st)
+{
+    if (!is_fd_valid(fd) || !st)
+        return EFAULT;
+
+    file_entry_t* entry = &file_table[__CURRENT_TASK.file_table[fd]];
+
+    switch (entry->entry_type)
+    {
+    case ET_FILE: *st = entry->tnode.file->inode->st; return 0;
+    case ET_FOLDER: *st = entry->tnode.folder->inode->st; return 0;
+    default:
+    }
+
+    return ENOENT;
+}
+
 int vfs_access(const char* path, vfs_folder_tnode_t* pwd, mode_t mode)
 {
     if (mode == 0) return 0;

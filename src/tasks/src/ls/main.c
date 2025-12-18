@@ -79,7 +79,25 @@ int main(int argc, char** argv)
                 {
                     char access_str[11];
 
-                    printf("%s %zu ", get_access_string(st.st_mode, access_str), (size_t)st.st_size);
+                    uint8_t magnitude = 0;
+                    size_t magnitude_value = (size_t)st.st_size;
+                    const char* magnitude_text[] = {"B ", "KB", "MB", "GB", "TB", "PB", "EB"};
+                    while (magnitude_value >= 1024 * 1024)
+                    {
+                        magnitude_value /= 1024;
+                        magnitude++;
+                    }
+                    if (magnitude_value >= 1024)
+                        magnitude++;
+                    if (magnitude == 0)
+                        magnitude_value *= 1024;
+
+                    printf("%s % 4zu", get_access_string(st.st_mode, access_str), magnitude_value / 1024);
+                    if (magnitude != 0)
+                        printf(".%zu%zu", (magnitude_value * 10 / 1024) % 10, (magnitude_value * 100 / 1024) % 10);
+                    printf("%s ", magnitude_text[magnitude]);
+                    if (magnitude == 0)
+                        printf("   ");
                 }
                 if (dir)
                 {

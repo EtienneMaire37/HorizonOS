@@ -302,3 +302,15 @@ int setpgid(pid_t pid, pid_t pgid)
     }
     return 0;
 }
+
+int fstat(int fd, struct stat* buf)
+{
+    int ret;
+    asm volatile ("int 0xf0" : "=a"(ret) : "a"(SYSCALL_FSTAT), "b"(fd), "c"((uint64_t)buf) : "memory");
+    if (ret != 0)
+    {
+        errno = ret;
+        return -1;
+    }
+    return 0;
+}

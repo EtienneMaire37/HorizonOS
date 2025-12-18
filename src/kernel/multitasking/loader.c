@@ -121,7 +121,7 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
 
     LOG(DEBUG, "Entry point : %#llx", header->entry);
 
-    const int n_ph = header->phnum;
+    const elf64_half_t n_ph = header->phnum;
 
     for (elf64_half_t i = 0; i < n_ph; i++)
     {
@@ -130,11 +130,12 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
         if (ph->type != ELF_PROGRAM_TYPE_LOAD) 
         {
             LOG(ERROR, "Unsupported ELF program header type");
-            abort();
+            task_destroy(&task);
+            return false;
         }
 
         LOG(DEBUG, "Program header %u : ", i);
-        LOG(DEBUG, "├── Type : \"%s\"", ph->type >= sizeof(elf_program_header_type_string) / sizeof(char*) ? "UNKNOWN" : elf_program_header_type_string[ph->type]);
+        LOG(DEBUG, "├── Type : \"%s\"", elf64_get_phtype_string(ph->type));
         LOG(DEBUG, "├── Virtual address : %#llx", ph->p_vaddr);
         LOG(DEBUG, "├── File offset : %#llx", ph->p_offset);
         LOG(DEBUG, "├── Memory size : %u bytes", ph->p_memsz);
@@ -178,6 +179,23 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
             remaining_zero -= bytes_in_page;
             file_offset += to_copy;
         }
+    }
+
+    const elf64_half_t n_sh = header->shnum;
+    const elf64_section_header_t* shstrtab = (elf64_section_header_t*)&file->data[header->shoff + header->shstrndx * header->shentsize];
+
+    for (elf64_half_t i = 0; i < n_sh; i++)
+    {
+        elf64_section_header_t* sh = (elf64_section_header_t*)&file->data[header->shoff + i * header->shentsize];
+        if (sh->type == ELF_SECTION_TYPE_NULL) continue;
+
+        const char* name = (const char*)&file->data[shstrtab->offset + sh->name];
+
+        LOG(DEBUG, "Section header %u : ", i);
+        LOG(DEBUG, "├── Name : \"%s\"", name);
+        LOG(DEBUG, "├── Type : \"%s\"", elf64_get_shtype_string(sh->type));
+        LOG(DEBUG, "├── Address : %#llx", sh->addr);
+        LOG(DEBUG, "└── Size : %llu bytes", sh->size);
     }
 
     tasks[task_count++] = task;

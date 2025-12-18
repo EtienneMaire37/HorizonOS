@@ -153,3 +153,8 @@ int setpgid(pid_t pid, pid_t pgid)
 {
     abort();
 }
+
+int fstat(int fd, struct stat* buf)
+{
+    abort();
+}

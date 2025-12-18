@@ -369,6 +369,14 @@ void handle_syscall(interrupt_registers_t* registers)
         break;
     }
 
+    case SYSCALL_FSTAT:  // * fstat | fd = $rbx, stat_buf = $rcx | $rax = ret   
+    {
+        struct stat* st = (struct stat*)registers->rcx;
+        int fd = (int)registers->rbx;
+        registers->rax = vfs_fstat(fd, __CURRENT_TASK.cwd, st);
+        break;
+    }
+
     case SYSCALL_ACCESS:  // * access | path = $rbx, mode = $rcx | $rax = ret
     {
         const char* path = (const char*)registers->rbx;

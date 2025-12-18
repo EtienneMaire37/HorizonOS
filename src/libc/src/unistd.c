@@ -1,4 +1,4 @@
-uintptr_t break_address, heap_address, alloc_break_address;
+uintptr_t break_address, heap_address, alloc_end;
 uintptr_t heap_size;
 
 void* sbrk(intptr_t incr)

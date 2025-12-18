@@ -68,7 +68,7 @@ static mode_t fd_creation_mask;
 
 int stat(const char* path, struct stat* buf);
 int fstat(int fd, struct stat* buf);
-int lstat(const char* path, struct stat* buf);
+// int lstat(const char* path, struct stat* buf);
 int chmod(const char* path, mode_t mode);
 int mkdir(const char* path, mode_t mode);
 mode_t umask(mode_t mask);

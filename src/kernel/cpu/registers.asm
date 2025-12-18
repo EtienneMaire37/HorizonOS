@@ -9,7 +9,6 @@ get_rflags:
 
 global set_rflags
 set_rflags:
-    mov rax, [rsp + 4]
-    push rax
+    push rdi
     popfq
     ret

@@ -20,6 +20,8 @@
 
 #define SYSCALL_ACCESS      10
 #define SYSCALL_STAT        11
+#define SYSCALL_FSTAT       25
+
 #define SYSCALL_READDIR     12
 
 #define SYSCALL_ISATTY      13

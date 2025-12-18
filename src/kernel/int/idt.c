@@ -22,7 +22,7 @@ void setup_idt_entry(struct idt_entry* entry, uint16_t segment, physical_address
 void install_idt()
 {
     for(uint8_t i = 0; i < 32; i++)
-        setup_idt_entry(&IDT[i], KERNEL_CODE_SEGMENT, interrupt_table[i], 0b00, ISR_INTERRUPT_GATE_64);
+        setup_idt_entry(&IDT[i], KERNEL_CODE_SEGMENT, interrupt_table[i], 0b00, ISR_TRAP_GATE_64);
 
     for(uint8_t i = 32; i < 32 + 16; i++)
         setup_idt_entry(&IDT[i], KERNEL_CODE_SEGMENT, interrupt_table[i], 0b00, ISR_INTERRUPT_GATE_64);  // PIC IRQs

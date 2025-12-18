@@ -169,6 +169,7 @@ bool file_string_cmp(const char* s1, const char* s2);
 
 int vfs_root_stat(struct stat* st);
 int vfs_stat(const char* path, vfs_folder_tnode_t* pwd, struct stat* st);
+int vfs_fstat(int fd, vfs_folder_tnode_t* pwd, struct stat* st);
 int vfs_access(const char* path, vfs_folder_tnode_t* pwd, mode_t mode);
 struct dirent* vfs_readdir(struct dirent* dirent, DIR* dirp);
 

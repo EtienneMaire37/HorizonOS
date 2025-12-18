@@ -34,8 +34,7 @@ SECTIONS
         *(.bss .bss.*)
     } :bss
 
-    . = ALIGN(0x1000);
-    _break_address = .;
+    _end = .;
     
     /DISCARD/ : { *(.comment) *(.note) }
 }

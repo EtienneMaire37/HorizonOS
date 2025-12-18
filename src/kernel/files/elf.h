@@ -61,6 +61,20 @@ typedef struct __attribute__((packed)) elf64_program_header
     elf64_off_t     align;
 } elf64_program_header_t;
 
+typedef struct __attribute__((packed)) elf64_section_header
+{
+    elf64_word_t    name;
+    elf64_word_t    type;
+    elf64_off_t     flags;
+    elf64_addr_t    addr;
+    elf64_off_t     offset;
+    elf64_off_t     size;
+    elf64_word_t    link;
+    elf64_word_t    info;
+    elf64_off_t     addralign;
+    elf64_off_t     entsize;
+} elf64_section_header_t;
+
 #define ELF_PROGRAM_TYPE_NULL       0
 #define ELF_PROGRAM_TYPE_LOAD       1
 #define ELF_PROGRAM_TYPE_DYNAMIC    2
@@ -76,13 +90,47 @@ const char* elf_program_header_type_string[] =
     "NOTE"
 };
 
-#define ELF_SECTION_TYPE_NULL       0
-#define ELF_SECTION_TYPE_PROGBITS   1
-#define ELF_SECTION_TYPE_SYMTAB     2
-#define ELF_SECTION_TYPE_STRTAB     3
-#define ELF_SECTION_TYPE_RELA       4
-#define ELF_SECTION_TYPE_NOBITS     8
-#define ELF_SECTION_TYPE_REL        9
+#define ELF_SECTION_TYPE_NULL           0x00
+#define ELF_SECTION_TYPE_PROGBITS       0x01
+#define ELF_SECTION_TYPE_SYMTAB         0x02
+#define ELF_SECTION_TYPE_STRTAB         0x03
+#define ELF_SECTION_TYPE_RELA           0x04
+#define ELF_SECTION_TYPE_HASH           0x05
+#define ELF_SECTION_TYPE_DYNAMIC        0x06
+#define ELF_SECTION_TYPE_NOTE           0x07
+#define ELF_SECTION_TYPE_NOBITS         0x08
+#define ELF_SECTION_TYPE_REL            0x09
+#define ELF_SECTION_TYPE_SHLIB          0x0a
+#define ELF_SECTION_TYPE_DYNSYM         0x0b
+#define ELF_SECTION_TYPE_INIT_ARRAY     0x0e
+#define ELF_SECTION_TYPE_FINI_ARRAY     0x0f
+#define ELF_SECTION_TYPE_PREINIT_ARRAY  0x10
+#define ELF_SECTION_TYPE_GROUP          0x11
+#define ELF_SECTION_TYPE_SYMTAB_SHNDX   0x12
+#define ELF_SECTION_TYPE_NUM            0x13
+
+const char* elf_section_header_type_string[] =
+{
+    "NULL",
+    "PROGBITS",
+    "SYMTAB",
+    "STRTAB",
+    "RELA",
+    "HASH",
+    "DYNAMIC",
+    "NOTE",
+    "NOBITS",
+    "REL",
+    "SHLIB",
+    "DYNSYM",
+    "UNKNOWN",
+    "UNKNOWN",
+    "INIT_ARRAY",
+    "FINI_ARRAY",
+    "PREINIT_ARRAY",
+    "GROUP",
+    "SYMTAB_SHNDX"
+};
 
 #define ELF_SECTION_FLAG_WRITE      1
 #define ELF_SECTION_FLAG_ALLOC      2
@@ -90,3 +138,13 @@ const char* elf_program_header_type_string[] =
 #define ELF_FLAG_EXECUTABLE         1
 #define ELF_FLAG_WRITABLE           2
 #define ELF_FLAG_READABLE           4
+
+const char* elf64_get_phtype_string(elf64_word_t type)
+{
+    return type >= sizeof(elf_program_header_type_string) / sizeof(char*) ? "UNKNOWN" : elf_program_header_type_string[type];
+}
+
+const char* elf64_get_shtype_string(elf64_word_t type)
+{
+    return type >= sizeof(elf_section_header_type_string) / sizeof(char*) ? "UNKNOWN" : elf_section_header_type_string[type];
+}

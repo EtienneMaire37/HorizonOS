@@ -55,37 +55,45 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
     {
         len += func_c(ch);
     }
-    void print_unsigned(uint64_t num, bool pad_with_zeroes, uint8_t precision)
+    void print_unsigned(uint64_t num, bool pad_with_zeroes, bool pad_with_spaces, uint8_t precision)
     {
         uint64_t div = 10000000000000000000ULL; // * max is 1.8446744e+19 
         uint8_t power = 19;
-        bool do_print = pad_with_zeroes;
+        bool do_print = false;
         while (div >= 1)
         {
             uint8_t digit = num / div;
-            if (digit != 0 || power < precision)
+            if (digit != 0 || power < 1)
+                do_print = true;
+            if (pad_with_zeroes && power < precision)
                 do_print = true;
             if (do_print)
                 print_char('0' + digit);
+            else if (pad_with_spaces && power < precision)
+                print_char(' ');
             num -= ((uint64_t)digit * div);
             div /= 10;
             power--;
         }
     }
-    void print_hex(uint64_t num, bool caps, bool pad_with_zeroes, uint8_t precision)
+    void print_hex(uint64_t num, bool caps, bool pad_with_zeroes, bool pad_with_spaces, uint8_t precision)
     {
         const char* hex = "0123456789abcdef";
         const char* HEX = "0123456789ABCDEF";
 
         int8_t offset = 60;
-        bool do_print = pad_with_zeroes;
+        bool do_print = false;
         while (offset >= 0)
         {
             uint8_t digit = (num >> offset) & 0xf;
-            if (digit != 0 || offset < 4 * precision)
+            if (digit != 0 || offset < 4)
+                do_print = true;
+            if (pad_with_zeroes && offset < 4 * precision)
                 do_print = true;
             if (do_print)
                 print_char(caps ? HEX[digit] : hex[digit]);
+            else if (pad_with_spaces && offset < 4 * precision)
+                print_char(' ');
             offset -= 4;
         }
     }
@@ -104,7 +112,7 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
         {
             print_char(' ');
         }
-        print_unsigned((uint64_t)num, pad_with_zeroes, precision);
+        print_unsigned((uint64_t)num, pad_with_zeroes, leave_blank, precision);
     }
     void parse_specifier(size_t* i)
     {
@@ -115,7 +123,7 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
         bool alternate_form = false;
         bool leave_blank = false;
         bool plus_sign = false;
-        bool pad_with_zeroes = false;
+        bool pad_with_zeroes = true;
         int precision = 1;
         bool reading_precision = false;
     parse:
@@ -143,6 +151,7 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
             goto parse;
         case ' ':
             leave_blank = true;
+            pad_with_zeroes = false;
             (*i)++;
             goto parse;
         case '+':
@@ -151,6 +160,7 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
             goto parse;
         case '0':
             pad_with_zeroes = true;
+            leave_blank = false;
             (*i)++;
             goto parse;
         case '1':
@@ -199,7 +209,7 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
         {
             void* p = va_arg(args, void*);
             print_string("0x");
-            print_hex((uint64_t)p, false, false, precision);
+            print_hex((uint64_t)p, false, false, leave_blank, precision);
             (*i)++;
             break;
         }
@@ -213,19 +223,19 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
             {
             case LM_L:
                 unsigned long num_l = va_arg(args, unsigned long);
-                print_unsigned(num_l, pad_with_zeroes, precision);
+                print_unsigned(num_l, pad_with_zeroes, leave_blank, precision);
                 break;
             case LM_LL:
                 unsigned long long num_ll = va_arg(args, unsigned long long);
-                print_unsigned(num_ll, pad_with_zeroes, precision);
+                print_unsigned(num_ll, pad_with_zeroes, leave_blank, precision);
                 break;
             case LM_Z:
                 size_t num_z = va_arg(args, size_t);
-                print_unsigned(num_z, pad_with_zeroes, precision);
+                print_unsigned(num_z, pad_with_zeroes, leave_blank, precision);
                 break;
             default:
                 unsigned int num = va_arg(args, unsigned int);
-                print_unsigned(num, pad_with_zeroes, precision);
+                print_unsigned(num, pad_with_zeroes, leave_blank, precision);
             }
             (*i)++;
             break;
@@ -269,19 +279,19 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
             {
             case LM_L:
                 unsigned long num_l = va_arg(args, unsigned long);
-                print_hex(num_l, caps, pad_with_zeroes, precision);
+                print_hex(num_l, caps, pad_with_zeroes, leave_blank, precision);
                 break;
             case LM_LL:
                 unsigned long long num_ll = va_arg(args, unsigned long long);
-                print_hex(num_ll, caps, pad_with_zeroes, precision);
+                print_hex(num_ll, caps, pad_with_zeroes, leave_blank, precision);
                 break;
             case LM_Z:
                 size_t num_z = va_arg(args, size_t);
-                print_hex(num_z, caps, pad_with_zeroes, precision);
+                print_hex(num_z, caps, pad_with_zeroes, leave_blank, precision);
                 break;
             default:
                 unsigned int num = va_arg(args, unsigned int);
-                print_hex(num, caps, pad_with_zeroes, precision);
+                print_hex(num, caps, pad_with_zeroes, leave_blank, precision);
             }
             (*i)++;
             break;
