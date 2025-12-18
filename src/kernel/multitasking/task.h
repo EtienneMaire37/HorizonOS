@@ -24,7 +24,7 @@ typedef struct thread
     pid_t forked_pid;
 
     uint8_t ring;
-    pid_t pid, parent, pgid;    // TODO: rename parent to ppid
+    pid_t pid, ppid, pgid;
     bool system_task;    // system_task: cause kernel panics
 
     vfs_folder_tnode_t* cwd;
@@ -161,6 +161,7 @@ void multitasking_add_idle_task();
 
 thread_t* find_task_by_pid(pid_t pid);
 
+void task_init_file_table(thread_t* task);
 void task_copy_file_table(uint16_t from, uint16_t to, bool cloexec);
 
 void task_stack_push(thread_t*, uint64_t);

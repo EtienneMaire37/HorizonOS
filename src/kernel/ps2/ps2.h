@@ -72,5 +72,5 @@ bool ps2_send_device_full_command(uint8_t device, uint8_t command, uint8_t expec
 bool ps2_send_device_full_command_with_data(uint8_t device, uint8_t command, uint8_t data, uint8_t expected_bytes);
 void ps2_flush_buffer();
 
-void handle_irq_1();
-void handle_irq_12();
+void handle_irq_1(bool* ts);
+void handle_irq_12(bool* ts);

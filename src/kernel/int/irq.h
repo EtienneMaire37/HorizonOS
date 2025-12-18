@@ -54,11 +54,11 @@ void handle_apic_irq(interrupt_registers_t* registers)
     }
 
     case APIC_PS2_1_INT:
-        handle_irq_1();
+        handle_irq_1(&ts);
         break;
 
     case APIC_PS2_2_INT:
-        handle_irq_12();
+        handle_irq_12(&ts);
         break;
 
     default:    // * Spurious interrupt

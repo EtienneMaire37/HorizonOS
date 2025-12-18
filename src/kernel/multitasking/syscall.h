@@ -243,13 +243,15 @@ void handle_syscall(interrupt_registers_t* registers)
         }
         else
         {
-            uint16_t new_task_index = task_count - 1;
+            const uint16_t new_task_index = task_count - 1;
             pid_t old_pid = __CURRENT_TASK.pid;
+            
             __CURRENT_TASK.is_dead = __CURRENT_TASK.to_reap = true;
-            tasks[new_task_index].parent = __CURRENT_TASK.parent;
-            __CURRENT_TASK.parent = -1;
-            __CURRENT_TASK.pid = tasks[new_task_index].pid;
+            __CURRENT_TASK.pid = task_generate_pid();
+
             tasks[new_task_index].pid = old_pid;
+            tasks[new_task_index].ppid = __CURRENT_TASK.ppid;
+            tasks[new_task_index].pgid = __CURRENT_TASK.pgid;
 
             task_copy_file_table(current_task_index, new_task_index, true);
 
@@ -414,7 +416,7 @@ void handle_syscall(interrupt_registers_t* registers)
         vfs_folder_tnode_t* tnode = vfs_get_folder_tnode((char*)registers->rbx, __CURRENT_TASK.cwd);
         if (!tnode)
         {
-            registers->rax = ENOENT;
+            registers->rax = vfs_get_file_tnode((char*)registers->rbx, __CURRENT_TASK.cwd) ? ENOTDIR : ENOENT;
             break;
         }
         if (vfs_access((char*)registers->rbx, __CURRENT_TASK.cwd, X_OK))
@@ -513,6 +515,7 @@ void handle_syscall(interrupt_registers_t* registers)
     case SYSCALL_TCSETPGRP: // * tcsetpgrp | fd = $rbx, pgrp = $rcx | $rax = (uint64_t)errno
     {
         int fd = registers->rbx;
+        pid_t pgrp = (pid_t)registers->rcx;
         if (!is_fd_valid(fd))
         {
             registers->rax = EBADF;
@@ -524,7 +527,6 @@ void handle_syscall(interrupt_registers_t* registers)
             registers->rax = ENOTTY;
             break;
         }
-        pid_t pgrp = (pid_t)registers->rcx;
         if (pgrp <= 0)
         {
             registers->rax = EINVAL;
@@ -566,6 +568,7 @@ void handle_syscall(interrupt_registers_t* registers)
             break;
         }
         thread_t* task;
+        lock_task_queue();
         if (pid == 0)
             task = &__CURRENT_TASK;
         else
@@ -573,12 +576,16 @@ void handle_syscall(interrupt_registers_t* registers)
         if (!task)
         {
             registers->rax = (uint64_t)-ESRCH;
+            unlock_task_queue();
             break;
         }
         pid_t pgid = (pid_t)registers->rcx;
+        lock_task_queue();
         if (!pgid)
-            pgid = task->pgid;
+            pgid = task->pid;
         task->pgid = pgid;
+        unlock_task_queue();
+        registers->rax = 0;
         break;
     }
 

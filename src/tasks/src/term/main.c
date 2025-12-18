@@ -178,11 +178,10 @@ int main(int argc, char** argv)
         {
             first_arg = find_next_contiguous_string(first_arg, &bytes_left);
             char* arg = find_next_contiguous_string(first_arg, &bytes_left);
+            
             if (first_arg == NULL)
-            {
-                fprintf(stderr, "cd: not enough arguments\n");
                 continue;
-            }
+
             if (arg != NULL)
             {
                 fprintf(stderr, "cd: too many arguments\n");
@@ -201,11 +200,13 @@ int main(int argc, char** argv)
             set_raw_mode(false);
             int status = system(data);
             set_raw_mode(true);
+
             if (status != -1) 
             {
                 if (WIFSIGNALED(status))
-                    printf("%s\n", strsignal(WTERMSIG(status)));
+                    putchar('\n');
             }
+
             char buf[16];
             snprintf(buf, sizeof(buf), "%d", status);
             setenv("?", buf, true);

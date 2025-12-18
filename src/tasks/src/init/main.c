@@ -18,6 +18,8 @@ const char* kb_layouts[] = {"us_qwerty", "fr_azerty"};
 
 int main(int argc, char** argv)
 {
+    tcsetpgrp(STDIN_FILENO, (pid_t)0x7fffffff);
+
     printf("--- Start of HorizonOS configuration ---\n\n");
 
     printf("Please enter your preferred keyboard layout:\n");

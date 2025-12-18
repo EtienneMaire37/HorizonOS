@@ -42,7 +42,7 @@ bool enable_ps2_kb_input;
 uint8_t ps2_kb_1_scancode_set, ps2_kb_2_scancode_set;
 
 void ps2_init_keyboards();
-void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode);
+void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_switch);
 void ps2_kb_get_scancode_set();
 bool ps2_kb_is_key_pressed(virtual_key_t vk);
 bool ps2_kb_is_key_pressed_with_port(virtual_key_t vk, uint8_t port);

@@ -120,8 +120,10 @@ utf32_char_t ps2_scancode_to_unicode(ps2_full_scancode_t scancode, uint8_t port)
     return base_char;
 }
 
-void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode)   // port is 1-2
+void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_switch)   // port is 1-2
 {
+    if (!task_switch) abort();
+
     if (port == 1)
     {
         if (ps2_kb_1_scancode_set != 2)
@@ -183,19 +185,53 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode)   // port is 1
             // ps2_kb_update_leds(port);
 
             utf32_char_t character = ps2_scancode_to_unicode(current_ps2_keyboard_scancodes[port_index], port);
-            if (keyboard_is_key_pressed(VK_LCONTROL) && keyboard_is_key_pressed(VK_LSHIFT))
+            if (keyboard_is_key_pressed(VK_LCONTROL))
             {
-            switch(vk)
-            {
-            case VK_V:
-                vfs_log_tree(vfs_root, 0);
-                break;
-            case VK_P:
-                tasks_log();
-                break;
-            default:
-                goto key;
-            }
+                if (keyboard_is_key_pressed(VK_LSHIFT) && keyboard_is_key_pressed(VK_LALT))
+                {
+                    switch(vk)
+                    {
+                    case VK_V:
+                        vfs_log_tree(vfs_root, 0);
+                        break;
+                    case VK_P:
+                        tasks_log();
+                        break;
+                    default:
+                        goto key;
+                    }
+                }
+                else if (!keyboard_is_key_pressed(VK_LSHIFT))
+                {
+                    switch(vk)
+                    {
+                    case VK_C:
+                        if (tty_ts.c_lflag & ISIG)
+                        {
+                            bool intr = false;
+                            lock_task_queue();
+                            for (int i = 1; i < task_count; i++)
+                            {
+                                if (tasks[i].pgid == tty_foreground_pgrp)
+                                {
+                                    tasks[i].return_value = SIGINT | WSIGNALBIT;
+                                    tasks[i].is_dead = true;
+                                    if (tasks[i].pid == __CURRENT_TASK.pid)
+                                        *task_switch = true;
+                                    if (!intr)
+                                    {
+                                        printf("^C");
+                                        fflush(stdout);
+                                    }
+                                    intr = true;
+                                }
+                            }
+                            unlock_task_queue();
+                        }
+                        break;
+                    default:
+                    }
+                }
             }
             else
             {

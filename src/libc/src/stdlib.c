@@ -466,17 +466,15 @@ int system(const char* command)
     pid_t ret = fork();
     if (ret == -1)
     {
-        return_value = 127;
+        return_value = 0x7f | WEXITBIT;
         goto do_return;
     }
 
     if (ret == 0)
     {
-        setpgid(0, 0);
-
         execvp(first_arg, argv);
         perror(first_arg);
-        exit(127);
+        exit(0x7f);
     }
     else
     {
@@ -503,5 +501,18 @@ int system(const char* command)
 
 do_return:
     free(cmd_data);
+
+    if (WIFSIGNALED(return_value))
+    {
+        switch (WTERMSIG(return_value))
+        {
+        case SIGSEGV:
+        case SIGBUS:
+        case SIGFPE:
+        case SIGILL:
+            printf("%s", strsignal(WTERMSIG(return_value)));
+        default:
+        }
+    }
     return return_value;
 }

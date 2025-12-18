@@ -270,7 +270,7 @@ pid_t tcgetpgrp(int fd)
 int tcsetpgrp(int fd, pid_t pgrp)
 {
     int ret;
-    asm volatile ("int 0xf0" : "=a"(ret) : "a"(SYSCALL_TCSETPGRP), "b"(fd));
+    asm volatile ("int 0xf0" : "=a"(ret) : "a"(SYSCALL_TCSETPGRP), "b"(fd), "c"(pgrp));
     if (ret)
     {
         errno = ret;

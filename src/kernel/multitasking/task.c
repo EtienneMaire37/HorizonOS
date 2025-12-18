@@ -27,7 +27,9 @@ thread_t task_create_empty()
     task.rsp = 0;
 
     task.pid = task_generate_pid();
+    task.ppid = -1;
     task.pgid = task.pid;
+
     task.system_task = true;
 
     task.fpu_state = fpu_state_create();
@@ -38,7 +40,6 @@ thread_t task_create_empty()
     task.is_dead = false;
     task.forked_pid = 0;    // is_being_forked = false
 
-    task.parent = 0;
     task.wait_pid = -1;
 
     task.to_reap = false;
@@ -331,7 +332,7 @@ void copy_task(uint16_t index)
     tasks[new_task_index].forked_pid = 0;
     tasks[new_task_index].is_dead = false;
 
-    tasks[new_task_index].parent = tasks[index].pid;
+    tasks[new_task_index].ppid = tasks[index].pid;
     tasks[new_task_index].wait_pid = -1;
 
     tas_vas_copy((uint64_t*)tasks[index].cr3, (uint64_t*)tasks[new_task_index].cr3, 0x10000000000, (0x8000000000 * 511 - 0x10000000000) / 0x1000);
@@ -354,7 +355,7 @@ void cleanup_tasks()
     for (uint16_t i = 0; i < task_count; i++)
     {
         if (!tasks[i].is_dead) continue;
-        thread_t* parent = find_task_by_pid(tasks[i].parent);
+        thread_t* parent = find_task_by_pid(tasks[i].ppid);
         if (parent)
         {
             if (parent->wait_pid != -1)
@@ -390,9 +391,9 @@ void tasks_log()
     for (uint16_t i = 1; i < task_count; i++)
     {
         thread_t* task = &tasks[i];
-        LOG(DEBUG, "%s── task \"%s\" [pid %lld, ppid %lld, pgid %lld] | CPU Usage: %u.%u%s", i == task_count - 1 ? "└" : "├",
-            task->name, task->pid, task->parent, task->pgid, task->stored_cpu_ticks / 10, task->stored_cpu_ticks % 10,
-            task_is_blocked(i) ? " (blocked)" : "");
+        LOG(DEBUG, "%s── task \"%s\" [pid %lld, ppid %lld, pgid %lld] | CPU Usage: %u.%u%s%s", i == task_count - 1 ? "└" : "├",
+            task->name, task->pid, task->ppid, task->pgid, task->stored_cpu_ticks / 10, task->stored_cpu_ticks % 10,
+            task_is_blocked(i) ? " (blocked)" : "", task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)");
     }
     unlock_task_queue();
 }
