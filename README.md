@@ -20,7 +20,7 @@ These instructions assume a Debian-like environment. Feel free to adapt those in
 Install dependencies:
 ```bash
 sudo apt-get install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
-sudo apt install -y nasm xorriso mtools mkbootimg util-linux dosfstools mtools qemu-utils unzip autoconf2.69
+sudo apt install -y nasm xorriso mtools mkbootimg util-linux dosfstools mtools qemu-system qemu-utils unzip autoconf2.69 zip
 ```
 
 ### Building

@@ -43,6 +43,7 @@ thread_t task_create_empty()
     task.wait_pid = -1;
 
     task.to_reap = false;
+    task.doing_io = false;
 
     task.cwd = vfs_root;
 
@@ -354,7 +355,7 @@ void cleanup_tasks()
 
     for (uint16_t i = 0; i < task_count; i++)
     {
-        if (!tasks[i].is_dead) continue;
+        if (!(tasks[i].is_dead && task_can_be_killed(i))) continue;
         thread_t* parent = find_task_by_pid(tasks[i].ppid);
         if (parent)
         {

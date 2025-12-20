@@ -13,6 +13,7 @@ typedef struct thread
 
     utf32_buffer_t input_buffer;
     bool reading_stdin, is_dead;
+    uint16_t doing_io;
 
     uint32_t return_value;
 
@@ -108,9 +109,14 @@ void full_context_switch(uint16_t next_task_index)
     tasks[last_index].fpu_state, __CURRENT_TASK.fpu_state);
 }
 
+bool task_can_be_killed(uint16_t i)
+{
+    return !tasks[i].doing_io;
+}
+
 bool task_is_blocked(uint16_t index)
 {
-    if (tasks[index].is_dead) return true;
+    if (tasks[index].is_dead && task_can_be_killed(index)) return true;
     if (tasks[index].reading_stdin) return true;
     if (tasks[index].forked_pid) return true;
     if (tasks[index].wait_pid != -1) return true;

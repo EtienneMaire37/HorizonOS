@@ -159,6 +159,7 @@ src/libc/lib/libm.so: src/libc/src/* src/libc/include/*
 	$(CROSSAR) rcs "src/libc/lib/libm.a" "src/libc/lib/libm.o"
 
 src/libc/lib/crt0.o: src/libc/src/crt0.asm
+	mkdir -p ./src/libc/lib
 	nasm -f elf64 -o "src/libc/lib/crt0.o" "src/libc/src/crt0.asm"
 
 $(CROSSGCC):
