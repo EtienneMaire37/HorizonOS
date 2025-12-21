@@ -25,7 +25,11 @@ sudo apt install -y nasm xorriso mtools mkbootimg util-linux dosfstools mtools q
 
 ### Building
 
-Simply run: 
+Make sure /usr/sbin is in your PATH (to use disk utilities):
+```bash
+export PATH="/usr/sbin:${PATH}"
+```
+Then simply run: 
 ```bash
 make all
 ```
