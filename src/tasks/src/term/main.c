@@ -208,7 +208,7 @@ int main(int argc, char** argv)
             }
 
             char buf[16];
-            snprintf(buf, sizeof(buf), "%d", status);
+            snprintf(buf, sizeof(buf), "%d", WEXITSTATUS(status));
             setenv("?", buf, true);
             // printf("%d\n", exit_code);
         }

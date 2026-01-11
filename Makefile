@@ -64,7 +64,7 @@ horizonos.iso: $(CROSSGCC) $(USERGCC) $(MKBOOTIMG) rmbin $(DIR2FAT32) resources/
 	
 	cp ./bin/kernel.elf ./bin/initrd/kernel.elf
 
-	$(DIR2FAT32) bin/horizonos.bin 256 ./root
+	PATH="/usr/sbin:${PATH}" $(DIR2FAT32) bin/horizonos.bin 256 ./root
 	
 	$(MKBOOTIMG) src/kernel/bootboot.json horizonos.iso
 
