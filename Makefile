@@ -191,3 +191,4 @@ clean: rmbin
 	rm -f ./resources/pci.ids
 	rm -rf ./bootboot
 	rm -rf ./root
+	rm -rf ./tmp

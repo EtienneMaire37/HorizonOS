@@ -8,7 +8,6 @@ mkdir -p "$PREFIX"
 
 mkdir -p ./tmp
 cd ./tmp
-rm -rf ./*
 
 wget https://ftpmirror.gnu.org/gnu/binutils/binutils-2.44.tar.gz
 tar xf binutils-2.44.tar.gz
@@ -16,17 +15,20 @@ tar xf binutils-2.44.tar.gz
 wget https://ftpmirror.gnu.org/gcc/gcc-15.1.0/gcc-15.1.0.tar.gz
 tar xf gcc-15.1.0.tar.gz
 
-mkdir -p binutils-build
-cd binutils-build
-../binutils-2.44/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
+cd binutils-2.44
+mkdir build
+
+cd build
+../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
 make
 make install
 
-cd ..
+cd ../..
 
-mkdir -p gcc-build
-cd gcc-build 
-../gcc-15.1.0/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers --disable-hosted-libstdcxx
+cd gcc-15.1.0
+mkdir build
+cd build 
+../configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers --disable-hosted-libstdcxx
 make all-gcc
 make all-target-libgcc
 make all-target-libstdc++-v3
