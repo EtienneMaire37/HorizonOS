@@ -147,7 +147,7 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
 
         // LOG(DEBUG, "%#llx : %llu pages", start_address, num_pages);
 
-        allocate_range((uint64_t*)task.cr3, 
+        allocate_range((uint64_t*)(task.cr3 + PHYS_MAP_BASE), 
                     start_address, num_pages, 
                     ring == 0 ? PG_SUPERVISOR : PG_USER,
                     ph->flags & ELF_FLAG_WRITABLE ? PG_READ_WRITE : PG_READ_ONLY, 
@@ -160,7 +160,7 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
         for (uint64_t page = 0; page < num_pages; page++)
         {
             uint64_t page_vaddr = start_address + page * 0x1000;
-            uint8_t* phys = (uint8_t*)virtual_to_physical((uint64_t*)task.cr3, page_vaddr);
+            uint8_t* phys = (uint8_t*)virtual_to_physical((uint64_t*)(task.cr3 + PHYS_MAP_BASE), page_vaddr);
 
             if (!phys)
                 continue;

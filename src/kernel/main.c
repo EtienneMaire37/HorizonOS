@@ -353,6 +353,96 @@ void _start()
         abort();
     }
 
+    if (pat_enabled)
+    {
+        LOG(INFO, "PAT successfully enabled");
+        printf("PAT successfully enabled\n");
+    }
+    else
+    {
+        LOG(WARNING, "PAT not supported");
+        printf("warning: PAT not supported (this might cause poor performance on graphical intensive programs)\n");
+    }
+
+    LOG(INFO, "Setting up paging...");
+    printf("Setting up paging...\n");
+
+    {
+        global_cr3 = (uint64_t*)pfa_allocate_physical_page();
+        uint64_t* bootboot_cr3 = (uint64_t*)get_cr3();
+
+        LOG(DEBUG, "bootboot_cr3: %#llx", bootboot_cr3);
+
+    // * "When the kernel gains control, the memory mapping looks like this:"
+    // *  -128M         "mmio" area           (0xFFFFFFFFF8000000)
+    // *   -64M         "fb" framebuffer      (0xFFFFFFFFFC000000)
+    // *    -2M         "bootboot" structure  (0xFFFFFFFFFFE00000)
+    // *    -2M+1page   "environment" string  (0xFFFFFFFFFFE01000)
+    // *    -2M+2page.. code segment   v      (0xFFFFFFFFFFE02000)
+    // *     ..0        stack          ^      (0x0000000000000000)
+    // *    0-16G       RAM identity mapped   (0x0000000400000000)
+
+    // * bootboot + environment + code segment + stack
+        printf("Copying mapping of range %#llx-%#llx from bootboot\n", 0xFFFFFFFFFFE00000, 0ULL);
+        LOG(DEBUG, "Copying mapping of range %#llx-%#llx from bootboot", 0xFFFFFFFFFFE00000, 0ULL);
+
+        copy_mapping(bootboot_cr3, global_cr3, 0xFFFFFFFFFFE00000, (uint64_t)(-0xFFFFFFFFFFE00000) >> 12);
+
+        for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++)
+        {
+            uint64_t ptr = MMapEnt_Ptr(mmap_ent) & 0xfffffffffffff000;
+            uint64_t len = ((MMapEnt_Size(mmap_ent) + 0xfff) / 0x1000) * 0x1000 + 0x1000;
+
+            if (!MMapEnt_IsFree(mmap_ent))
+                continue;
+
+            if (ptr >= 1 * TB)
+                continue;
+            if (ptr + len >= 1 * TB)
+                len = 1 * TB - ptr;
+                
+            LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
+            printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
+            remap_range(global_cr3, ptr + PHYS_MAP_OFFSET, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+        }
+
+    // * LAPIC registers
+        printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
+        LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
+        remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WT);
+
+    // * Framebuffer
+        printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
+        LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
+        
+    // ? Write-combining cache
+        remap_range(global_cr3, (uint64_t)framebuffer.address + PHYS_MAP_OFFSET, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
+            PG_SUPERVISOR, PG_READ_WRITE, CACHE_WC);
+
+    // * initrd
+        printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+        LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+        remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_OFFSET, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+    }
+
+    PHYS_MAP_BASE = PHYS_MAP_OFFSET;
+    global_cr3 = (uint64_t*)((physical_address_t)global_cr3 + PHYS_MAP_OFFSET);
+
+    load_cr3((uint64_t)global_cr3 - PHYS_MAP_OFFSET);
+
+    bitmap = (uint8_t*)((physical_address_t)bitmap + PHYS_MAP_OFFSET);
+    lapic = (volatile local_apic_registers_t*)((physical_address_t)lapic + PHYS_MAP_OFFSET);
+    framebuffer.address += PHYS_MAP_OFFSET;
+    for (int i = 0; i < initrd_files_count; i++)
+    {
+        initrd_files[i].name += PHYS_MAP_OFFSET;
+        initrd_files[i].data += PHYS_MAP_OFFSET;
+        initrd_files[i].link += PHYS_MAP_OFFSET;
+    }
+
+    printf("Paging setup done\n");
+    LOG(INFO, "Set up paging");
+
     if (cpuid_highest_function_parameter >= 1)
     {
         uint32_t eax, ebx, ecx = 0, edx; // same as above
@@ -474,88 +564,6 @@ void _start()
     tty_set_color(FG_WHITE, BG_BLACK);
 
     enable_interrupts(); 
-
-    if (pat_enabled)
-    {
-        LOG(INFO, "PAT successfully enabled");
-        printf("PAT successfully enabled\n");
-    }
-    else
-    {
-        LOG(WARNING, "PAT not supported");
-        printf("warning: PAT not supported (this might cause poor performance only graphical intensive programs)\n");
-    }
-
-    LOG(INFO, "Setting up paging...");
-    printf("Setting up paging...\n");
-
-    // LOG(DEBUG, "%s", bootboot.arch.x86_64.acpi_ptr);
-
-    precise_time_t paging_start_time = global_timer;
-
-    {
-        global_cr3 = create_empty_virtual_address_space();
-
-        uint64_t* bootboot_cr3 = (uint64_t*)get_cr3();
-
-    // * "When the kernel gains control, the memory mapping looks like this:"
-    // *  -128M         "mmio" area           (0xFFFFFFFFF8000000)
-    // *   -64M         "fb" framebuffer      (0xFFFFFFFFFC000000)
-    // *    -2M         "bootboot" structure  (0xFFFFFFFFFFE00000)
-    // *    -2M+1page   "environment" string  (0xFFFFFFFFFFE01000)
-    // *    -2M+2page.. code segment   v      (0xFFFFFFFFFFE02000)
-    // *     ..0        stack          ^      (0x0000000000000000)
-    // *    0-16G       RAM identity mapped   (0x0000000400000000)
-
-    // * bootboot + environment + code segment + stack
-        printf("Copying mapping of range %#llx-%#llx from bootboot\n", 0xFFFFFFFFFFE00000, 0ULL);
-
-        LOG(DEBUG, "Copying mapping of range %#llx-%#llx from bootboot", 0xFFFFFFFFFFE00000, 0ULL);
-        copy_mapping(bootboot_cr3, global_cr3, 0xFFFFFFFFFFE00000, (uint64_t)(-0xFFFFFFFFFFE00000) >> 12);
-
-        for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++)
-        {
-            uint64_t ptr = MMapEnt_Ptr(mmap_ent) & 0xfffffffffffff000;
-            uint64_t len = ((MMapEnt_Size(mmap_ent) + 0xfff) / 0x1000) * 0x1000 + 0x1000;
-
-            if (!MMapEnt_IsFree(mmap_ent))
-                continue;
-
-            if (ptr >= 1 * TB)
-                continue;
-            if (ptr + len >= 1 * TB)
-                len = 1 * TB - ptr;
-                
-            LOG(DEBUG, "Identity mapping range %#llx-%#llx", ptr, ptr + len);
-            printf("Identity mapping range %#llx-%#llx\n", ptr, ptr + len);
-            remap_range(global_cr3, ptr, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-        }
-
-    // * LAPIC registers
-        printf("Identity mapping range %#llx-%#llx\n", lapic, (uint64_t)lapic + 0x1000);
-        LOG(DEBUG, "Identity mapping range %#llx-%#llx", lapic, (uint64_t)lapic + 0x1000);
-        remap_range(global_cr3, (uint64_t)lapic, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WT);
-
-    // * Framebuffer
-        printf("Identity mapping range %#llx-%#llx\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000);
-        LOG(DEBUG, "Identity mapping range %#llx-%#llx", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000);
-        
-    // ? Write-combining cache
-        remap_range(global_cr3, (uint64_t)framebuffer.address, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
-            PG_SUPERVISOR, PG_READ_WRITE, CACHE_WC);
-
-    // * initrd
-        printf("Identity mapping range %#llx-%#llx\n", bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-        LOG(DEBUG, "Identity mapping range %#llx-%#llx", bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-        remap_range(global_cr3, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-    }
-
-    uint64_t paging_milliseconds = precise_time_to_milliseconds(global_timer - paging_start_time);
-
-    printf("Paging setup done in %llu.%llu%llu%llu seconds\n", paging_milliseconds / 1000, (paging_milliseconds / 100) % 10, (paging_milliseconds / 10) % 10, paging_milliseconds % 10);
-    LOG(INFO, "Set up paging");
-
-    load_cr3((uint64_t)global_cr3);
 
     LOG(INFO, "Parsing ACPI tables..");
     printf("Parsing ACPI tables...\n");
@@ -688,6 +696,8 @@ void _start()
     }
 
     // multitasking_add_task_from_function("test", test_func);
+
+    LOG(DEBUG, "Starting multitasking...");
 
     multitasking_start();
 

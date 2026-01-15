@@ -121,7 +121,6 @@ physical_address_t pfa_allocate_physical_page()
         uint8_t bit = __builtin_ffsll(~(*qword)) - 1;
 
         *qword |= ((uint64_t)1 << bit);
-        memory_allocated += 0x1000;
 
         uint64_t page_index = 64 / 8 * i + bit;
 
@@ -133,6 +132,7 @@ physical_address_t pfa_allocate_physical_page()
             {
                 physical_address_t addr = usable_memory_map[j].address + remaining * 0x1000;
                 first_free_page_index_hint = 8 * i + bit;
+                memory_allocated += 0x1000;
                 LOG_MEM_ALLOCATED();
                 release_spinlock(&pfa_spinlock);
                 // LOG(TRACE, "Allocated page: %#llx", addr);
@@ -167,13 +167,15 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
         if (*qword == 0xffffffffffffffff) continue;
 
         uint8_t bit = __builtin_ffsll(~(*qword)) - 1;
+        uint32_t offset = 0;
 
         for (uint64_t j = 0; j < pages; j++)
         {
             if (bit >= 64)
             {
                 bit = 0;
-                qword = (uint64_t*)&bitmap[i + j];
+                offset++;
+                qword = (uint64_t*)&bitmap[i + offset];
             }
             if ((*qword) & (1ULL << bit))
             {
@@ -188,13 +190,15 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
         bit = __builtin_ffsll(~(*qword)) - 1;
 
         uint64_t page_index = i * 8 + bit;
+        offset = 0;
 
         for (uint64_t j = 0; j < pages; j++)
         {
             if (bit >= 64)
             {
                 bit = 0;
-                qword = (uint64_t*)&bitmap[i + j];
+                offset++;
+                qword = (uint64_t*)&bitmap[i + offset];
             }
             *qword |= ((uint64_t)1 << bit);
             bit++;
@@ -269,26 +273,28 @@ void pfa_free_physical_contiguous_pages(physical_address_t address, uint32_t pag
         pfa_free_physical_page(address + 0x1000ULL * i);
 }
 
-// * 1st TB will always be identity mapped
 void* pfa_allocate_page()
 {
-    return (void*)pfa_allocate_physical_page();
+    physical_address_t paddr = pfa_allocate_physical_page();
+    if (!paddr) return NULL;
+    return (void*)(paddr + PHYS_MAP_OFFSET);
 }
 
-// * same
 void pfa_free_page(const void* ptr)
 {
-    pfa_free_physical_page((physical_address_t)ptr);
+    if (!ptr) return;
+    pfa_free_physical_page((physical_address_t)ptr - PHYS_MAP_OFFSET);
 }
 
-// * same
 void* pfa_allocate_contiguous_pages(uint32_t pages)
 {
-    return (void*)pfa_allocate_physical_contiguous_pages(pages);
+    physical_address_t paddr = pfa_allocate_physical_contiguous_pages(pages);
+    if (!paddr) return NULL;
+    return (void*)(paddr + PHYS_MAP_OFFSET);
 }
 
-// * same
 void pfa_free_contiguous_pages(const void* ptr, uint32_t pages)
 {
-    pfa_free_physical_contiguous_pages((physical_address_t)ptr, pages);
+    if (!ptr) return;
+    pfa_free_physical_contiguous_pages((physical_address_t)ptr - PHYS_MAP_OFFSET, pages);
 }

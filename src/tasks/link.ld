@@ -11,7 +11,7 @@ PHDRS
 
 SECTIONS 
 {
-    . = 0x10000000000;  /* 1 TB */
+    . = 0x100000;
 
     .text ALIGN(0x1000) : 
     {

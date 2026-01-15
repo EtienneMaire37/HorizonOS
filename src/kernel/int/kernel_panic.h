@@ -148,7 +148,7 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
         }
         printf("cr3: %#llx\n\n", registers->cr3);
 
-        uint64_t* pml4 = (uint64_t*)registers->cr3;
+        uint64_t* pml4 = (uint64_t*)(registers->cr3 + PHYS_MAP_BASE);
 
         uint64_t* pml4_entry = &pml4[pml4e];
         printf("pml4 entry: %#.16llx\n", *pml4_entry);
@@ -156,21 +156,21 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
 
         if (is_pdpt_entry_present(pml4_entry))
         {
-            uint64_t* pdpt = get_pdpt_entry_address(pml4_entry);
+            uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
             uint64_t* pdpt_entry = &pdpt[pdpte];
             printf("pdpt entry: %#.16llx\n", *pdpt_entry);
             LOG(INFO, "pdpt entry: %#.16llx", *pdpt_entry);
 
             if (is_pdpt_entry_present(pdpt_entry))
             {
-                uint64_t* pd = get_pdpt_entry_address(pdpt_entry);
+                uint64_t* pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pdpt_entry));
                 uint64_t* pd_entry = &pd[pde];
                 printf("pd entry: %#.16llx\n", *pd_entry);
                 LOG(INFO, "pd entry: %#.16llx", *pd_entry);
 
                 if (is_pdpt_entry_present(pd_entry))
                 {
-                    uint64_t* pt = get_pdpt_entry_address(pd_entry);
+                    uint64_t* pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pd_entry));
                     uint64_t* pt_entry = &pt[pte];
                     printf("pt entry: %#.16llx\n", *pt_entry);
                     LOG(INFO, "pt entry: %#.16llx", *pt_entry);

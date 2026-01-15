@@ -180,7 +180,7 @@ void task_write_at_address_1b(thread_t* task, uint64_t address, uint8_t value)
         return;
     }
     
-    uint8_t* ptr = (uint8_t*)virtual_to_physical((uint64_t*)task->cr3, address);
+    uint8_t* ptr = (uint8_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), address);
     
     *ptr = value;
 }
@@ -198,7 +198,7 @@ void task_write_at_aligned_address_8b(thread_t* task, uint64_t address, uint64_t
         abort();
     }
 
-    uint64_t* ptr = (uint64_t*)virtual_to_physical((uint64_t*)task->cr3, address);
+    uint64_t* ptr = (uint64_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), address);
     
     *ptr = value;
 }
@@ -323,7 +323,7 @@ void copy_task(uint16_t index)
     
     utf32_buffer_create_and_copy(&tasks[index].input_buffer, &tasks[new_task_index].input_buffer);
 
-    tasks[new_task_index].cr3 = (uint64_t)task_create_empty_vas(tasks[new_task_index].ring == 0 ? PG_SUPERVISOR : PG_USER);
+    tasks[new_task_index].cr3 = task_create_empty_vas(tasks[new_task_index].ring == 0 ? PG_SUPERVISOR : PG_USER);
     tasks[new_task_index].rsp = tasks[index].rsp;
 
     tasks[new_task_index].fpu_state = fpu_state_create_copy(tasks[index].fpu_state);
@@ -336,7 +336,7 @@ void copy_task(uint16_t index)
     tasks[new_task_index].ppid = tasks[index].pid;
     tasks[new_task_index].wait_pid = -1;
 
-    tas_vas_copy((uint64_t*)tasks[index].cr3, (uint64_t*)tasks[new_task_index].cr3, 0x10000000000, (0x8000000000 * 511 - 0x10000000000) / 0x1000);
+    tas_vas_copy((uint64_t*)(tasks[index].cr3 + PHYS_MAP_BASE), (uint64_t*)(tasks[new_task_index].cr3 + PHYS_MAP_BASE), 0, TASK_STACK_TOP_ADDRESS >> 12);
 }
 
 void cleanup_tasks()
@@ -392,7 +392,7 @@ void tasks_log()
     for (uint16_t i = 1; i < task_count; i++)
     {
         thread_t* task = &tasks[i];
-        LOG(DEBUG, "%s── task \"%s\" [pid %lld, ppid %lld, pgid %lld] | CPU Usage: %u.%u%s%s", i == task_count - 1 ? "└" : "├",
+        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s%s", i == task_count - 1 ? "└" : "├",
             task->name, task->pid, task->ppid, task->pgid, task->stored_cpu_ticks / 10, task->stored_cpu_ticks % 10,
             task_is_blocked(i) ? " (blocked)" : "", task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)");
     }

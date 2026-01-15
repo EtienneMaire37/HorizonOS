@@ -36,7 +36,7 @@ make all
 To build without logs. 
 Or:
 ```bash
-make all USER_CFLAGS=-DLOGLEVEL=INFO
+make all USER_CFLAGS=-DLOG_LEVEL=INFO
 ```
 To build with E9 port logs. 
 A `horizonos.iso` disk image file will be created in the root of the repository.
@@ -60,10 +60,10 @@ HorizonOS uses the following third-party libraries and resources:
 
 | Range     | Mapping         |
 | --------- | --------------- |
-| 0-1TB     | Identity mapped |
-| 1TB-128TB | Process segments, heap and stack    |
-| 128TB-[-128TB] | Noncanonical addresses |
-| [-128TB]-[-512GB] | Unused addresses |
+| 0-128TB | Process segments, heap and stack    |
+| 128TB-[-64TB] | Noncanonical addresses |
+| [-64TB]-[-63TB] | Mapped to physical 0-1TB |
+| [-63TB]-[-512GB] | Unused addresses |
 | [-512GB]-[-128MB] | Hole |
 | [-128MB]-0 | mmio, framebuffer, bootboot data and kernel code segment |
 

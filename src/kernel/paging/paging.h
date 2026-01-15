@@ -3,6 +3,9 @@
 #include "../cpu/msr.h"
 #include "../cpu/cpuid.h"
 
+#define PHYS_MAP_OFFSET     0xffff800000000000
+uint64_t PHYS_MAP_BASE = 0;
+
 #define PG_SUPERVISOR   0
 #define PG_USER         1
 
@@ -64,9 +67,10 @@ void init_pat()
 }
 
 uint64_t* create_empty_pdpt();
+physical_address_t create_empty_pdpt_phys();
 uint64_t* create_empty_virtual_address_space();
 bool is_pdpt_entry_present(const uint64_t* entry);
-uint64_t* get_pdpt_entry_address(const uint64_t* entry);
+physical_address_t get_pdpt_entry_address(const uint64_t* entry);
 uint8_t get_pdpt_entry_privilege(const uint64_t* entry);
 uint8_t get_pdpt_entry_read_write(const uint64_t* entry);
 void remove_pdpt_entry(uint64_t* entry);

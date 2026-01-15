@@ -10,6 +10,8 @@ void fpu_init_defaults()
     xsave_area_size = get_xsave_area_size();
     xsave_area_pages = (xsave_area_size + 0xfff) / 0x1000;
 
+    LOG(DEBUG, "XSAVE area is %u bytes long (%u page%s)", xsave_area_size, xsave_area_pages, xsave_area_pages == 1 ? "" : "s");
+
     fpu_default_state = pfa_allocate_contiguous_pages(xsave_area_pages);
     assert(((uintptr_t)fpu_default_state & 0xfff) == 0);
     memset((uint8_t*)fpu_default_state, 0, xsave_area_size);

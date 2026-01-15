@@ -5,13 +5,12 @@
 
 physical_address_t task_create_empty_vas(uint8_t privilege)
 {
-    uint64_t* cr3 = create_empty_pdpt();
-    if (!cr3) return physical_null;
+    physical_address_t paddr = create_empty_pdpt_phys();
+    uint64_t* cr3 = (uint64_t*)(paddr + PHYS_MAP_BASE);
+    if (!paddr) return physical_null;
 
-    set_pdpt_entry(&cr3[0], (uint64_t)get_pdpt_entry_address(&global_cr3[0]), PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-    set_pdpt_entry(&cr3[1], (uint64_t)get_pdpt_entry_address(&global_cr3[1]), PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-
-    set_pdpt_entry(&cr3[511], (uint64_t)get_pdpt_entry_address(&global_cr3[511]), PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+    for (int i = 256; i < 512; i++)
+        set_pdpt_entry(&cr3[i], get_pdpt_entry_address(&global_cr3[i]), PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
 
     allocate_range(cr3, TASK_STACK_BOTTOM_ADDRESS, TASK_STACK_PAGES,
             privilege, PG_READ_WRITE, CACHE_WB);
@@ -19,39 +18,39 @@ physical_address_t task_create_empty_vas(uint8_t privilege)
         allocate_range(cr3, TASK_KERNEL_STACK_BOTTOM_ADDRESS, TASK_KERNEL_STACK_PAGES,
             PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
 
-    return (physical_address_t)cr3;
+    return paddr;
 }
 
 void task_free_vas(physical_address_t pml4_address)
 {
-    uint64_t* cr3 = (uint64_t*)pml4_address;
+    uint64_t* cr3 = (uint64_t*)(pml4_address + PHYS_MAP_BASE);
 // * Skip kernel mappings
-    for (uint16_t pml4e = 2; pml4e < 511; pml4e++)
+    for (uint16_t pml4e = 0; pml4e < 256; pml4e++)
     {
         if (!is_pdpt_entry_present(&cr3[pml4e])) continue;
 
-        uint64_t* pdpt_address = get_pdpt_entry_address(&cr3[pml4e]);
+        uint64_t* pdpt_address = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(&cr3[pml4e]));
         for (uint16_t pdpte = 0; pdpte < 512; pdpte++)
         {
             if (!is_pdpt_entry_present(&pdpt_address[pdpte])) continue;
 
-            uint64_t* pd_address = get_pdpt_entry_address(&pdpt_address[pdpte]);
+            uint64_t* pd_address = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(&pdpt_address[pdpte]));
             for (uint16_t pde = 0; pde < 512; pde++)
             {
                 if (!is_pdpt_entry_present(&pd_address[pde])) continue;
 
-                uint64_t* pt_address = get_pdpt_entry_address(&pd_address[pde]);
+                uint64_t* pt_address = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(&pd_address[pde]));
                 for (uint16_t pte = 0; pte < 512; pte++)
                 {
                     if (!is_pdpt_entry_present(&pt_address[pte])) continue;
 
-                    pfa_free_page(get_pdpt_entry_address(&pt_address[pte]));
+                    pfa_free_physical_page(get_pdpt_entry_address(&pt_address[pte]));
                 }
-                pfa_free_page(pt_address);
+                pfa_free_physical_page((physical_address_t)pt_address);
             }
-            pfa_free_page(pd_address);
+            pfa_free_physical_page((physical_address_t)pd_address);
         }
-        pfa_free_page(pdpt_address);
+        pfa_free_physical_page((physical_address_t)pdpt_address);
     }
     pfa_free_physical_page(pml4_address);
 }
@@ -103,9 +102,9 @@ void tas_vas_copy(uint64_t* src, uint64_t* dst,
         uint64_t* new_pml4_entry = &dst[pml4e];
 
         if (!is_pdpt_entry_present(new_pml4_entry))
-            set_pdpt_entry(new_pml4_entry, (uintptr_t)create_empty_pdpt(), PG_USER, PG_READ_WRITE, CACHE_WB);
+            set_pdpt_entry(new_pml4_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
-        uint64_t* old_pdpt = get_pdpt_entry_address(old_pml4_entry);
+        uint64_t* old_pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pml4_entry));
         
         uint64_t* old_pdpt_entry = &old_pdpt[pdpte];
         if (!is_pdpt_entry_present(old_pdpt_entry))
@@ -114,14 +113,14 @@ void tas_vas_copy(uint64_t* src, uint64_t* dst,
             continue;
         }
 
-        uint64_t* new_pdpt = get_pdpt_entry_address(new_pml4_entry);
+        uint64_t* new_pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(new_pml4_entry));
 
         uint64_t* new_pdpt_entry = &new_pdpt[pdpte];
 
         if (!is_pdpt_entry_present(new_pdpt_entry))
-            set_pdpt_entry(new_pdpt_entry, (uintptr_t)create_empty_pdpt(), PG_USER, PG_READ_WRITE, CACHE_WB);
+            set_pdpt_entry(new_pdpt_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
-        uint64_t* old_pd = get_pdpt_entry_address(old_pdpt_entry);
+        uint64_t* old_pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pdpt_entry));
 
         uint64_t* old_pd_entry = &old_pd[pde];
         if (!is_pdpt_entry_present(old_pd_entry))
@@ -130,27 +129,27 @@ void tas_vas_copy(uint64_t* src, uint64_t* dst,
             continue;
         }
 
-        uint64_t* new_pd = get_pdpt_entry_address(new_pdpt_entry);
+        uint64_t* new_pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(new_pdpt_entry));
 
         uint64_t* new_pd_entry = &new_pd[pde];
 
         if (!is_pdpt_entry_present(new_pd_entry))
-            set_pdpt_entry(new_pd_entry, (uintptr_t)create_empty_pdpt(), PG_USER, PG_READ_WRITE, CACHE_WB);
+            set_pdpt_entry(new_pd_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
         // * !!!
-        uint64_t* old_pt = get_pdpt_entry_address(old_pd_entry);
+        uint64_t* old_pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pd_entry));
 
         uint64_t* old_pt_entry = &old_pt[pte];
         if (!is_pdpt_entry_present(old_pt_entry))
             continue;
 
-        uint64_t* new_pt = get_pdpt_entry_address(new_pd_entry);
+        uint64_t* new_pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(new_pd_entry));
 
         uint64_t* new_pt_entry = &new_pt[pte];
 
         if (!is_pdpt_entry_present(new_pt_entry))
-            set_pdpt_entry(new_pt_entry, (uintptr_t)pfa_allocate_page(), get_pdpt_entry_privilege(old_pt_entry), get_pdpt_entry_read_write(old_pt_entry), CACHE_WB);
+            set_pdpt_entry(new_pt_entry, pfa_allocate_physical_page(), get_pdpt_entry_privilege(old_pt_entry), get_pdpt_entry_read_write(old_pt_entry), CACHE_WB);
         
-        memcpy(get_pdpt_entry_address(new_pt_entry), get_pdpt_entry_address(old_pt_entry), 4096);
+        memcpy((void*)(PHYS_MAP_BASE + get_pdpt_entry_address(new_pt_entry)), (void*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pt_entry)), 4096);
     }
 }

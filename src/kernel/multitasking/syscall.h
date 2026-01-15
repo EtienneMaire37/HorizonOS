@@ -193,11 +193,11 @@ void handle_syscall(interrupt_registers_t* registers)
 
         if (addr < break_address)
         {
-            free_range((uint64_t*)__CURRENT_TASK.cr3, ((break_address + 0xfff) & ~0xfffULL), (break_address - addr + 0xfff) / 0x1000);
+            free_range((uint64_t*)(__CURRENT_TASK.cr3 + PHYS_MAP_BASE), ((break_address + 0xfff) & ~0xfffULL), (break_address - addr + 0xfff) / 0x1000);
         }
         else
         {
-            allocate_range((uint64_t*)__CURRENT_TASK.cr3, 
+            allocate_range((uint64_t*)(__CURRENT_TASK.cr3 + PHYS_MAP_BASE), 
                     break_address & ~0xfffULL, (addr - break_address + 0xfff) / 0x1000, 
                     __CURRENT_TASK.ring == 3 ? PG_USER : PG_SUPERVISOR, 
                     PG_READ_WRITE, CACHE_WB);
