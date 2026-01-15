@@ -31,12 +31,12 @@ export PATH="/usr/sbin:${PATH}"
 ```
 Then simply run: 
 ```bash
-make all
+make
 ```
 To build without logs. 
 Or:
 ```bash
-make all USER_CFLAGS=-DLOG_LEVEL=INFO
+make USER_CFLAGS=-DLOG_LEVEL=INFO
 ```
 To build with E9 port logs. 
 A `horizonos.iso` disk image file will be created in the root of the repository.
