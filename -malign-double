@@ -1,8 +1,0 @@
-src/libc/lib/libm.o: src/libc/src/math.c src/libc/src/../include/math.h \
- src/libc/src/../include/errno_defs.h src/libc/src/../include/inttypes.h \
- src/libc/src/math_float_util.h src/libc/src/math_fmod.c
-src/libc/src/../include/math.h:
-src/libc/src/../include/errno_defs.h:
-src/libc/src/../include/inttypes.h:
-src/libc/src/math_float_util.h:
-src/libc/src/math_fmod.c:
