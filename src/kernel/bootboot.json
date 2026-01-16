@@ -2,7 +2,7 @@
     "diskguid": "00000000-0000-0000-0000-000000000000",
     "iso9660": true,
     "config": "src/kernel/config",
-    "initrd": { "type": "tar", "gzip": false, "directory": "./bin/initrd" },
+    "initrd": { "type": "tar", "gzip": false, "directory": "./bin/initrd_contents" },
     "partitions": [
         { "type": "boot", "size": 16 },
         { "type": "fat", "size": 256, "name": "HorizonOS", "file": "bin/horizonos.bin" }

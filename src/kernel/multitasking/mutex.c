@@ -1,5 +1,3 @@
-#pragma once
-
 #include "../multicore/spinlock.h"
 #include "task.h"
 

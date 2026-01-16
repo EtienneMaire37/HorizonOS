@@ -1,6 +1,5 @@
-#pragma once
-
 #include "../vfs/vfs.h"
+#include "../../libc/include/stdlib.h"
 
 bool vfs_initrd_file_in_directory(char* fname, const char* direc) 
 {

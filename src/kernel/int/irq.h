@@ -1,6 +1,10 @@
 #pragma once
 
+#include "../ps2/ps2.h"
 #include "int.h"
+#include "../pic/apic.h"
+#include "../time/time.h"
+#include "../vga/textio.h"
 
 void handle_apic_irq(interrupt_registers_t* registers)
 {

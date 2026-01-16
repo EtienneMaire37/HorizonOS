@@ -2,9 +2,14 @@
 
 #include "../cpu/msr.h"
 #include "../cpu/cpuid.h"
+#include "../../libc/include/stdint.h"
+#include "../../libc/include/stdlib.h"
+#include "../cpu/util.h"
+
+#include <stdbool.h>
 
 #define PHYS_MAP_OFFSET     0xffff800000000000
-uint64_t PHYS_MAP_BASE = 0;
+extern uint64_t PHYS_MAP_BASE;
 
 #define PG_SUPERVISOR   0
 #define PG_USER         1
@@ -22,7 +27,7 @@ uint64_t PHYS_MAP_BASE = 0;
                                 // - exclusive, or modified state. Writes allocate to the modified state on a cache miss. 
 #define CACHE_UC_MINUS  7ULL    // * Same as uncacheable, except that this can be overriden by Write-Combining MTRRs. 
 
-uint8_t pdpt_pat_bits[8] = 
+static const uint8_t pdpt_pat_bits[8] = 
 {
     3,
     3,
@@ -34,17 +39,17 @@ uint8_t pdpt_pat_bits[8] =
     2
 };
 
-uint8_t physical_address_width = 0; // M
-bool pat_enabled = false;
+extern uint8_t physical_address_width; // M
+extern bool pat_enabled;
 
-uint64_t get_physical_address_mask()
+static inline uint64_t get_physical_address_mask()
 {
     if (physical_address_width == 0)
         abort();
     return physical_address_width == 64 ? 0xffffffffffffffff : ((uint64_t)1 << (physical_address_width + 1)) - 1;
 }
 
-void init_pat()
+static inline void init_pat()
 {
     uint32_t eax, ebx, ecx, edx = 0;
     cpuid(1, eax, ebx, ecx, edx);
@@ -75,6 +80,8 @@ uint8_t get_pdpt_entry_privilege(const uint64_t* entry);
 uint8_t get_pdpt_entry_read_write(const uint64_t* entry);
 void remove_pdpt_entry(uint64_t* entry);
 void set_pdpt_entry(uint64_t* entry, uint64_t address, uint8_t privilege, uint8_t read_write, uint8_t cache_type);
+
+void* virtual_to_physical(uint64_t* cr3, uint64_t vaddr);
 
 void remap_range(uint64_t* pml4, 
     uint64_t start_virtual_address, uint64_t start_physical_address, 

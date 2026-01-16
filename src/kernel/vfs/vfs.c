@@ -1,7 +1,17 @@
-#pragma once
-
-#include "../initrd/vfs.c"
 #include "vfs.h"
+#include "../../libc/include/dirent.h"
+#include "../multitasking/mutex.h"
+#include "../initrd/initrd.h"
+#include "../../libc/include/sys/stat.h"
+#include "../initrd/vfs.h"
+#include "../multitasking/task.h"
+#include "../../libc/include/stdlib.h"
+#include "../../libc/include/errno.h"
+#include "../../libc/include/fcntl.h"
+#include "../../libc/src/misc.h"
+
+file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
+vfs_folder_tnode_t* vfs_root = NULL;
 
 void vfs_init_file_table()
 {

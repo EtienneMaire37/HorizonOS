@@ -3,93 +3,30 @@
 #include <stdatomic.h>
 #include "../libc/include/stdint.h"
 #include "../libc/include/stddef.h"
+#include "cpu/util.h"
 
 #include <bootboot.h>
-
-typedef uint64_t physical_address_t;
-typedef uint64_t virtual_address_t;
 
 extern BOOTBOOT bootboot;
 extern uint8_t environment[4096];
 extern uint8_t fb;
 
-uint64_t* global_cr3 = NULL;
-
 extern char kernel_start, kernel_end;
 physical_address_t kernel_start_phys, kernel_end_phys;
 
-#define enable_interrupts()     asm volatile ("sti")
-#define disable_interrupts()    asm volatile ("cli")
+char** environ = NULL;
+int num_environ;
 
-#define hlt()                   asm volatile ("hlt")
+#include "cpu/units.h"
 
-void halt();
+#include "../libc/src/current_func.h"
 
-void __attribute__((noreturn)) _halt()
-{
-    while (true)
-    {
-        disable_interrupts();
-        hlt();
-    }
-    __builtin_unreachable();
-}
-
-// * Only support 48-bit canonical addresses for now (4 level paging)
-bool is_address_canonical(uint64_t address)
-{
-    return (address < 0x0000800000000000ULL) || (address >= 0xffff800000000000ULL);
-}
-uint64_t make_address_canonical(uint64_t address)
-{
-    if (address & 0x0000800000000000ULL)
-        return address | 0xffff800000000000ULL;
-    else
-        return address & 0x00007fffffffffffULL;
-}
-
-#define KB 1024ULL
-#define MB (1024ULL * KB)
-#define GB (1024ULL * MB)
-#define TB (1024ULL * GB)
-
-#define BUILDING_C_LIB
-#define BUILDING_KERNEL
-
-#ifndef __CURRENT_FUNC__
-
-#if __STDC_VERSION__ >= 199901L
-#define __CURRENT_FUNC__    __func__
-#elif __GNUC__ >= 2
-#define __CURRENT_FUNC__    __FUNCTION__
-#else
-#define __CURRENT_FUNC__    ""
-#endif
-
-#endif
-
-#define physical_null ((physical_address_t)0)
-
-static int64_t minint(int64_t a, int64_t b);
-static int64_t maxint(int64_t a, int64_t b);
-static int64_t absint(int64_t x);
-static int imod(int a, int b);
+#include "../libc/src/math_utils.h"
 
 #include "../libc/include/inttypes.h"
 #include "../libc/include/limits.h"
 
-#define hex_char_to_int(ch) (ch >= '0' && ch <= '9' ? (ch - '0') : (ch >= 'a' && ch <= 'f' ? (ch - 'a' + 10) : 0))
-
-#define bcd_to_binary(bcd) (((bcd) & 0x0f) + (((bcd) >> 4) & 0x0f) * 10 + (((bcd) >> 8) & 0x0f) * 100 + (((bcd) >> 12) & 0x0f) * 1000)
-
-char** environ = NULL;
-static int num_environ = 0;
-
-int64_t system_seconds = 0, system_minutes = 0, system_hours = 0, system_day = 0, system_month = 0;
-int64_t system_year = 0;
-int64_t system_thousands = 0;
-
-bool time_initialized = false;
+#include "time/time.h"
 
 #include "io/io.h"
 #include "cpu/cpuid.h"
@@ -105,7 +42,6 @@ bool time_initialized = false;
 #include "../libc/include/errno.h"
 #include "../libc/include/stdio.h"
 #include "../libc/include/stdlib.h"
-#include "../libc/src/string.c"
 #include "../libc/include/string.h"
 #include "../libc/include/unistd.h"
 #include "../libc/include/termios.h"
@@ -121,82 +57,28 @@ bool time_initialized = false;
 #include "initrd/initrd.h"
 #include "time/gdn.h"
 #include "time/ktime.h"
-#include "time/time.h"
 #include "cmos/rtc.h"
+#include "pic/apic.h"
+
+#include "multitasking/task.h"
+#include "multitasking/loader.h"
+#include "vga/textio.h"
+#include "paging/paging.h"
+#include "int/int.h"
+#include "memalloc/page_frame_allocator.h"
+#include "cpu/memory.h"
+#include "fpu/fpu.h"
+#include "gdt/gdt.h"
+#include "int/idt.h"
+#include "pic/pic.h"
+#include "pic/apic.h"
+#include "acpi/tables.h"
+#include "ps2/ps2.h"
+#include "ps2/keyboard.h"
+#include "pci/pci.h"
+#include "multitasking/startup_data.h"
 
 initrd_file_t* commit_file;
-
-#include "vga/textio.c"
-#include "pic/apic.c"
-#include "fpu/fpu.c"
-
-#include "../libc/src/kernel.c"
-#include "../libc/src/stdio.c"
-#include "../libc/src/stdlib.c"
-#include "../libc/src/unistd.c"
-#include "../libc/src/time.c"
-#include "gdt/gdt.c"
-#include "int/idt.c"
-#include "int/int.c"
-#include "memalloc/page_frame_allocator.c"
-#include "paging/paging.c"
-#include "multitasking/task.c"
-#include "io/keyboard.c"
-#include "ps2/keyboard.c"
-#include "ps2/ps2.c"
-#include "acpi/tables.c"
-#include "pci/pci.c"
-#include "disk/ata.c"
-#include "multitasking/loader.c"
-#include "../libc/src/startup_data.c"
-#include "vfs/vfs.c"
-#include "multitasking/mutex.c"
-#include "../liballoc/liballoc.c"
-#include "memalloc/liballoc_hooks.c"
-
-static int64_t minint(int64_t a, int64_t b)
-{
-    return a < b ? a : b;
-}
-static int64_t maxint(int64_t a, int64_t b)
-{
-    return a > b ? a : b;
-}
-static int64_t absint(int64_t x)
-{
-    return x < 0 ? -x : x;
-}
-static int imod(int a, int b)
-{
-    if (b <= 0) 
-    {
-        LOG(WARNING, "Kernel tried to compute %lld %% %lld", a, b);
-        return 0;
-    }
-    int ret = a - (a / b) * b;
-    if (ret < 0) ret += b;
-    return ret;
-}
-
-void __attribute__((noreturn)) cause_halt(const char* func, const char* file, int line)
-{
-    disable_interrupts();
-    // LOG(ERROR, "Kernel halted in function \"%s\" at line %d in file \"%s\"", func, line, file);
-    _halt();
-}
-
-void simple_cause_halt()
-{
-    disable_interrupts();
-    // LOG(ERROR, "Kernel halted");
-    _halt();
-}
-
-void __attribute__((noreturn)) halt()
-{
-    // fflush(stdout);
-    cause_halt(__CURRENT_FUNC__, __FILE__, __LINE__);
-}
 
 FILE _stdin, _stdout, _stderr;
 
@@ -245,8 +127,6 @@ void _start()
 {
     disable_interrupts();
 
-    enable_sse();
-
     if (!bootboot.fb_scanline) 
         abort();
 
@@ -258,6 +138,8 @@ void _start()
 
     if (bootboot.bspid == cpu_id)
     {
+        LOG(DEBUG, "_start");
+
         kernel_init_std();
 
         kernel_start_phys = (physical_address_t)&kernel_start;
@@ -324,6 +206,8 @@ void _start()
     if(!tty_font.f)
         abort();
 
+    tty_color = (FG_WHITE | BG_BLACK);
+
 // * vvv Now we can use printf
 
     tty_clear_screen(' ');
@@ -350,7 +234,7 @@ void _start()
         tty_set_color(FG_LIGHTRED, BG_BLACK);
         printf("Modern FPU not supported...\n");
         tty_set_color(FG_WHITE, BG_BLACK);
-        abort();
+        // abort();
     }
 
     if (pat_enabled)
@@ -460,7 +344,7 @@ void _start()
             tty_set_color(FG_LIGHTRED, BG_BLACK);
             printf("Modern FPU not supported...\n");
             tty_set_color(FG_WHITE, BG_BLACK);
-            abort();
+            // abort();
         }
     }
 

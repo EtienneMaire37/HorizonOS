@@ -1,9 +1,8 @@
-#pragma once
-
 #include "loader.h"
 #include "vas.h"
+#include "task.h"
 #include "../files/elf.h"
-#include "../../libc/src/startup_data.h"
+#include "startup_data.h"
 #include "../vfs/vfs.h"
 
 void multitasking_add_task_from_function(const char* name, void (*func)())

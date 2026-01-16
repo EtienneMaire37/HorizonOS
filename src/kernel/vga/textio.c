@@ -1,7 +1,29 @@
-#pragma once
+#include "../files/psf.h"
+#include "../../libc/include/termios.h"
+#include "constants.h"
+
+uint16_t tty_data[TTY_RES_X * TTY_RES_Y] = {0};
+
+uint32_t tty_cursor = 0;
+uint8_t tty_color;
+
+struct termios tty_ts;
+
+pid_t tty_foreground_pgrp = 1;
+
+bool tty_cursor_blink = true;
+
+psf_font_t tty_font;
+
+const uint32_t tty_padding = 0;	// pixels
+
+uint8_t tty_control_sequence_buffer[TTY_ANSI_BUFFER] = {0};
+uint8_t tty_escape_sequence_index = 0;
+bool tty_reading_escape_sequence = false, tty_reading_control_sequence = false;
 
 #include "textio.h"
 #include "vga.h"
+#include "../graphics/linear_framebuffer.h"
 
 void tty_clear_screen(char c)
 {

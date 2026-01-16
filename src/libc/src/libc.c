@@ -9,14 +9,7 @@ static int num_environ;
 
 #include "../include/inttypes.h"
 
-static int64_t minint(int64_t a, int64_t b)
-{
-    return a < b ? a : b;
-}
-static int64_t maxint(int64_t a, int64_t b)
-{
-    return a > b ? a : b;
-}
+#include "math_utils.h"
 
 #include "../../kernel/multicore/spinlock.h"
 #include "syscall_defines.h"
@@ -41,7 +34,7 @@ static int64_t maxint(int64_t a, int64_t b)
 
 #include "misc.h"
 
-#include "startup_data.h"
+#include "../../kernel/multitasking/startup_data.h"
 
 FILE* FILE_create()
 {

@@ -1,5 +1,10 @@
 #pragma once
 
+#include "../time/time.h"
+
+#include "../io/io.h"
+#include <stdbool.h>
+
 #define LOG_LEVEL_TRACE     0
 #define LOG_LEVEL_DEBUG     1
 #define LOG_LEVEL_INFO      2
@@ -14,14 +19,14 @@
 #define ERROR               LOG_LEVEL_ERROR
 #define CRITICAL            LOG_LEVEL_CRITICAL
 
-void debug_outc(char c)
+static inline void debug_outc(char c)
 {
     outb(0xe9, c);
 }
 
 // #define ANSI_COLORS
 
-char* LOG_LEVEL_STR[] =
+static const char* LOG_LEVEL_STR[] =
 {
     "[Trace]",
     "[Debug]",
@@ -32,7 +37,7 @@ char* LOG_LEVEL_STR[] =
 };
 
 #ifndef ANSI_COLORS
-char* LOG_LEVEL_COLOR[] =
+static const char* LOG_LEVEL_COLOR[] =
 {
     "",
     "",
@@ -42,7 +47,7 @@ char* LOG_LEVEL_COLOR[] =
     ""
 };
 #else
-char* LOG_LEVEL_COLOR[] =
+static const char* LOG_LEVEL_COLOR[] =
 {
     "\x1b[38;2;130;130;130m\x1b[48;2;30;30;30m",
     "\x1b[38;2;100;150;255m\x1b[48;2;20;30;60m",
@@ -53,7 +58,7 @@ char* LOG_LEVEL_COLOR[] =
 };
 #endif
 
-bool first_log = true;
+extern bool first_log;
 
 #ifndef ANSI_COLORS
 #define LOG_FMT         "\

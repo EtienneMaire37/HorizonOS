@@ -1,7 +1,14 @@
-#pragma once
+#include "../../libc/include/stdint.h"
+#include <stdbool.h>
+
+uint64_t PHYS_MAP_BASE = 0;
+uint8_t physical_address_width = 0; // M
+bool pat_enabled = false;
 
 #include "../cpu/memory.h"
 #include "paging.h"
+#include "../../libc/include/string.h"
+#include "../memalloc/page_frame_allocator.h"
 
 uint64_t* create_empty_pdpt()
 {

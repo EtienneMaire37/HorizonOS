@@ -1,4 +1,9 @@
-#pragma once
+#include "../initrd/initrd.h"
+#include "../../libc/include/stddef.h"
+
+initrd_file_t* kernel_symbols_file = NULL;
+
+#include "../../libc/include/sys/wait.h"
 
 #include "../multitasking/vas.h"
 #include "../multitasking/syscall.h"

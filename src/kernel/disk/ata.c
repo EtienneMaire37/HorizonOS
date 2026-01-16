@@ -1,6 +1,14 @@
-#pragma once
+#include "../../libc/include/stdint.h"
+#include "ata_defs.h"
+
+pci_ide_controller_data_t pci_ide_controller[IDE_MAX];
+uint16_t connected_pci_ide_controllers = 0;
 
 #include "ata.h"
+#include "../pci/pci.h"
+#include "../vga/textio.h"
+#include "../../libc/include/stdlib.h"
+#include "../time/time.h"
 
 void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
 {

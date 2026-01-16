@@ -1,5 +1,8 @@
 #pragma once
 
+#include "path_max.h"
+#include "sys/types.h"
+
 struct dirent
 {
     ino_t d_ino;                // File serial number.

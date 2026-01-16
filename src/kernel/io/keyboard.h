@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../cpu/util.h"
+
 typedef uint32_t utf32_char_t;
 
 typedef struct utf32_buffer
@@ -75,7 +77,7 @@ static const uint8_t extended_numlock_map[256] =
 
 #define NUM_KB_LAYOUTS  2
 
-keyboard_layout_t us_qwerty = 
+static const keyboard_layout_t us_qwerty = 
 {
     .ps2_layout_data = 
     {
@@ -182,7 +184,7 @@ keyboard_layout_t us_qwerty =
     }
 };
 
-keyboard_layout_t fr_azerty = 
+static const keyboard_layout_t fr_azerty = 
 {
     .ps2_layout_data = 
     {
@@ -286,21 +288,18 @@ keyboard_layout_t fr_azerty =
     }
 };
 
-keyboard_layout_t* keyboard_layouts[NUM_KB_LAYOUTS] = 
+static const keyboard_layout_t* keyboard_layouts[NUM_KB_LAYOUTS] = 
 {
     &us_qwerty,
     &fr_azerty
 };
 
-keyboard_layout_t* current_keyboard_layout = &us_qwerty;  // TODO: Make it so we can have one layout per keyboard
+extern const keyboard_layout_t* current_keyboard_layout;  // TODO: Make it so we can have one layout per keyboard
 
 #define get_buffered_characters(buffer) ((size_t)imod(((int)(buffer).put_index - (buffer).get_index), (buffer).size))
 #define no_buffered_characters(buffer)  ((buffer).put_index == (buffer).get_index)
 
-// // #define utf32_to_bios_oem(utf32_char)   ((utf32_char) < 128 ? (char)(utf32_char) : (char)0) // Note: Other characters are code page dependent
-// !!!!!!!!!! DONT DEFINE IT AS A MACRO
-
-char utf32_to_bios_oem(utf32_char_t ch)
+static inline char utf32_to_bios_oem(utf32_char_t ch)
 {
     return ch < 128 ? (char)ch : (char)0;
 }
@@ -313,3 +312,4 @@ utf32_char_t utf32_buffer_getchar(utf32_buffer_t* buffer);
 void utf32_buffer_create_and_copy(const utf32_buffer_t* from, utf32_buffer_t* to);
 
 bool keyboard_is_key_pressed(virtual_address_t vk);
+void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, bool echo, bool raw, int noncanonical_read_minimum_count);

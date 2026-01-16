@@ -1,9 +1,12 @@
 #pragma once
 
+#include "../../libc/include/dirent.h"
 #include "../multitasking/mutex.h"
+#include "../initrd/initrd.h"
+#include "../../libc/include/sys/stat.h"
 
 typedef int16_t file_table_index_t;
-const file_table_index_t invalid_fd = -1;
+static const file_table_index_t invalid_fd = -1;
 
 typedef enum drive_type
 {
@@ -12,7 +15,7 @@ typedef enum drive_type
     DT_INITRD = 2,
 } drive_type_t;
 
-const char* get_drive_type_string(drive_type_t dt)
+static inline const char* get_drive_type_string(drive_type_t dt)
 {
     if (dt > 2 || dt < 0) dt = 0;
     return (const char*[]){"DT_INVALID", "DT_VIRTUAL", "DT_INITRD"}[dt];
@@ -96,8 +99,6 @@ typedef struct vfs_folder_tnode
     struct vfs_folder_tnode* next;
 } vfs_folder_tnode_t;
 
-vfs_folder_tnode_t* vfs_root = NULL;
-
 // * Open file descriptor data
 
 #define ET_FILE     1
@@ -121,10 +122,11 @@ typedef struct file_entry
 
 #define MAX_FILE_TABLE_ENTRIES  256
 
-file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
-
 #define CHR_DIR_READ    1
 #define CHR_DIR_WRITE   2
+
+extern file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
+extern vfs_folder_tnode_t* vfs_root;
 
 vfs_file_inode_t* vfs_get_file_inode(const char* path, vfs_folder_tnode_t* pwd);
 vfs_file_tnode_t* vfs_get_file_tnode(const char* path, vfs_folder_tnode_t* pwd);
@@ -154,7 +156,7 @@ ssize_t task_chr_stderr(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t
 
 ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 
-bool vfs_isatty(file_entry_t* entry)
+static inline bool vfs_isatty(file_entry_t* entry)
 {
     return entry->entry_type == ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && (entry->tnode.file->inode->io_func == task_chr_stdin || entry->tnode.file->inode->io_func == task_chr_stdout || entry->tnode.file->inode->io_func == task_chr_stderr)) : false;
 }

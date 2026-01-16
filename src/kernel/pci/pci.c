@@ -1,7 +1,9 @@
-#pragma once
-
 #include "pci.h"
+#include "../../libc/src/math_utils.h"
 #include "../disk/ata.h"
+#include "../vga/textio.h"
+
+initrd_file_t* pci_ids = NULL;
 
 uint32_t pci_configuration_address_space_read_dword(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) 
 {

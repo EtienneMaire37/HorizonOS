@@ -1,29 +1,28 @@
 #pragma once
 
+#include "../../libc/include/stdint.h"
+#include "../cpu/util.h"
+#include "mmap.h"
+
+#include <stdatomic.h>
+
 #define MAX_MEMORY (1 * TB)
 
-uint64_t usable_memory;
+extern uint64_t usable_memory;
 
-struct mem_block
-{
-    physical_address_t address;
-    uint64_t length;
-} __attribute__((packed));
+extern struct mem_block usable_memory_map[MAX_USABLE_MEMORY_BLOCKS];
+extern uint8_t usable_memory_blocks;
 
-#define MAX_USABLE_MEMORY_BLOCKS 64
-struct mem_block usable_memory_map[MAX_USABLE_MEMORY_BLOCKS];
-uint8_t usable_memory_blocks;
+extern uint8_t first_alloc_block;
 
-uint8_t first_alloc_block;
+extern uint64_t bitmap_size;
+extern uint8_t* bitmap;
 
-uint64_t bitmap_size;
-uint8_t* bitmap;
+extern uint64_t first_free_page_index_hint;
 
-uint64_t first_free_page_index_hint = 0;
+extern uint64_t memory_allocated, allocatable_memory;
 
-uint64_t memory_allocated, allocatable_memory;
-
-atomic_flag pfa_spinlock = ATOMIC_FLAG_INIT;
+extern atomic_flag pfa_spinlock;
 
 #ifdef LOG_MEMORY
 #define LOG_MEM_ALLOCATED() { uint32_t percentage = 10000 * memory_allocated / allocatable_memory; LOG(TRACE, "Used memory : %llu / %llu bytes (%u.%u%u %%)", memory_allocated, allocatable_memory, percentage / 100, (percentage / 10) % 10, percentage % 10); }

@@ -2,6 +2,15 @@
 
 #include "../multitasking/task.h"
 #include "../cpu/memory.h"
+#include "../debug/out.h"
+#include "../cpu/util.h"
+#include "../initrd/initrd.h"
+#include "../vga/textio.h"
+#include "int.h"
+#include "../paging/paging.h"
+#include "../../libc/src/math_utils.h"
+
+extern initrd_file_t* commit_file;
 
 #define log_registers() LOG(INFO, "RSP=%#.16llx RBP=%#.16llx RAX=%#.16llx RBX=%#.16llx RCX=%#.16llx RDX=%#.16llx", \
     registers->rsp, registers->rbp, registers->rax, registers->rbx, registers->rcx, registers->rdx);    \

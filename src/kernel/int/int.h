@@ -1,5 +1,8 @@
 #pragma once
 
+#include "../../libc/include/stdint.h"
+#include "../initrd/initrd.h"
+
 typedef struct __attribute__((packed)) interrupt_registers
 {
     uint64_t cr3, cr2;
@@ -27,7 +30,7 @@ typedef struct __attribute__((packed)) interrupt_registers
     uint64_t rsp, ss;   // * "64-bit mode also pushes SS:RSP unconditionally, rather than only on a CPL change." -- Intel manual vol 3A 7.14.2
 } interrupt_registers_t;
 
-char* error_str[32] = 
+static const char* error_str[32] = 
 {
     "DIVISION_OVERFLOW_EXCEPTION",
     "DEBUG",
@@ -71,7 +74,7 @@ char* error_str[32] =
 //     "IDT"
 // };
 
-char* get_error_message(uint32_t fault, uint32_t error_code)
+static inline const char* get_error_message(uint32_t fault, uint32_t error_code)
 {
     if (fault >= 32) return "";
     if (fault == 14)    // Page fault
@@ -82,7 +85,6 @@ char* get_error_message(uint32_t fault, uint32_t error_code)
     return error_str[fault];
 }
 
-
-initrd_file_t* kernel_symbols_file = NULL;
+extern initrd_file_t* kernel_symbols_file;
 
 void interrupt_handler(interrupt_registers_t* registers);

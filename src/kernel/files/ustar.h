@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../../libc/include/stdint.h"
+
 struct ustar_header
 {
     char    name[100];
@@ -47,7 +49,7 @@ struct ustar_header
 #define TOWRITE 00002 	// write by others
 #define TOEXEC 	00001 	// execute or search by other
 
-uint64_t ustar_get_number(char* str, int characters)
+static inline uint64_t ustar_get_number(char* str, int characters)
 {
     uint64_t result = 0;
     uint64_t count = 1;

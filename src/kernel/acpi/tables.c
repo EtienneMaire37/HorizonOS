@@ -1,9 +1,31 @@
-#pragma once
+#include "../../libc/include/stdint.h"
+#include "../../libc/include/string.h"
+#include "defs.h"
+#include "../cpu/util.h"
+#include <stdbool.h>
+
+#include <bootboot.h>
+
+extern BOOTBOOT bootboot;
+
+struct rsdt_table* rsdt;
+struct xsdt_table* xsdt;
+
+physical_address_t rsdt_address;
+
+struct fadt_table* fadt;
+struct madt_table* madt;
+
+uint8_t preferred_power_management_profile;
+
+bool acpi_10;
+uint32_t sdt_count;
 
 #include "tables.h"
 
 #include "../paging/paging.h"
 #include "../cpu/memory.h"
+#include "../ps2/ps2.h"
 
 bool acpi_table_valid(physical_address_t table_address)
 {

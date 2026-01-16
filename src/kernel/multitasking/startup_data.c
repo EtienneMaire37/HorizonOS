@@ -1,4 +1,5 @@
-#pragma once
+#include "startup_data.h"
+#include "../debug/out.h"
 
 startup_data_struct_t startup_data_init_from_command(char** cmd, char** envp)
 {

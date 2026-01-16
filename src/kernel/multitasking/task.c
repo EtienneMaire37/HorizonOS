@@ -1,7 +1,26 @@
-#pragma once
-
 #include "idle.h"
 #include "vas.h"
+#include "../fpu/fpu.h"
+#include "../../libc/src/math_utils.h"
+#include "../cpu/memory.h"
+#include "../paging/paging.h"
+#include "../../libc/include/fcntl.h"
+#include "../vga/textio.h"
+
+mutex_t file_table_lock = MUTEX_INIT;
+uint8_t global_cpu_ticks = 0;
+
+thread_t tasks[MAX_TASKS];    // TODO : Implement a dynamic array
+uint16_t task_count = 0;
+
+uint64_t multitasking_counter = TASK_SWITCH_DELAY;
+
+uint16_t current_task_index = 0;
+bool multitasking_enabled = false;
+volatile bool first_task_switch = true;
+
+const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
+const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
 
 void task_init_file_table(thread_t* task)
 {
@@ -336,7 +355,7 @@ void copy_task(uint16_t index)
     tasks[new_task_index].ppid = tasks[index].pid;
     tasks[new_task_index].wait_pid = -1;
 
-    tas_vas_copy((uint64_t*)(tasks[index].cr3 + PHYS_MAP_BASE), (uint64_t*)(tasks[new_task_index].cr3 + PHYS_MAP_BASE), 0, TASK_STACK_TOP_ADDRESS >> 12);
+    task_vas_copy((uint64_t*)(tasks[index].cr3 + PHYS_MAP_BASE), (uint64_t*)(tasks[new_task_index].cr3 + PHYS_MAP_BASE), 0, TASK_STACK_TOP_ADDRESS >> 12);
 }
 
 void cleanup_tasks()
@@ -387,14 +406,24 @@ void cleanup_tasks()
 
 void tasks_log()
 {
-    LOG(DEBUG, "Tasks: (Total CPU usage: %u.%u)", (1000 - tasks[0].stored_cpu_ticks) / 10,  (1000 - tasks[0].stored_cpu_ticks) % 10);
+    LOG(DEBUG, "%u tasks: (Total CPU usage: %u.%u)", task_count, (1000 - tasks[0].stored_cpu_ticks) / 10,  (1000 - tasks[0].stored_cpu_ticks) % 10);
     lock_task_queue();
-    for (uint16_t i = 1; i < task_count; i++)
+    for (uint16_t i = 0; i < task_count; i++)
     {
         thread_t* task = &tasks[i];
-        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s%s", i == task_count - 1 ? "└" : "├",
+        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s%s%s", i == task_count - 1 ? "└" : "├",
             task->name, task->pid, task->ppid, task->pgid, task->stored_cpu_ticks / 10, task->stored_cpu_ticks % 10,
-            task_is_blocked(i) ? " (blocked)" : "", task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)");
+            task_is_blocked(i) ? " (blocked)" : "", 
+            task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)",
+            task->doing_io ? " (waiting for io)" : "",
+            task->is_dead ? " (dead)" : "",
+            task->to_reap ? " (waiting to be reaped)" : "");
     }
     unlock_task_queue();
+}
+
+pid_t task_generate_pid()
+{
+    static pid_t current = 0;
+    return current++;
 }

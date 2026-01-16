@@ -1,23 +1,26 @@
 #pragma once
 
-uint64_t STATE_COMPONENT_BITMAP = 0;
+#include "../cpu/registers.h"
+#include "../debug/out.h"
+
+extern uint64_t STATE_COMPONENT_BITMAP;
 
 extern uint64_t get_supported_xcr0();
 extern uint32_t get_xsave_area_size();
 
-uint64_t get_xcr0()
+static inline uint64_t get_xcr0()
 {
     uint64_t eax, edx;
     asm volatile("xgetbv" : "=a"(eax), "=d"(edx) : "c"(0));
     return (edx << 32) | (eax & 0xffffffff);
 }
 
-void load_xcr0(uint64_t xcr0)
+static inline void load_xcr0(uint64_t xcr0)
 {
     asm volatile("xsetbv" :: "a"(xcr0 & 0xffffffff), "c"(0), "d"(xcr0 >> 32));
 }
 
-void enable_sse()
+static inline void enable_sse()
 {
     uint32_t cr0 = get_cr0();
     cr0 &= ~(1 << 3);   // * Clear TS
@@ -32,7 +35,7 @@ void enable_sse()
     load_cr4(cr4);
 }
 
-void enable_avx()
+static inline void enable_avx()
 {
     uint64_t cr4 = get_cr4();
     cr4 |= (1 << 18);   // * OSXSAVE

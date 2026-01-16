@@ -1,11 +1,13 @@
 #pragma once
 
+#include "../src/current_func.h"
+
 #ifndef NULL
 #define NULL ((void*)0)
 #endif
 
 #define RAND_MAX 32767
-#define EXIT_FAILURE (-1)
+#define EXIT_FAILURE 127
 #define EXIT_SUCCESS 0
 #define MB_CUR_MAX   1  // Only ASCII is supported
 

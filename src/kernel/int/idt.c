@@ -1,7 +1,10 @@
-#pragma once
-
 #include "idt.h"
-#include "../pic/pic.c"
+#include "../pic/pic.h"
+#include "../gdt/gdt.h"
+
+#include "../../libc/include/stdint.h"
+
+struct idt_entry IDT[256] __attribute__((aligned(8)));
 
 void setup_idt_entry(struct idt_entry* entry, uint16_t segment, physical_address_t offset, uint8_t privilege, uint8_t type)
 {

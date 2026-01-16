@@ -1,4 +1,32 @@
-#pragma once
+#include "ps2.h"
+#include "../io/keyboard.h"
+#include "../debug/out.h"
+#include "keyboard.h"
+#include "../../libc/include/stdlib.h"
+#include "../../libc/include/signal.h"
+#include "../../libc/include/sys/wait.h"
+#include "../vfs/vfs.h"
+#include "../multitasking/task.h"
+#include "../vga/textio.h"
+
+uint8_t ps2_keyboard_state[256] = 
+{
+    0
+};
+uint8_t ps2_keyboard_state_e0[256] = 
+{
+    0
+};
+
+bool ps2_kb_caps_lock[2] = { false, false }, ps2_kb_num_lock[2] = { false, false }, ps2_kb_scroll_lock[2] = { false, false };
+
+typedef struct ps2_full_scancode ps2_full_scancode_t;
+
+ps2_full_scancode_t current_ps2_keyboard_scancodes[2] = { { 0, 0, 0 }, { 0, 0, 0 } };
+
+bool enable_ps2_kb_input;
+
+uint8_t ps2_kb_1_scancode_set, ps2_kb_2_scancode_set;
 
 void ps2_kb_get_scancode_set()
 {

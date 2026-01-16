@@ -1,4 +1,9 @@
-#pragma once
+#include "defs.h"
+
+// * page 0xFEE00xxx
+volatile local_apic_registers_t* lapic = (volatile local_apic_registers_t*)0xfee00000;
+
+uint32_t ps2_1_gsi = 1, ps2_12_gsi = 12;
 
 #include "apic.h"
 #include "../acpi/tables.h"

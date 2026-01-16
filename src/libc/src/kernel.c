@@ -1,5 +1,9 @@
 #pragma once
 
+#include "../../kernel/debug/out.h"
+#include "../../kernel/cpu/util.h"
+#include "../../kernel/vga/textio.h"
+
 ssize_t write(int fildes, const void* buf, size_t nbyte)
 {
     // abort();

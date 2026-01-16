@@ -2,9 +2,13 @@
 
 #include "../int/int.h"
 #include "../../libc/src/syscall_defines.h"
-#include "../../libc/src/startup_data.h"
+#include "startup_data.h"
 #include "../multitasking/loader.h"
 #include "../../libc/include/signal.h"
+#include "../../libc/src/math_utils.h"
+#include "../../libc/include/fcntl.h"
+#include "../vga/textio.h"
+#include "../../libc/include/errno.h"
 
 ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
 {
@@ -55,7 +59,7 @@ void handle_syscall(interrupt_registers_t* registers)
     {
     case SYSCALL_EXIT:     // * exit | exit_code = $rbx |
         LOG(WARNING, "Task \"%s\" (pid = %d) exited with return code ", __CURRENT_TASK.name, __CURRENT_TASK.pid);
-        switch ((int)registers->rbx)
+        switch (registers->rbx & 0x7f)
         {
         case EXIT_SUCCESS:
             CONTINUE_LOG(WARNING, "%s", "EXIT_SUCCESS");
@@ -69,6 +73,7 @@ void handle_syscall(interrupt_registers_t* registers)
         lock_task_queue();
         __CURRENT_TASK.return_value = (registers->rbx & 0xff) | WEXITBIT;
         __CURRENT_TASK.is_dead = true;
+        tasks_log();
         unlock_task_queue();
         switch_task();
         break;

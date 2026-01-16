@@ -1,6 +1,31 @@
-#pragma once
+#include "../debug/out.h"
+#include "../cpu/units.h"
+#include "../../libc/include/string.h"
+#include "../../libc/include/stdlib.h"
+#include "../multicore/spinlock.h"
+#include "../paging/paging.h"
+#include "mmap.h"
+
+uint64_t usable_memory = 0;
+struct mem_block usable_memory_map[MAX_USABLE_MEMORY_BLOCKS];
+uint8_t usable_memory_blocks;
+
+uint8_t first_alloc_block;
+
+uint64_t bitmap_size;
+uint8_t* bitmap;
+
+uint64_t first_free_page_index_hint = 0;
+
+uint64_t memory_allocated, allocatable_memory;
+
+atomic_flag pfa_spinlock = ATOMIC_FLAG_INIT;
 
 #include "page_frame_allocator.h"
+
+#include <bootboot.h>
+
+extern BOOTBOOT bootboot;
 
 void pfa_detect_usable_memory() 
 {

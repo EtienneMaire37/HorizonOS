@@ -2,6 +2,11 @@
 
 #include "../io/keyboard.h"
 #include "mutex.h"
+#include "../vfs/vfs.h"
+#include "../../libc/include/limits.h"
+#include "../gdt/gdt.h"
+
+#include "mutex.h"
 
 #define THREAD_NAME_MAX 64
 
@@ -37,14 +42,10 @@ typedef struct thread
     file_table_index_t file_table[OPEN_MAX];
 } thread_t;
 
-mutex_t file_table_lock = MUTEX_INIT;
-
 #define __CURRENT_TASK      tasks[current_task_index]
 
-uint8_t global_cpu_ticks = 0;
-
-const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
-const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
+extern const uint64_t task_rsp_offset;
+extern const uint64_t task_cr3_offset;
 
 #define TASK_STACK_PAGES            0x400       // * 4MB
 #define TASK_KERNEL_STACK_PAGES     0x20        // * 128KB
@@ -56,17 +57,20 @@ const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
 
 #define MAX_TASKS 256
 
-thread_t tasks[MAX_TASKS];    // TODO : Implement a dynamic array
-uint16_t task_count;
-
 #define TASK_SWITCH_DELAY 40 // ms
 #define TASK_SWITCHES_PER_SECOND (1000 / TASK_SWITCH_DELAY)
 
-uint64_t multitasking_counter = TASK_SWITCH_DELAY;
+extern mutex_t file_table_lock;
+extern uint8_t global_cpu_ticks;
 
-uint16_t current_task_index = 0;
-bool multitasking_enabled = false;
-volatile bool first_task_switch = true;
+extern thread_t tasks[MAX_TASKS];    // TODO : Implement a dynamic array
+extern uint16_t task_count;
+
+extern uint64_t multitasking_counter;
+
+extern uint16_t current_task_index;
+extern bool multitasking_enabled;
+extern volatile bool first_task_switch;
 
 extern void iretq_instruction();
 void task_kill(uint16_t index);
@@ -74,21 +78,21 @@ void task_kill(uint16_t index);
 void apic_enable();
 void apic_disable();
 
-void lock_task_queue()
+static inline void lock_task_queue()
 {
     // lapic_disable();
     disable_interrupts();
     // acquire_spinlock(&task_queue_spinlock);
 }
 
-void unlock_task_queue()
+static inline void unlock_task_queue()
 {
     // lapic_enable();
     enable_interrupts();
     // release_spinlock(&task_queue_spinlock);
 }
 
-int vfs_allocate_thread_file(int index)
+static inline int vfs_allocate_thread_file(int index)
 {
     for (int i = 3; i < OPEN_MAX; i++)
     {
@@ -99,7 +103,7 @@ int vfs_allocate_thread_file(int index)
 }
 
 extern void __attribute__((sysv_abi)) context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds, uint8_t* old_fpu_state, uint8_t* next_fpu_state);
-void full_context_switch(uint16_t next_task_index)
+static inline void full_context_switch(uint16_t next_task_index)
 {
     int last_index = current_task_index;
     current_task_index = next_task_index;
@@ -109,12 +113,12 @@ void full_context_switch(uint16_t next_task_index)
     tasks[last_index].fpu_state, __CURRENT_TASK.fpu_state);
 }
 
-bool task_can_be_killed(uint16_t i)
+static inline bool task_can_be_killed(uint16_t i)
 {
     return !tasks[i].doing_io;
 }
 
-bool task_is_blocked(uint16_t index)
+static inline bool task_is_blocked(uint16_t index)
 {
     if (tasks[index].is_dead && task_can_be_killed(index)) return true;
     if (tasks[index].reading_stdin) return true;
@@ -123,7 +127,7 @@ bool task_is_blocked(uint16_t index)
     return false;
 }
 
-uint16_t find_next_task_index()
+static inline uint16_t find_next_task_index()
 {
     for (uint16_t off = 1; off < task_count; off++)
     {
@@ -136,7 +140,7 @@ uint16_t find_next_task_index()
     return 0;
 }
 
-bool is_fd_valid(int fd)
+static inline bool is_fd_valid(int fd)
 {
     if (fd < 0 || fd >= OPEN_MAX)
         return false;
@@ -145,11 +149,7 @@ bool is_fd_valid(int fd)
     return true;
 }
 
-pid_t task_generate_pid()
-{
-    static pid_t current = 0;
-    return current++;
-}
+pid_t task_generate_pid();
 
 void task_write_at_address_1b(thread_t* task, uint64_t address, uint8_t value);
 void task_write_at_aligned_address_8b(thread_t* task, uint64_t address, uint64_t value);
@@ -158,11 +158,11 @@ void task_write_at_address_8b(thread_t* task, uint64_t address, uint64_t value);
 void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg);
 void task_set_name(thread_t* task, const char* name);
 
+thread_t task_create_empty();
 void task_destroy(thread_t* task);
 void switch_task();
 void multitasking_init();
 void multitasking_start();
-void task_kill(uint16_t index);
 void multitasking_add_idle_task();
 
 thread_t* find_task_by_pid(pid_t pid);
@@ -171,9 +171,9 @@ void task_init_file_table(thread_t* task);
 void task_copy_file_table(uint16_t from, uint16_t to, bool cloexec);
 
 void task_stack_push(thread_t*, uint64_t);
+void task_stack_push_string(thread_t* task, const char* str);
+void task_stack_push_data(thread_t* task, void* data, size_t bytes);
 
 void cleanup_tasks();
-
-void idle_main();
 
 void tasks_log();

@@ -1,11 +1,6 @@
 #pragma once
 
-void idle_main()
-{
-    while(true) 
-    {
-        // printf("Hello from idle task!!!!\n");
-        hlt();
-    }
-    __builtin_unreachable();
-}
+#include <stdbool.h>
+#include "../cpu/util.h"
+
+void idle_main();

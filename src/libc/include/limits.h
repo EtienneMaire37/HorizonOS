@@ -1,5 +1,5 @@
 #pragma once
 
-#define PATH_MAX        256
+#include "path_max.h"
 #define HOST_NAME_MAX   256
 #define OPEN_MAX        16

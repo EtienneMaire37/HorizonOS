@@ -1,6 +1,5 @@
-#pragma once
-
 #include "page_frame_allocator.h"
+#include "../multicore/spinlock.h"
 
 atomic_flag liballoc_spinlock_state = ATOMIC_FLAG_INIT;
 

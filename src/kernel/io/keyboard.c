@@ -1,6 +1,12 @@
-#pragma once
-
 #include "../ps2/keyboard.h"
+#include "../memalloc/page_frame_allocator.h"
+#include "../../libc/include/assert.h"
+#include "../../libc/include/string.h"
+#include "../../libc/src/math_utils.h"
+#include "../multitasking/task.h"
+#include "../vga/textio.h"
+
+const keyboard_layout_t* current_keyboard_layout = &us_qwerty;
 
 void utf32_buffer_init(utf32_buffer_t* buffer)
 {

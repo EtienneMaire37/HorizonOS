@@ -1,6 +1,20 @@
-#pragma once
-
 #include "ps2.h"
+#include "../../libc/include/stdint.h"
+#include <stdbool.h>
+#include "../time/time.h"
+#include "../io/io.h"
+#include "../debug/out.h"
+#include "keyboard.h"
+
+uint8_t ps2_device_1_type = PS2_DEVICE_UNKNOWN;
+uint8_t ps2_device_2_type = PS2_DEVICE_UNKNOWN;
+
+bool ps2_device_1_interrupt = true, ps2_device_2_interrupt = true;
+
+bool ps2_controller_connected;
+bool ps2_device_1_connected, ps2_device_2_connected;
+uint8_t ps2_data_buffer[PS2_READ_BUFFER_SIZE];
+uint8_t ps2_data_bytes_received;
 
 bool ps2_wait_for_output() 
 {
@@ -475,7 +489,7 @@ void handle_irq_1(bool* task_switch)
         ps2_handle_keyboard_scancode(1, data, task_switch);
 }
 
-void handle_irq_12(bool* task_switch) 
+void handle_irq_12(bool* task_switch)
 {
     if (!ps2_controller_connected)
         return;
