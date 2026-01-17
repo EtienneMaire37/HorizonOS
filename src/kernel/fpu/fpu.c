@@ -41,12 +41,12 @@ void fpu_init()
 
 void fpu_save_state(uint8_t* s)
 {
-    asm volatile("xsave [rdi]" :: "a"(STATE_COMPONENT_BITMAP & 0xffffffff), "D"(s), "d"(STATE_COMPONENT_BITMAP >> 32) : "memory");
+    asm volatile("xsaves [rdi]" :: "a"(STATE_COMPONENT_BITMAP & 0xffffffff), "D"(s), "d"(STATE_COMPONENT_BITMAP >> 32) : "memory");
 }
 
 void fpu_restore_state(uint8_t* s)
 {
-    asm volatile("xrstor [rdi]" :: "a"(STATE_COMPONENT_BITMAP & 0xffffffff), "D" (s), "d"(STATE_COMPONENT_BITMAP >> 32) : "memory");
+    asm volatile("xrstors [rdi]" :: "a"(STATE_COMPONENT_BITMAP & 0xffffffff), "D" (s), "d"(STATE_COMPONENT_BITMAP >> 32) : "memory");
 }
 
 void fpu_state_init(uint8_t* s)

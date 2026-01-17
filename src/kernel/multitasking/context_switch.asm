@@ -31,10 +31,10 @@ context_switch:
 ; * the logicalAND of EDX:EAX and the logical-OR of XCR0 with the IA32_XSS MSR. 
 
     ; $rcx = old_fpu_state
-    xsave [rcx]
+    xsaves [rcx]
 
     ; $r8 = next_fpu_state
-    xrstor [r8]
+    xrstors [r8]
 
     mov rbx, qword [rel task_rsp_offset]
     ; $rdi = (uint64_t)old_tcb
