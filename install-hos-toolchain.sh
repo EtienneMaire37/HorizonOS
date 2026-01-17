@@ -21,6 +21,8 @@ cd ..
 
 DESTDIR=${TOOLCHAIN_DIR} ninja -C headers-build install
 
+cd ..
+
 mkdir -p ./tmp
 cd ./tmp
 
