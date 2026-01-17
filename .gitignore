@@ -11,8 +11,11 @@ root/
 bootboot
 dir2fat32/
 
-crossgcc/
-custom-toolchain/
+crosstoolchain/
+hostoolchain/
+mlibc/mlibc/
+mlibc/bmlibc/
+mlibc/headers-build/
 tmp/
 
 pci.ids

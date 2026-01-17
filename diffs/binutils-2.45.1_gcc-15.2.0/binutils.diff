@@ -1,0 +1,62 @@
+diff -uraN binutils-2.45.1-copy/bfd/config.bfd binutils-2.45.1/bfd/config.bfd
+--- binutils-2.45.1-copy/bfd/config.bfd	2026-01-17 23:15:37.938973503 +0100
++++ binutils-2.45.1/bfd/config.bfd	2026-01-17 23:18:59.162817070 +0100
+@@ -236,6 +236,18 @@
+ 
+ case "${targ}" in
+ # START OF targmatch.h
++  i[3-7]86-*-horizonos*)
++    targ_defvec=i386_elf32_vec
++    targ_selvecs=
++    targ64_selvecs=x86_64_elf64_vec
++    ;;
++#ifdef BFD64
++  x86_64-*-horizonos*)
++    targ_defvec=x86_64_elf64_vec
++    targ_selvecs=i386_elf32_vec
++    want64=true
++    ;;
++#endif
+ #ifdef BFD64
+   aarch64-*-darwin*)
+     targ_defvec=aarch64_mach_o_vec
+diff -uraN binutils-2.45.1-copy/config.sub binutils-2.45.1/config.sub
+--- binutils-2.45.1-copy/config.sub	2026-01-17 23:15:38.390982421 +0100
++++ binutils-2.45.1/config.sub	2026-01-17 23:16:45.060282561 +0100
+@@ -2016,6 +2016,7 @@
+ 	| hcos* \
+ 	| hiux* \
+ 	| hms* \
++	| horizonos* \
+ 	| hpux* \
+ 	| ieee* \
+ 	| interix* \
+diff -uraN binutils-2.45.1-copy/gas/configure.tgt binutils-2.45.1/gas/configure.tgt
+--- binutils-2.45.1-copy/gas/configure.tgt	2026-01-17 23:15:38.522985025 +0100
++++ binutils-2.45.1/gas/configure.tgt	2026-01-17 23:19:54.779841479 +0100
+@@ -231,6 +231,7 @@
+   i386-*-elf*)				fmt=elf ;;
+   i386-*-fuchsia*)			fmt=elf ;;
+   i386-*-haiku*)			fmt=elf em=haiku ;;
++  i386-*-horizonos*)    fmt=elf ;;
+   i386-*-genode*)			fmt=elf ;;
+   i386-*-bsd*)				fmt=aout em=386bsd ;;
+   i386-*-netbsd*-gnu* | \
+diff -uraN binutils-2.45.1-copy/ld/configure.tgt binutils-2.45.1/ld/configure.tgt
+--- binutils-2.45.1-copy/ld/configure.tgt	2026-01-17 23:15:43.671086490 +0100
++++ binutils-2.45.1/ld/configure.tgt	2026-01-17 23:22:33.302692684 +0100
+@@ -446,6 +446,14 @@
+ 			;;
+ i[3-7]86-*-haiku*)	targ_emul=elf_i386_haiku
+ 			;;
++i[3-7]86-*-horizonos*)
++			targ_emul=elf_i386
++			targ64_extra_emuls="elf_x86_64"
++			;;
++x86_64-*-horizonos*)
++			targ_emul=elf_x86_64
++			targ_extra_emuls="elf_i386"
++			;;
+ i[3-7]86-*-vxworks*)	targ_emul=elf_i386_vxworks
+ 			;;
+ i[3-7]86-*-chaos)	targ_emul=elf_i386_chaos

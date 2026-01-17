@@ -170,7 +170,7 @@ src/libc/lib/klibc.a: src/libc/src/* src/libc/include/*
 	$(CROSSAR) rcs "src/libc/lib/klibc.a" "src/libc/lib/klibc.o"
 
 $(CROSSGCC):
-	sh install-cross-compiler.sh
+	sh install-cross-toolchain.sh
 
 $(USERGCC):
 	sh install-custom-toolchain.sh
