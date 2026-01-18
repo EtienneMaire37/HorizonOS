@@ -24,7 +24,7 @@ jobs:
       uses: actions/cache@v3
       id: compiler-cache
       with:
-        path: ./crossgcc
+        path: ./crosstoolchain
         key: ${{ runner.os }}-compiler-${{ hashFiles('install-cross-toolchain.sh') }}-binutils-2.44-gcc-15.1.0-x86_64
 
     - name: Install cross-compiler

@@ -1,10 +1,10 @@
 CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -flto -march=x86-64 # v4
 DATE := `date +"%Y-%m-%d"`
-CROSSGCC := ./crossgcc/bin/x86_64-elf-gcc
-CROSSLD := ./crossgcc/bin/x86_64-elf-ld
-CROSSNM := ./crossgcc/bin/x86_64-elf-nm
-CROSSAR := ./crossgcc/bin/x86_64-elf-ar
-CROSSSTRIP := ./crossgcc/bin/x86_64-elf-strip
+CROSSGCC := ./crosstoolchain/bin/x86_64-elf-gcc
+CROSSLD := ./crosstoolchain/bin/x86_64-elf-ld
+CROSSNM := ./crosstoolchain/bin/x86_64-elf-nm
+CROSSAR := ./crosstoolchain/bin/x86_64-elf-ar
+CROSSSTRIP := ./crosstoolchain/bin/x86_64-elf-strip
 DIR2FAT32 := ./dir2fat32/dir2fat32.sh
 USERGCC := 
 USER_CFLAGS := 
@@ -71,7 +71,7 @@ horizonos.iso: $(CROSSGCC) $(USERGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.id
 	
 	$(MKBOOTIMG) src/kernel/bootboot.json horizonos.iso
 
-	qemu-img convert -O vdi horizonos.iso horizonos.vdi
+# 	qemu-img convert -O vdi horizonos.iso horizonos.vdi
 
 src/tasks/bin/init.elf: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
@@ -195,9 +195,15 @@ rmbin:
 
 clean: rmbin
 	rm -f ./horizonos.iso
+	# rm -f ./horizonos.vdi
 	rm -f ./resources/pci.ids
 	rm -rf ./bootboot
 	rm -rf ./root
 	rm -rf ./tmp
+	rm -rf ./mlibc/mlibc
+	rm -rf ./mlibc/headers-build
+	rm -rf ./crosstoolchain
+	rm -rf ./hostoolchain
+	rm -rf ./debug
 
 -include $(KERNEL_OBJ:.o=.d)

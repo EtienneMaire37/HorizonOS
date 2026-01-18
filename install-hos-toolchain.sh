@@ -4,6 +4,8 @@ export PATH="${TOOLCHAIN_DIR}/usr/bin:$PATH"
 
 set -x -e
 
+rm -rf ./mlibc/mlibc
+rm -rf ./mlibc/headers-build
 cd mlibc
 git clone https://github.com/managarm/mlibc mlibc
 cd mlibc
@@ -23,13 +25,14 @@ DESTDIR=${TOOLCHAIN_DIR} ninja -C headers-build install
 
 cd ..
 
+rm -rf ./tmp
 mkdir -p ./tmp
 cd ./tmp
 
-wget https://ftp.gnu.org/gnu/binutils/binutils-2.45.1.tar.gz
+wget ftp://ftp.gnu.org/gnu/binutils/binutils-2.45.1.tar.gz
 tar xf binutils-2.45.1.tar.gz
 
-wget https://ftp.gnu.org/gnu/gcc/gcc-15.2.0/gcc-15.2.0.tar.gz
+wget ftp://ftp.gnu.org/gnu/gcc/gcc-15.2.0/gcc-15.2.0.tar.gz
 tar xf gcc-15.2.0.tar.gz
 
 cd binutils-2.45.1
@@ -74,3 +77,7 @@ export PATH="${TOOLCHAIN_DIR}/usr/bin:$PATH"
 
 make -j$(nproc) all-gcc all-target-libgcc
 DESTDIR="${TOOLCHAIN_DIR}" make install-gcc install-target-libgcc
+
+cd ../..
+
+rm -rf ./tmp

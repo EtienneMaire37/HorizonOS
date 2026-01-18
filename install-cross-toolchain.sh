@@ -1,18 +1,19 @@
-export PREFIX="$(pwd)/crossgcc"
+export PREFIX="$(pwd)/crosstoolchain"
 export TARGET=x86_64-elf
 export PATH="$PREFIX/bin:$PATH"
 
 set -x -e
 
+rm -rf "./$PREFIX"
 mkdir -p "$PREFIX"
 
 mkdir -p ./tmp
 cd ./tmp
 
-wget https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.gz
+wget ftp://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.gz
 tar xf binutils-2.44.tar.gz
 
-wget https://ftp.gnu.org/gnu/gcc/gcc-15.2.0/gcc-15.1.0.tar.gz
+wget ftp://ftp.gnu.org/gnu/gcc/gcc-15.1.0/gcc-15.1.0.tar.gz
 tar xf gcc-15.1.0.tar.gz
 
 cd binutils-2.44
@@ -36,5 +37,6 @@ make install-gcc
 make install-target-libgcc
 make install-target-libstdc++-v3
 
-echo "Installed binaries:"
-ls "$PREFIX/bin" -l
+cd ../../..
+
+rm -rf ./tmp
