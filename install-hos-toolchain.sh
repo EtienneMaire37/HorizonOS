@@ -4,6 +4,8 @@ export PATH="${TOOLCHAIN_DIR}/usr/bin:$PATH"
 
 set -x -e
 
+mkdir -p $SYSROOT_DIR
+
 rm -rf ./mlibc/mlibc
 cd mlibc
 git clone https://github.com/managarm/mlibc mlibc

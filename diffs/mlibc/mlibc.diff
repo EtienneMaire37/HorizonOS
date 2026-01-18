@@ -1,3 +1,17 @@
+diff --git a/mlibc_copy/meson.build b/mlibc_copy/meson.build
+index XXXXXXX..YYYYYYY 100644
+--- a/mlibc_copy/meson.build
++++ b/mlibc_copy/meson.build
+@@ -278,6 +278,8 @@
+ 	internal_conf.set10('MLIBC_MAP_DSO_SEGMENTS', true)
+ 	internal_conf.set10('MLIBC_MMAP_ALLOCATE_DSO', true)
+ 	internal_conf.set10('MLIBC_MAP_FILE_WINDOWS', true)
+ 	subdir('sysdeps/menix')
++elif host_machine.system() == 'horizonos'
++	subdir('sysdeps/horizonos')
+ # ANCHOR: demo-sysdeps
+ elif host_machine.system() == 'demo'
+ 	subdir('sysdeps/demo')
 diff --git a/mlibc_copy/sysdeps/horizonos/crt1.S b/mlibc_copy/sysdeps/horizonos/crt1.S
 new file mode 100644
 index 0000000..02ffea3
