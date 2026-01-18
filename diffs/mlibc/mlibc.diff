@@ -1,463 +1,428 @@
-diff --git a/mlibc/meson.build b/mlibc/meson.build
-index 4267623..4d704b3 100644
---- a/mlibc/meson.build
-+++ b/mlibc/meson.build
-@@ -279,6 +279,8 @@ elif host_machine.system() == 'menix'
- 	internal_conf.set10('MLIBC_MMAP_ALLOCATE_DSO', true)
- 	internal_conf.set10('MLIBC_MAP_FILE_WINDOWS', true)
- 	subdir('sysdeps/menix')
-+elif host_machine.system() == 'horizonos'
-+	subdir('sysdeps/horizonos')
- # ANCHOR: demo-sysdeps
- elif host_machine.system() == 'demo'
- 	subdir('sysdeps/demo')
-diff --git a/mlibc/sysdeps/horizonos/crt1.S b/mlibc/sysdeps/horizonos/crt1.S
+diff --git a/mlibc_copy/sysdeps/horizonos/crt1.S b/mlibc_copy/sysdeps/horizonos/crt1.S
 new file mode 100644
-index 0000000..c0e9289
+index 0000000..02ffea3
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/crt1.S
-@@ -0,0 +1,31 @@
-+.weak __global_pointer$
-+.hidden __global_pointer$
-+
++++ b/mlibc_copy/sysdeps/horizonos/crt1.S
+@@ -0,0 +1,7 @@
 +.section .text
 +.global _start
 +_start:
-+	# Load gp.
-+.option push
-+.option norelax
-+	lla gp, __global_pointer$
-+.option pop
-+
-+	mv a0, sp
-+	la a1, main
++	mov %rsp, %rdi
++	mov $main, %rsi
 +	call __mlibc_entry
-+	unimp
-+
-+# Load gp from .preinit_array since it may be used by the executable's .init_array.
-+# We still load it in _start to account for static binaries. This matches glibc's behavior.
-+load_gp:
-+.option push
-+.option norelax
-+	lla gp, __global_pointer$
-+.option pop
-+	ret
-+
-+.section .preinit_array,"aw"
-+	.dword load_gp
-+
 +.section .note.GNU-stack,"",%progbits
-+
-diff --git a/mlibc/sysdeps/horizonos/entry.cpp b/mlibc/sysdeps/horizonos/entry.cpp
+\ No newline at end of file
+diff --git a/mlibc_copy/sysdeps/horizonos/entry.cpp b/mlibc_copy/sysdeps/horizonos/entry.cpp
 new file mode 100644
-index 0000000..68fac27
+index 0000000..253aabd
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/entry.cpp
++++ b/mlibc_copy/sysdeps/horizonos/entry.cpp
 @@ -0,0 +1,15 @@
 +#include <stdint.h>
 +#include <stdlib.h>
 +#include <mlibc/elf/startup.h>
 +
-+extern "C" void __dlapi_enter(uintptr_t *);
++extern "C" void __dlapi_enter(uintptr_t* );
 +
-+extern char **environ;
++extern char** environ;
 +
-+extern "C" void __mlibc_entry(uintptr_t *entry_stack, int (*main_fn)(int argc, char *argv[], char *env[])) {
++extern "C" void __mlibc_entry(uintptr_t* entry_stack, int (*main_fn)(int argc, char* argv[], char* env[])) 
++{
 +	__dlapi_enter(entry_stack);
 +
 +	auto result = main_fn(mlibc::entry_stack.argc, mlibc::entry_stack.argv, environ);
 +	exit(result);
 +}
-+
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/access.h b/mlibc/sysdeps/horizonos/include/abi-bits/access.h
+\ No newline at end of file
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/access.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/access.h
 new file mode 120000
 index 0000000..cb83931
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/access.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/access.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/access.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/auxv.h b/mlibc/sysdeps/horizonos/include/abi-bits/auxv.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/auxv.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/auxv.h
 new file mode 120000
 index 0000000..c43f878
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/auxv.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/auxv.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/auxv.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/blkcnt_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/blkcnt_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/blkcnt_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/blkcnt_t.h
 new file mode 120000
 index 0000000..0b0ec27
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/blkcnt_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/blkcnt_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/blkcnt_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/blksize_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/blksize_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/blksize_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/blksize_t.h
 new file mode 120000
 index 0000000..7dc8d7c
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/blksize_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/blksize_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/blksize_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/clockid_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/clockid_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/clockid_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/clockid_t.h
 new file mode 120000
 index 0000000..6a42da5
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/clockid_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/clockid_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/clockid_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/dev_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/dev_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/dev_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/dev_t.h
 new file mode 120000
 index 0000000..bca881e
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/dev_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/dev_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/dev_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/errno.h b/mlibc/sysdeps/horizonos/include/abi-bits/errno.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/errno.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/errno.h
 new file mode 120000
 index 0000000..6e507de
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/errno.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/errno.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/errno.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/fcntl.h b/mlibc/sysdeps/horizonos/include/abi-bits/fcntl.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/fcntl.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/fcntl.h
 new file mode 120000
 index 0000000..463e2c9
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/fcntl.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/fcntl.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/fcntl.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/fd_set.h b/mlibc/sysdeps/horizonos/include/abi-bits/fd_set.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/fd_set.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/fd_set.h
 new file mode 120000
 index 0000000..b43142c
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/fd_set.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/fd_set.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/fd_set.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/fsblkcnt_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/fsblkcnt_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/fsblkcnt_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/fsblkcnt_t.h
 new file mode 120000
 index 0000000..898dfb2
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/fsblkcnt_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/fsblkcnt_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/fsblkcnt_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/fsfilcnt_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/fsfilcnt_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/fsfilcnt_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/fsfilcnt_t.h
 new file mode 120000
 index 0000000..791755c
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/fsfilcnt_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/fsfilcnt_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/fsfilcnt_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/gid_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/gid_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/gid_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/gid_t.h
 new file mode 120000
 index 0000000..abce6d6
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/gid_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/gid_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/gid_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/in.h b/mlibc/sysdeps/horizonos/include/abi-bits/in.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/in.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/in.h
 new file mode 120000
 index 0000000..418d1d5
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/in.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/in.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/in.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/ino_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/ino_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/ino_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/ino_t.h
 new file mode 120000
 index 0000000..4c20aca
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/ino_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/ino_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/ino_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/ipc.h b/mlibc/sysdeps/horizonos/include/abi-bits/ipc.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/ipc.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/ipc.h
 new file mode 120000
 index 0000000..2c7ffc4
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/ipc.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/ipc.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/ipc.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/limits.h b/mlibc/sysdeps/horizonos/include/abi-bits/limits.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/limits.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/limits.h
 new file mode 120000
 index 0000000..6c88db2
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/limits.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/limits.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/limits.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/mode_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/mode_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/mode_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/mode_t.h
 new file mode 120000
 index 0000000..5d78fdf
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/mode_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/mode_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/mode_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/mqueue.h b/mlibc/sysdeps/horizonos/include/abi-bits/mqueue.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/mqueue.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/mqueue.h
 new file mode 120000
 index 0000000..fa87b07
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/mqueue.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/mqueue.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/mqueue.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/msg.h b/mlibc/sysdeps/horizonos/include/abi-bits/msg.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/msg.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/msg.h
 new file mode 120000
 index 0000000..f402b49
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/msg.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/msg.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/msg.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/nlink_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/nlink_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/nlink_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/nlink_t.h
 new file mode 120000
 index 0000000..bb3b625
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/nlink_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/nlink_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/nlink_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/pid_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/pid_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/pid_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/pid_t.h
 new file mode 120000
 index 0000000..baa90f6
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/pid_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/pid_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/pid_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/poll.h b/mlibc/sysdeps/horizonos/include/abi-bits/poll.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/poll.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/poll.h
 new file mode 120000
 index 0000000..8ea6a0a
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/poll.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/poll.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/poll.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/resource.h b/mlibc/sysdeps/horizonos/include/abi-bits/resource.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/resource.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/resource.h
 new file mode 120000
 index 0000000..88d7402
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/resource.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/resource.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/resource.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/riscv-hwprobe.h b/mlibc/sysdeps/horizonos/include/abi-bits/riscv-hwprobe.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/riscv-hwprobe.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/riscv-hwprobe.h
 new file mode 120000
 index 0000000..e651325
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/riscv-hwprobe.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/riscv-hwprobe.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/riscv-hwprobe.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/rlim_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/rlim_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/rlim_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/rlim_t.h
 new file mode 120000
 index 0000000..e92eb5f
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/rlim_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/rlim_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/rlim_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/sa_family_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/sa_family_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/sa_family_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sa_family_t.h
 new file mode 120000
 index 0000000..a75e229
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/sa_family_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sa_family_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/sa_family_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/seek-whence.h b/mlibc/sysdeps/horizonos/include/abi-bits/seek-whence.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/seek-whence.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/seek-whence.h
 new file mode 120000
 index 0000000..df7bccf
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/seek-whence.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/seek-whence.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/seek-whence.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/sem.h b/mlibc/sysdeps/horizonos/include/abi-bits/sem.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/sem.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sem.h
 new file mode 120000
 index 0000000..699d7af
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/sem.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sem.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/sem.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/shm.h b/mlibc/sysdeps/horizonos/include/abi-bits/shm.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/shm.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/shm.h
 new file mode 120000
 index 0000000..067d8c4
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/shm.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/shm.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/shm.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/sig-limits.h b/mlibc/sysdeps/horizonos/include/abi-bits/sig-limits.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/sig-limits.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sig-limits.h
 new file mode 120000
 index 0000000..f829738
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/sig-limits.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sig-limits.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/sig-limits.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/sigevent.h b/mlibc/sysdeps/horizonos/include/abi-bits/sigevent.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigevent.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigevent.h
 new file mode 120000
 index 0000000..83d069b
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/sigevent.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigevent.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/sigevent.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/signal.h b/mlibc/sysdeps/horizonos/include/abi-bits/signal.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/signal.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/signal.h
 new file mode 120000
 index 0000000..4dcb0b7
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/signal.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/signal.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/signal.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/sigset_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/sigset_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigset_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigset_t.h
 new file mode 120000
 index 0000000..8b8e81e
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/sigset_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigset_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/sigset_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/sigval.h b/mlibc/sysdeps/horizonos/include/abi-bits/sigval.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigval.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigval.h
 new file mode 120000
 index 0000000..ccd43a5
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/sigval.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sigval.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/sigval.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/sockaddr_storage.h b/mlibc/sysdeps/horizonos/include/abi-bits/sockaddr_storage.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/sockaddr_storage.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sockaddr_storage.h
 new file mode 120000
 index 0000000..b374865
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/sockaddr_storage.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/sockaddr_storage.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/sockaddr_storage.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/socket.h b/mlibc/sysdeps/horizonos/include/abi-bits/socket.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/socket.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/socket.h
 new file mode 120000
 index 0000000..f1dc016
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/socket.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/socket.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/socket.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/socklen_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/socklen_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/socklen_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/socklen_t.h
 new file mode 120000
 index 0000000..41f3b11
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/socklen_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/socklen_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/socklen_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/stat.h b/mlibc/sysdeps/horizonos/include/abi-bits/stat.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/stat.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/stat.h
 new file mode 120000
 index 0000000..1f63b41
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/stat.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/stat.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/stat.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/statvfs.h b/mlibc/sysdeps/horizonos/include/abi-bits/statvfs.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/statvfs.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/statvfs.h
 new file mode 120000
 index 0000000..1fc80c2
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/statvfs.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/statvfs.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/statvfs.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/suseconds_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/suseconds_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/suseconds_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/suseconds_t.h
 new file mode 120000
 index 0000000..9ed6597
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/suseconds_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/suseconds_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/suseconds_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/termios.h b/mlibc/sysdeps/horizonos/include/abi-bits/termios.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/termios.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/termios.h
 new file mode 120000
 index 0000000..ee8f0b0
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/termios.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/termios.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/termios.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/time.h b/mlibc/sysdeps/horizonos/include/abi-bits/time.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/time.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/time.h
 new file mode 120000
 index 0000000..2a02625
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/time.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/time.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/time.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/uid_t.h b/mlibc/sysdeps/horizonos/include/abi-bits/uid_t.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/uid_t.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/uid_t.h
 new file mode 120000
 index 0000000..b306777
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/uid_t.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/uid_t.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/uid_t.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/utmp-defines.h b/mlibc/sysdeps/horizonos/include/abi-bits/utmp-defines.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/utmp-defines.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/utmp-defines.h
 new file mode 120000
 index 0000000..8617643
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/utmp-defines.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/utmp-defines.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/utmp-defines.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/utmpx.h b/mlibc/sysdeps/horizonos/include/abi-bits/utmpx.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/utmpx.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/utmpx.h
 new file mode 120000
 index 0000000..c6a2677
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/utmpx.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/utmpx.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/utmpx.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/utsname.h b/mlibc/sysdeps/horizonos/include/abi-bits/utsname.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/utsname.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/utsname.h
 new file mode 120000
 index 0000000..b285754
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/utsname.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/utsname.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/utsname.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/vm-flags.h b/mlibc/sysdeps/horizonos/include/abi-bits/vm-flags.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/vm-flags.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/vm-flags.h
 new file mode 120000
 index 0000000..bbe258c
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/vm-flags.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/vm-flags.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/vm-flags.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/abi-bits/wait.h b/mlibc/sysdeps/horizonos/include/abi-bits/wait.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/abi-bits/wait.h b/mlibc_copy/sysdeps/horizonos/include/abi-bits/wait.h
 new file mode 120000
 index 0000000..feb2840
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/abi-bits/wait.h
++++ b/mlibc_copy/sysdeps/horizonos/include/abi-bits/wait.h
 @@ -0,0 +1 @@
 +../../../../abis/linux/wait.h
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/include/bits/syscall.h b/mlibc/sysdeps/horizonos/include/bits/syscall.h
+diff --git a/mlibc_copy/sysdeps/horizonos/include/bits/syscall.h b/mlibc_copy/sysdeps/horizonos/include/bits/syscall.h
 new file mode 100644
 index 0000000..680bb8c
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/include/bits/syscall.h
++++ b/mlibc_copy/sysdeps/horizonos/include/bits/syscall.h
 @@ -0,0 +1,100 @@
 +#ifndef _MLIBC_SYSCALL_H
 +#define _MLIBC_SYSCALL_H
@@ -559,28 +524,28 @@ index 0000000..680bb8c
 +#endif
 +
 +#endif /* _MLIBC_SYSCALL_H */
-diff --git a/mlibc/sysdeps/horizonos/meson.build b/mlibc/sysdeps/horizonos/meson.build
+diff --git a/mlibc_copy/sysdeps/horizonos/meson.build b/mlibc_copy/sysdeps/horizonos/meson.build
 new file mode 100644
-index 0000000..c811fea
+index 0000000..32272a1
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/meson.build
++++ b/mlibc_copy/sysdeps/horizonos/meson.build
 @@ -0,0 +1,82 @@
 +sysdep_supported_options = {
 +	'posix': true,
 +}
 +
-+# rtld_sources += files(
-+# 	'sysdeps.cpp',
-+# 	'syscall.cpp',
-+# )
-+# rtld_include_dirs += include_directories('include')
++rtld_sources += files(
++	'sysdeps.cpp',
++	'syscall.cpp',
++)
++rtld_include_dirs += include_directories('include')
 +
-+# libc_sources += files(
-+# 	'entry.cpp',
-+# 	'sysdeps.cpp',
-+# 	'syscall.cpp',
-+# )
-+# libc_include_dirs += include_directories('include')
++libc_sources += files(
++	'entry.cpp',
++	'sysdeps.cpp',
++	'syscall.cpp',
++)
++libc_include_dirs += include_directories('include')
 +
 +if not no_headers
 +	install_headers(
@@ -637,150 +602,32 @@ index 0000000..c811fea
 +	)
 +endif
 +
-+# if not headers_only
-+# 	crt = custom_target('crt1',
-+# 		build_by_default: true,
-+# 		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
-+# 		input: 'crt1.S',
-+# 		output: 'crt1.o',
-+# 		install: true,
-+# 		install_dir: get_option('libdir')
-+# 	)
-+# endif
++if not headers_only
++	crt = custom_target('crt1',
++		build_by_default: true,
++		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
++		input: 'crt1.S',
++		output: 'crt1.o',
++		install: true,
++		install_dir: get_option('libdir')
++	)
++endif
 \ No newline at end of file
-diff --git a/mlibc/sysdeps/horizonos/syscall.cpp b/mlibc/sysdeps/horizonos/syscall.cpp
+diff --git a/mlibc_copy/sysdeps/horizonos/syscall.cpp b/mlibc_copy/sysdeps/horizonos/syscall.cpp
 new file mode 100644
-index 0000000..2f56f91
+index 0000000..0d05379
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/syscall.cpp
-@@ -0,0 +1,121 @@
++++ b/mlibc_copy/sysdeps/horizonos/syscall.cpp
+@@ -0,0 +1,2 @@
 +#include <bits/syscall.h>
 +#include <errno.h>
-+
-+extern "C" long __do_syscall_ret(unsigned long ret) {
-+	return ret;
-+}
-+
-+using sc_word_t = long;
-+
-+sc_word_t __do_syscall0(long sc) {
-+	register int sc_reg asm("a7") = sc;
-+	register sc_word_t ret asm("a0");
-+	asm volatile ("ecall" : "=r"(ret) : "r"(sc_reg) : "memory", "a1");
-+	return ret;
-+}
-+
-+sc_word_t __do_syscall1(long sc,
-+		sc_word_t arg1) {
-+	register int sc_reg asm("a7") = sc;
-+	register sc_word_t arg1_reg asm("a0") = arg1;
-+	register sc_word_t ret asm("a0");
-+	asm volatile ("ecall" : "=r"(ret) :
-+			"r"(sc_reg),
-+			"r"(arg1_reg)
-+			: "memory", "a1");
-+	return ret;
-+}
-+
-+sc_word_t __do_syscall2(long sc,
-+		sc_word_t arg1, sc_word_t arg2) {
-+	register int sc_reg asm("a7") = sc;
-+	register sc_word_t arg1_reg asm("a0") = arg1;
-+	register sc_word_t arg2_reg asm("a1") = arg2;
-+	register sc_word_t ret asm("a0");
-+	asm volatile ("ecall" : "=r"(ret) :
-+			"r"(sc_reg),
-+			"r"(arg1_reg),
-+			"r"(arg2_reg)
-+			: "memory");
-+	return ret;
-+}
-+
-+sc_word_t __do_syscall3(long sc,
-+		sc_word_t arg1, sc_word_t arg2, sc_word_t arg3) {
-+	register int sc_reg asm("a7") = sc;
-+	register sc_word_t arg1_reg asm("a0") = arg1;
-+	register sc_word_t arg2_reg asm("a1") = arg2;
-+	register sc_word_t arg3_reg asm("a2") = arg3;
-+	register sc_word_t ret asm("a0");
-+	asm volatile ("ecall" : "=r"(ret) :
-+			"r"(sc_reg),
-+			"r"(arg1_reg),
-+			"r"(arg2_reg),
-+			"r"(arg3_reg)
-+			: "memory");
-+	return ret;
-+}
-+
-+sc_word_t __do_syscall4(long sc,
-+		sc_word_t arg1, sc_word_t arg2, sc_word_t arg3,
-+		sc_word_t arg4) {
-+	register int sc_reg asm("a7") = sc;
-+	register sc_word_t arg1_reg asm("a0") = arg1;
-+	register sc_word_t arg2_reg asm("a1") = arg2;
-+	register sc_word_t arg3_reg asm("a2") = arg3;
-+	register sc_word_t arg4_reg asm("a3") = arg4;
-+	register sc_word_t ret asm("a0");
-+	asm volatile ("ecall" : "=r"(ret) :
-+			"r"(sc_reg),
-+			"r"(arg1_reg),
-+			"r"(arg2_reg),
-+			"r"(arg3_reg),
-+			"r"(arg4_reg)
-+			: "memory");
-+	return ret;
-+}
-+
-+sc_word_t __do_syscall5(long sc,
-+		sc_word_t arg1, sc_word_t arg2, sc_word_t arg3,
-+		sc_word_t arg4, sc_word_t arg5) {
-+	register int sc_reg asm("a7") = sc;
-+	register sc_word_t arg1_reg asm("a0") = arg1;
-+	register sc_word_t arg2_reg asm("a1") = arg2;
-+	register sc_word_t arg3_reg asm("a2") = arg3;
-+	register sc_word_t arg4_reg asm("a3") = arg4;
-+	register sc_word_t arg5_reg asm("a4") = arg5;
-+	register sc_word_t ret asm("a0");
-+	asm volatile ("ecall" : "=r"(ret) :
-+			"r"(sc_reg),
-+			"r"(arg1_reg),
-+			"r"(arg2_reg),
-+			"r"(arg3_reg),
-+			"r"(arg4_reg),
-+			"r"(arg5_reg)
-+			: "memory");
-+	return ret;
-+}
-+
-+sc_word_t __do_syscall6(long sc,
-+		sc_word_t arg1, sc_word_t arg2, sc_word_t arg3,
-+		sc_word_t arg4, sc_word_t arg5, sc_word_t arg6) {
-+	register int sc_reg asm("a7") = sc;
-+	register sc_word_t arg1_reg asm("a0") = arg1;
-+	register sc_word_t arg2_reg asm("a1") = arg2;
-+	register sc_word_t arg3_reg asm("a2") = arg3;
-+	register sc_word_t arg4_reg asm("a3") = arg4;
-+	register sc_word_t arg5_reg asm("a4") = arg5;
-+	register sc_word_t arg6_reg asm("a5") = arg6;
-+	register sc_word_t ret asm("a0");
-+	asm volatile ("ecall" : "=r"(ret) :
-+			"r"(sc_reg),
-+			"r"(arg1_reg),
-+			"r"(arg2_reg),
-+			"r"(arg3_reg),
-+			"r"(arg4_reg),
-+			"r"(arg5_reg),
-+			"r"(arg6_reg)
-+			: "memory"
-+			);
-+	return ret;
-+}
-diff --git a/mlibc/sysdeps/horizonos/sysdeps.cpp b/mlibc/sysdeps/horizonos/sysdeps.cpp
+\ No newline at end of file
+diff --git a/mlibc_copy/sysdeps/horizonos/sysdeps.cpp b/mlibc_copy/sysdeps/horizonos/sysdeps.cpp
 new file mode 100644
-index 0000000..38929f1
+index 0000000..075c0f4
 --- /dev/null
-+++ b/mlibc/sysdeps/horizonos/sysdeps.cpp
-@@ -0,0 +1,86 @@
++++ b/mlibc_copy/sysdeps/horizonos/sysdeps.cpp
+@@ -0,0 +1,78 @@
 +#include "mlibc/tcb.hpp"
 +#include <abi-bits/errno.h>
 +#include <bits/ensure.h>
@@ -792,78 +639,71 @@ index 0000000..38929f1
 +#define SYS_WRITE 1
 +#define SYS_MMAP 2
 +
-+// ANCHOR: stub
 +#define STUB()                                                                 \
-+  ({                                                                           \
-+    __ensure(!"STUB function was called");                                     \
-+    __builtin_unreachable();                                                   \
-+  })
-+// ANCHOR_END: stub
++({                                                                           \
++	__ensure(!"STUB function was called");                                     \
++	__builtin_unreachable();                                                   \
++})
 +
-+namespace mlibc {
++namespace mlibc 
++{
++	void sys_libc_panic() 
++	{
++		sys_libc_log("!!! mlibc panic !!!");
++		sys_exit(-1);
++		__builtin_trap();
++	}
 +
-+void sys_libc_panic() {
-+  sys_libc_log("!!! mlibc panic !!!");
-+  sys_exit(-1);
-+  __builtin_trap();
++	void sys_libc_log(const char* msg) 
++	{ 
++		ssize_t unused;
++		sys_write(2, msg, strlen(msg), &unused);
++	}
++
++	int sys_isatty(int fd)
++	{
++		(void)fd;
++		STUB();
++	}
++
++	int sys_write(int fd, void const* buf, size_t size, ssize_t* ret) 
++	{
++		STUB();
++	}
++
++	int sys_tcb_set(void* pointer) 
++	{
++		STUB();
++	}
++
++	int sys_anon_allocate(size_t size, void** pointer) 
++	{
++		STUB();
++	}
++
++	int sys_anon_free(void*, unsigned long) { STUB(); }
++
++	int sys_seek(int, off_t, int, off_t*) 
++	{
++		STUB();
++	}
++
++	void sys_exit(int status) 
++	{
++		while (true);
++		__builtin_unreachable();
++	}
++
++	int sys_close(int ) { STUB(); }
++	int sys_futex_wake(int*) { STUB(); }
++	int sys_futex_wait(int*, int, timespec const* ) { STUB(); }
++	int sys_read(int, void*, unsigned long, long* ) { STUB(); }
++	int sys_open(const char*, int, unsigned int, int*) { STUB(); }
++	int sys_vm_map(void*, size_t, int, int, int, off_t, void**) 
++	{
++		STUB();
++	}
++	int sys_vm_unmap(void* , size_t) { STUB(); }
++	int sys_clock_get(int, time_t*, long*) { STUB(); }
 +}
-+
-+void sys_libc_log(const char *msg) {
-+  ssize_t unused;
-+  sys_write(2, msg, strlen(msg), &unused);
-+}
-+
-+int sys_isatty(int fd) {
-+  (void)fd;
-+  // this returns ENOTTY when it is not a tty, but we do not have a proper implementation
-+  // so always return that a file is a tty
-+  return 0;
-+}
-+
-+int sys_write(int fd, void const *buf, size_t size, ssize_t *ret) {
-+
-+  *ret = syscall(SYS_WRITE, fd, buf, size);
-+  // this can never fail in the demo os
-+  return 0;
-+}
-+
-+int sys_tcb_set(void *pointer) {
-+  uintptr_t thread_data = reinterpret_cast<uintptr_t>(pointer) + sizeof(Tcb);
-+  asm volatile("mv tp, %0" ::"r"(thread_data));
-+  // this can never fail in the demo os
-+  return 0;
-+}
-+
-+int sys_anon_allocate(size_t size, void **pointer) {
-+  auto out = syscall(SYS_MMAP, nullptr, size, PROT_READ | PROT_WRITE,
-+                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-+  *pointer = (void *)out;
-+  if (*pointer == MAP_FAILED)
-+    return ENOMEM; // the syscall does not return a proper errno, so use ENOMEM
-+  return 0;
-+}
-+
-+int sys_anon_free(void *, unsigned long) { return 0; } // no-op
-+
-+int sys_seek(int , off_t , int , off_t *) {
-+  return ESPIPE; // no proper file implementation, everything is a tty so return ESPIPE
-+}
-+
-+void sys_exit(int status) {
-+  syscall(SYS_EXIT, status);
-+  __builtin_unreachable();
-+}
-+
-+int sys_close(int ) { STUB(); }
-+int sys_futex_wake(int *) { STUB(); }
-+int sys_futex_wait(int *, int, timespec const *) { STUB(); }
-+int sys_read(int, void *, unsigned long, long *) { STUB(); }
-+int sys_open(const char *, int, unsigned int, int *) { STUB(); }
-+int sys_vm_map(void *, size_t , int , int , int ,
-+               off_t , void **) {
-+  STUB();
-+}
-+int sys_vm_unmap(void *, size_t) { STUB(); }
-+int sys_clock_get(int , time_t *, long *) { STUB(); }
-+
-+} // namespace mlibc
+\ No newline at end of file

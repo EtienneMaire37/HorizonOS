@@ -5,7 +5,6 @@ export PATH="${TOOLCHAIN_DIR}/usr/bin:$PATH"
 set -x -e
 
 rm -rf ./mlibc/mlibc
-rm -rf ./mlibc/headers-build
 cd mlibc
 git clone https://github.com/managarm/mlibc mlibc
 cd mlibc
@@ -17,13 +16,11 @@ meson \
     --cross-file=../cross_file \
     --prefix=/usr \
     -Dheaders_only=true \
-    ../headers-build
-
-cd ..
+    headers-build
 
 DESTDIR=${TOOLCHAIN_DIR} ninja -C headers-build install
 
-cd ..
+cd ../..
 
 rm -rf ./tmp
 mkdir -p ./tmp
@@ -45,7 +42,7 @@ cd build
 ../configure \
     --target=x86_64-horizonos \
     --prefix=/usr \
-    --with-sysroot="${TOOLCHAIN_DIR}" \
+    --with-sysroot="${SYSROOT_DIR}" \
     --disable-werror \
     --enable-default-execstack=no
 
@@ -68,7 +65,7 @@ export PATH="${TOOLCHAIN_DIR}/usr/bin:$PATH"
 ../gcc-15.2.0/configure \
     --target=x86_64-horizonos \
     --prefix=/usr \
-    --with-sysroot="${TOOLCHAIN_DIR}" \
+    --with-sysroot="${SYSROOT_DIR}" \
     --enable-languages=c,c++ \
     --enable-threads=posix \
     --disable-multilib \
@@ -77,7 +74,20 @@ export PATH="${TOOLCHAIN_DIR}/usr/bin:$PATH"
 
 make -j$(nproc) all-gcc all-target-libgcc
 DESTDIR="${TOOLCHAIN_DIR}" make install-gcc install-target-libgcc
+cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
 
 cd ../..
 
 rm -rf ./tmp
+
+cd mlibc/mlibc
+
+meson \
+    setup \
+    --cross-file=../cross_file \
+    --prefix=/usr \
+    -Ddefault_library=static \
+    -Dno_headers=true \
+    build
+
+DESTDIR=${SYSROOT_DIR} ninja -C build install

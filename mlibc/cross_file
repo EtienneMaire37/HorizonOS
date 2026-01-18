@@ -10,5 +10,5 @@ ar = 'x86_64-horizonos-ar'
 strip = 'x86_64-horizonos-strip'
 ld = 'x86_64-horizonos-ld'
 [built-in options]
-c_args = ['-march=x86_64']
-cpp_args = ['-march=x86_64']
+c_args = ['-march=x86-64']
+cpp_args = ['-march=x86-64']
