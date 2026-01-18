@@ -22,6 +22,8 @@ meson \
 
 DESTDIR=${TOOLCHAIN_DIR} ninja -C headers-build install
 
+cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
+
 cd ../..
 
 rm -rf ./tmp
