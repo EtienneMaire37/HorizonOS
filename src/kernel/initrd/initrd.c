@@ -51,7 +51,8 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
         st.st_mode = (header->type == USTAR_TYPE_DIRECTORY ? S_IFDIR : S_IFREG) | 
         ((mode & TUREAD) ? S_IRUSR : 0) | ((mode & TUEXEC) ? S_IXUSR : 0) | // * | ((mode & TUWRITE) ? S_IWUSR : 0)
         ((mode & TGREAD) ? S_IRGRP : 0) | ((mode & TGEXEC) ? S_IXGRP : 0) | // * | ((mode & TGWRITE) ? S_IWGRP : 0)
-        ((mode & TOREAD) ? S_IROTH : 0) | ((mode & TOEXEC) ? S_IXOTH : 0);  // * | ((mode & TOWRITE) ? S_IWOTH : 0)
+        ((mode & TOREAD) ? S_IROTH : 0) | ((mode & TOEXEC) ? S_IXOTH : 0) | // * | ((mode & TOWRITE) ? S_IWOTH : 0)
+        ((mode & TSUID) ? S_ISUID : 0)  | ((mode & TSGID) ? S_ISGID : 0) | ((mode & TSVTX) ? S_ISVTX : 0);
 
         st.st_blksize = 4096;
         st.st_atime = st.st_mtime = st.st_ctime = 0;
