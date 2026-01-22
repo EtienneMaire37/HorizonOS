@@ -64,8 +64,6 @@ cd ..
 mkdir gcc-15.2.0-build
 cd gcc-15.2.0-build
 
-export PATH="${TOOLCHAIN_DIR}/usr/bin:$PATH"
-
 ../gcc-15.2.0/configure \
     --target=x86_64-horizonos \
     --prefix=/usr \
@@ -90,8 +88,8 @@ meson \
     setup \
     --cross-file=../cross_file \
     --prefix=/usr \
-    -Ddefault_library=static \
     -Dno_headers=true \
+    -Ddefault_library=static \
     build
 
 DESTDIR=${SYSROOT_DIR} ninja -C build install

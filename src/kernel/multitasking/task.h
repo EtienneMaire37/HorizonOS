@@ -47,6 +47,8 @@ typedef struct thread
 extern const uint64_t task_rsp_offset;
 extern const uint64_t task_cr3_offset;
 
+extern void syscall_handler();
+
 #define TASK_STACK_PAGES            0x400       // * 4MB
 #define TASK_KERNEL_STACK_PAGES     0x20        // * 128KB
 
@@ -154,6 +156,9 @@ pid_t task_generate_pid();
 void task_write_at_address_1b(thread_t* task, uint64_t address, uint8_t value);
 void task_write_at_aligned_address_8b(thread_t* task, uint64_t address, uint64_t value);
 void task_write_at_address_8b(thread_t* task, uint64_t address, uint64_t value);
+uint8_t task_read_at_address_1b(thread_t* task, uint64_t address);
+uint64_t task_read_at_aligned_address_8b(thread_t* task, uint64_t address);
+uint64_t task_read_at_address_8b(thread_t* task, uint64_t address);
 
 void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg);
 void task_set_name(thread_t* task, const char* name);

@@ -73,7 +73,7 @@ void handle_syscall(interrupt_registers_t* registers)
         lock_task_queue();
         __CURRENT_TASK.return_value = (registers->rbx & 0xff) | WEXITBIT;
         __CURRENT_TASK.is_dead = true;
-        tasks_log();
+        // tasks_log();
         unlock_task_queue();
         switch_task();
         break;

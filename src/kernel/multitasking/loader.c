@@ -61,20 +61,19 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
     task_set_name(&task, name);
     task.cr3 = task_create_empty_vas(ring == 0 ? PG_SUPERVISOR : PG_USER);
 
-    task.rsp = TASK_STACK_TOP_ADDRESS - 8; // make_address_canonical(TASK_STACK_TOP_ADDRESS);
+    task.rsp = TASK_STACK_TOP_ADDRESS - 8;
 
-    startup_data_struct_t data_cpy;
+    startup_data_struct_t data_cpy = *data;
 
-    int num_environ = 0;
-    while (data->environ[num_environ])
-        num_environ++;
+    if (~(data->argc + data->envc) & 1)   // * align stack to 16 bytes
+        task_stack_push(&task, 0);
 
-    for (int i = 0; i <= num_environ; i++)
-        task_stack_push(&task, (uint64_t)data->environ[num_environ - i]);
+    for (int i = 0; i <= data->envc; i++)
+        task_stack_push(&task, (uint64_t)data->environ[data->envc - i]);
 
     data_cpy.environ = (char**)task.rsp;
 
-    for (int i = 0; i <= num_environ; i++)
+    for (int i = 0; i <= data->envc; i++)
     {
         if (data->environ[i])
         {
@@ -85,29 +84,34 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
             task_write_at_address_8b(&task, (uint64_t)&data_cpy.environ[i], 0);
     }
 
-    int argc = 0;
-    while (data->cmd_line[argc])
-        argc++;
+    for (int i = 0; i <= data->argc; i++)
+        task_stack_push(&task, (uint64_t)data->cmd[data->argc - i]);
 
-    for (int i = 0; i <= argc; i++)
-        task_stack_push(&task, (uint64_t)data->cmd_line[argc - i]);
+    data_cpy.cmd = (char**)task.rsp;
 
-    data_cpy.cmd_line = (char**)task.rsp;
-
-    for (int i = 0; i <= argc; i++)
+    for (int i = 0; i <= data->argc; i++)
     {
-        if (data->cmd_line[i])
+        if (data->cmd[i])
         {
-            task_stack_push_string(&task, data->cmd_line[i]);
-            task_write_at_address_8b(&task, (uint64_t)&data_cpy.cmd_line[i], task.rsp);
+            task_stack_push_string(&task, data->cmd[i]);
+            task_write_at_address_8b(&task, (uint64_t)&data_cpy.cmd[i], task.rsp);
         }
         else
-            task_write_at_address_8b(&task, (uint64_t)&data_cpy.cmd_line[i], 0);
+            task_write_at_address_8b(&task, (uint64_t)&data_cpy.cmd[i], 0);
     }
 
-    task_stack_push_data(&task, &data_cpy, sizeof(data_cpy));
+    // task_stack_push_data(&task, &data_cpy, sizeof(data_cpy));
+    
+    for (int i = 0; i < data->envc + 1; i++)
+        task_stack_push(&task, task_read_at_aligned_address_8b(&task, (uint64_t)&data_cpy.environ[data->envc - i]));
+    for (int i = 0; i < data->argc + 1; i++)
+        task_stack_push(&task, task_read_at_aligned_address_8b(&task, (uint64_t)&data_cpy.cmd[data->argc - i]));
 
-    task_stack_push(&task, task.rsp);
+    task_stack_push(&task, (uint64_t)data_cpy.environ);
+    task_stack_push(&task, (uint64_t)data_cpy.cmd);
+    task_stack_push(&task, (uint64_t)data_cpy.argc);
+
+    // task_stack_push(&task, task.rsp);
 
     task_setup_stack(&task, header->entry, 
         ring == 0 ? KERNEL_CODE_SEGMENT : USER_CODE_SEGMENT, 
@@ -126,12 +130,6 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
     {
         elf64_program_header_t* ph = (elf64_program_header_t*)&file->data[header->phoff + i * header->phentsize];
         if (ph->type == ELF_PROGRAM_TYPE_NULL) continue;
-        if (ph->type != ELF_PROGRAM_TYPE_LOAD) 
-        {
-            LOG(ERROR, "Unsupported ELF program header type");
-            task_destroy(&task);
-            return false;
-        }
 
         LOG(DEBUG, "Program header %u : ", i);
         LOG(DEBUG, "├── Type : \"%s\"", elf64_get_phtype_string(ph->type));
@@ -139,6 +137,14 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
         LOG(DEBUG, "├── File offset : %#llx", ph->p_offset);
         LOG(DEBUG, "├── Memory size : %u bytes", ph->p_memsz);
         LOG(DEBUG, "└── File size : %u bytes", ph->p_filesz);
+
+        if (ph->type != ELF_PROGRAM_TYPE_LOAD) 
+        {
+            // LOG(ERROR, "Unsupported ELF program header type");
+            // task_destroy(&task);
+            // return false;
+            continue;
+        }
 
         virtual_address_t start_address = ph->p_vaddr & ~0xfff;
         virtual_address_t end_address = ph->p_vaddr + ph->p_memsz;

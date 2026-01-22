@@ -6,7 +6,7 @@ default rel
 extern _main
 global _start
 _start:
-    pop qword [kernel_data]
+    mov [kernel_data], rsp
     mov rbp, 0
     call .start ; stack frame
     jmp $

@@ -50,8 +50,8 @@ static const int tss_rsp0_offset = offsetof(struct tss_entry, rsp0);
 
 #define KERNEL_CODE_SEGMENT 	0x08
 #define KERNEL_DATA_SEGMENT 	0x10
-#define USER_CODE_SEGMENT   	(0x18 | 3)
-#define USER_DATA_SEGMENT   	(0x20 | 3)
+#define USER_DATA_SEGMENT   	(0x18 | 3)
+#define USER_CODE_SEGMENT   	(0x20 | 3)
 #define TSS_SEGMENT   			0x28
 
 extern struct gdt_entry GDT[7];	// 5 + 2 for TSS

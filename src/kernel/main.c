@@ -377,8 +377,8 @@ void _start()
     memset(&GDT[0], 0, sizeof(struct gdt_entry));       // NULL Descriptor
     setup_gdt_entry(&GDT[1], 0, 0xfffff, 0x9A, 0xA);    // Kernel mode code segment
     setup_gdt_entry(&GDT[2], 0, 0xfffff, 0x92, 0xC);    // Kernel mode data segment
-    setup_gdt_entry(&GDT[3], 0, 0xfffff, 0xFA, 0xA);    // User mode code segment
-    setup_gdt_entry(&GDT[4], 0, 0xfffff, 0xF2, 0xC);    // User mode data segment
+    setup_gdt_entry(&GDT[3], 0, 0xfffff, 0xF2, 0xC);    // User mode data segment
+    setup_gdt_entry(&GDT[4], 0, 0xfffff, 0xFA, 0xA);    // User mode code segment
 
     memset(&TSS, 0, sizeof(struct tss_entry));
     TSS.rsp0 = TASK_KERNEL_STACK_TOP_ADDRESS;
@@ -572,8 +572,8 @@ void _start()
     //     while (true);
     // }
 
-    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/initrd/bin/init.elf", NULL}, (char*[]){"PATH=/initrd/bin/", NULL});
-    if (!multitasking_add_task_from_vfs("init", "/initrd/bin/init.elf", 0, true, &data, vfs_root))
+    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/initrd/bin/init", NULL}, (char*[]){"PATH=/initrd/bin", NULL});
+    if (!multitasking_add_task_from_vfs("init", "/initrd/bin/init", 0, true, &data, vfs_root))
     {
         LOG(CRITICAL, "init task couldn't start");
         abort();
@@ -582,6 +582,12 @@ void _start()
     // multitasking_add_task_from_function("test", test_func);
 
     LOG(DEBUG, "Starting multitasking...");
+
+    // TODO: Check cpuid
+    wrmsr(IA32_EFER_MSR, rdmsr(IA32_EFER_MSR) | 1); // * enable syscalls
+    // * In Long Mode, userland CS will be loaded from STAR 63:48 + 16 and userland SS from STAR 63:48 + 8 on SYSRET.
+    wrmsr(IA32_STAR_MSR, ((uint64_t)(KERNEL_DATA_SEGMENT | 3) << 48) | ((uint64_t)KERNEL_CODE_SEGMENT << 32));
+    wrmsr(IA32_LSTAR_MSR, (uint64_t)syscall_handler);
 
     multitasking_start();
 

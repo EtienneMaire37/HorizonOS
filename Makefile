@@ -5,10 +5,11 @@ CROSSLD := ./crosstoolchain/bin/x86_64-elf-ld
 CROSSNM := ./crosstoolchain/bin/x86_64-elf-nm
 CROSSAR := ./crosstoolchain/bin/x86_64-elf-ar
 CROSSSTRIP := ./crosstoolchain/bin/x86_64-elf-strip
+HOSGCC := ./hostoolchain/usr/bin/x86_64-horizonos-gcc
 DIR2FAT32 := ./dir2fat32/dir2fat32.sh
-USERGCC := 
 USER_CFLAGS := 
 MKBOOTIMG := ./bootboot/mkbootimg/mkbootimg
+SYSROOT_DIR := ${PWD}/root
 
 KERNEL_SRC := $(shell find src/kernel -name '*.c')
 KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
@@ -18,9 +19,14 @@ ASM_OBJ := $(ASM_SRC:src/kernel/%.asm=bin/%.asm.o)
 
 KERNEL_ELF := bin/kernel.elf
 
-.PHONY: all run rmbin clean
+.PHONY: all run rmbin clean mlibc
 
 all: horizonos.iso
+
+mlibc: mlibc/src/syscall.cpp mlibc/src/sysdeps.cpp $(HOSGCC)
+	export PATH="${SYSROOT_DIR}/usr/bin:${PATH}"
+	cp mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
+	cd mlibc/mlibc && DESTDIR=${SYSROOT_DIR} ninja -C build install
 
 bin/%.o: src/kernel/%.c Makefile
 	mkdir -p $(dir $@)
@@ -52,7 +58,7 @@ run:
 	-drive file=horizonos.iso,index=0,media=disk,format=raw \
 	-smp 8
 
-horizonos.iso: $(CROSSGCC) $(USERGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.ids src/tasks/bin/init.elf $(KERNEL_ELF)
+horizonos.iso: $(CROSSGCC) $(USERGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF)
 	mkdir -p ./bin/initrd_contents
 
 	rm -f src/tasks/bin/*.o
@@ -67,33 +73,26 @@ horizonos.iso: $(CROSSGCC) $(USERGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.id
 
 	rm -f bin/horizonos.bin
 
-	PATH="/usr/sbin:${PATH}" $(DIR2FAT32) bin/horizonos.bin 256 ./root
+	PATH="/usr/sbin:${PATH}" $(DIR2FAT32) bin/horizonos.bin 2048 ./root
 	
 	$(MKBOOTIMG) src/kernel/bootboot.json horizonos.iso
 
 # 	qemu-img convert -O vdi horizonos.iso horizonos.vdi
 
-src/tasks/bin/init.elf: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
+src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
 	$(CROSSGCC) -c "src/tasks/src/init/main.c" -o "src/tasks/bin/init.o" $(CFLAGS) -I"src/libc/include" -O3
 	$(CROSSGCC) \
-	-o "src/tasks/bin/init.elf" $(CFLAGS) \
+	-o "src/tasks/bin/init" $(CFLAGS) \
 	"src/tasks/bin/init.o" \
 	"src/libc/lib/crt0.o" \
 	"src/libc/lib/libc.a" \
 	-ffreestanding -nostdlib \
 	-lgcc
 
-src/tasks/bin/echo: src/tasks/src/echo/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
+src/tasks/bin/echo: src/tasks/src/echo/* mlibc $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(CROSSGCC) -c "src/tasks/src/echo/main.c" -o "src/tasks/bin/echo.o" $(CFLAGS) -I"src/libc/include" -O3
-	$(CROSSGCC) \
-    -o "src/tasks/bin/echo" \
-	"src/libc/lib/crt0.o" \
-    "src/tasks/bin/echo.o" \
-    "src/libc/lib/libc.a" \
-	-ffreestanding -nostdlib \
-	-lgcc
+	$(HOSGCC) ./src/tasks/src/echo/main.c -o src/tasks/bin/echo -O3
 
 src/tasks/bin/ls: src/tasks/src/ls/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
@@ -172,8 +171,8 @@ src/libc/lib/klibc.a: src/libc/src/* src/libc/include/*
 $(CROSSGCC):
 	sh install-cross-toolchain.sh
 
-$(USERGCC):
-	sh install-custom-toolchain.sh
+$(HOSGCC):
+	sh install-hos-toolchain.sh
 
 $(MKBOOTIMG):
 	git clone https://gitlab.com/bztsrc/bootboot.git bootboot

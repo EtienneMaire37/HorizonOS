@@ -19,15 +19,19 @@ void _main()
 
     malloc_bitmap_init();
 
-    startup_data_struct_t* data = (startup_data_struct_t*)kernel_data;
+    uint64_t* data = (uint64_t*)kernel_data;
 
-    environ = data->environ;
+    int argc = data[0];
+    char** argv = (char**)data[1];
+
+    char** __environ = (char**)data[2];
+
     int environ_num = 0;
-    while (environ[environ_num])
-        environ_num++;
+    if (__environ)
+        while (__environ[environ_num])
+            environ_num++;
 
-    // for (int i = 0; i < environ_num; i++)
-    //     dprintf(STDOUT_FILENO, "\"%s\"\n", environ[i]);
+    // while (true);
 
     stdin = FILE_create();
     if (stdin == NULL) abort();
@@ -49,10 +53,10 @@ void _main()
     {
         for (int i = 0; i < environ_num; i++)
         {
-            _environ[i] = malloc((__builtin_strlen(environ[i]) + 1));
+            _environ[i] = malloc((__builtin_strlen(__environ[i]) + 1));
             if (!_environ[i])
                 abort();
-            __builtin_strcpy(_environ[i], environ[i]);
+            __builtin_strcpy(_environ[i], __environ[i]);
         }
         num_environ = environ_num;
         environ = _environ;
@@ -65,15 +69,16 @@ void _main()
 
     create_b64_decoding_table();
 
-    char** argv = data->cmd_line;
-    int argc = 0;
-    if (argv)
-    {
-        while (argv[argc])
-            argc++;
-    }
-
-    // printf("argc : %d\n", argc);
+    // dprintf(STDOUT_FILENO, "environ:\n");
+    // for (int i = 0; i < environ_num; i++)
+    //     dprintf(STDOUT_FILENO, "\"%s\"\n", __environ[i]);
+    // dprintf(STDOUT_FILENO, "environ:\n");
+    // for (int i = 0; i < environ_num; i++)
+    //     dprintf(STDOUT_FILENO, "\"%s\"\n", environ[i]);
+    // dprintf(STDOUT_FILENO, "argv:\n");
+    // for (int i = 0; i < argc; i++)
+    //     dprintf(STDOUT_FILENO, "\"%s\"\n", argv[i]);
+    // dprintf(STDOUT_FILENO, "---\n");
 
     call_main_exit(argc, argv);
     while(true);

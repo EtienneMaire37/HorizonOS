@@ -29,8 +29,8 @@ int execvpe(const char* file, char* const argv[], char* const envp[])
 {
     execve(file, argv, envp);
 
-    if (!(errno == ENOENT || errno == ENOTDIR || errno == EACCES))
-        return -1;
+    // if (!(errno == ENOENT || errno == ENOTDIR || errno == EACCES))
+    //     return -1;
 
     const size_t file_len = strlen(file);
     for (size_t i = 0; i < file_len; i++)

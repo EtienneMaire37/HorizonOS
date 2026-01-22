@@ -1,8 +1,11 @@
 #pragma once
 
+#include "../../libc/include/stdint.h"
+
 typedef struct __attribute__((packed)) startup_data_struct
 {
-    char** cmd_line;
+    int64_t argc, envc;
+    char** cmd;
     char** environ;
 } startup_data_struct_t;
 

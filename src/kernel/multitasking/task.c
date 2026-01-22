@@ -241,6 +241,55 @@ void task_write_at_address_8b(thread_t* task, uint64_t address, uint64_t value)
     task_write_at_address_1b(task, address + 7, (value >> 56) & 0xff);
 }
 
+uint8_t task_read_at_address_1b(thread_t* task, uint64_t address)
+{
+    if (task->cr3 == physical_null)
+    {
+        LOG(WARNING, "Kernel tried to write into a null vas");
+        return 0;
+    }
+    
+    uint8_t* ptr = (uint8_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), address);
+    
+    return *ptr;
+}
+
+uint64_t task_read_at_aligned_address_8b(thread_t* task, uint64_t address)
+{
+    if (task->cr3 == physical_null)
+    {
+        LOG(WARNING, "task_write_at_aligned_address_8b: Kernel tried to write into a null vas");
+        return 0;
+    }
+    if (address & 7)    // ! Not aligned
+    {
+        LOG(CRITICAL, "task_write_at_aligned_address_8b: Address %#.16llx not aligned", address);
+        abort();
+    }
+
+    uint64_t* ptr = (uint64_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), address);
+    
+    return *ptr;
+}
+
+uint64_t task_read_at_address_8b(thread_t* task, uint64_t address)
+{
+    if (task->cr3 == physical_null)
+    {
+        LOG(WARNING, "Kernel tried to write into a null vas");
+        return 0;
+    }
+
+    return (((uint64_t)task_read_at_address_1b(task, address + 0) <<  0) |
+            ((uint64_t)task_read_at_address_1b(task, address + 1) <<  8) |
+            ((uint64_t)task_read_at_address_1b(task, address + 2) << 16) |
+            ((uint64_t)task_read_at_address_1b(task, address + 3) << 24) |
+            ((uint64_t)task_read_at_address_1b(task, address + 4) << 32) |
+            ((uint64_t)task_read_at_address_1b(task, address + 5) << 40) |
+            ((uint64_t)task_read_at_address_1b(task, address + 6) << 48) |
+            ((uint64_t)task_read_at_address_1b(task, address + 7) << 56));
+}
+
 void switch_task()
 {
     if (task_count == 0)
