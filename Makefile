@@ -24,9 +24,8 @@ KERNEL_ELF := bin/kernel.elf
 all: horizonos.iso
 
 mlibc: mlibc/src/syscall.cpp mlibc/src/sysdeps.cpp $(HOSGCC)
-	export PATH="${SYSROOT_DIR}/usr/bin:${PATH}"
 	cp mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
-	cd mlibc/mlibc && DESTDIR=${SYSROOT_DIR} ninja -C build install
+	cd mlibc/mlibc && PATH="${SYSROOT_DIR}/usr/bin:${PATH}" DESTDIR=${SYSROOT_DIR} ninja -C build install
 
 bin/%.o: src/kernel/%.c Makefile
 	mkdir -p $(dir $@)
