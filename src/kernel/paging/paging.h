@@ -29,7 +29,7 @@ extern uint64_t PHYS_MAP_BASE;
 
 static const uint8_t pdpt_pat_bits[8] = 
 {
-    3,
+    2,
     3,
     0,
     0,
@@ -61,10 +61,12 @@ static inline void init_pat()
 
     // * WC if PAT is set or UC, default else
     wrmsr(IA32_PAT_MSR, 
+
          CACHE_WB | 
         (CACHE_WT << 8) | 
-        (CACHE_UC_MINUS << 16) | 
+        (CACHE_UC << 16) | 
         (CACHE_WC << 24) |
+
         (CACHE_WC << 32) |
         (CACHE_WC << 40) |
         (CACHE_WC << 48) |

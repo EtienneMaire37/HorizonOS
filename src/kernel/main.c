@@ -77,6 +77,7 @@ int num_environ;
 #include "ps2/keyboard.h"
 #include "pci/pci.h"
 #include "multitasking/startup_data.h"
+#include "cpu/segbase.h"
 
 initrd_file_t* commit_file;
 
@@ -293,7 +294,7 @@ void _start()
     // * LAPIC registers
         printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
         LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
-        remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WT);
+        remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
 
     // * Framebuffer
         printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
@@ -582,6 +583,10 @@ void _start()
     // multitasking_add_task_from_function("test", test_func);
 
     LOG(DEBUG, "Starting multitasking...");
+
+    wrgsbase(0);    // For ring 3
+    sc_data.kernel_rsp = TASK_KERNEL_STACK_TOP_ADDRESS;
+    wrmsr(IA32_KERNEL_GS_BASE_MSR, (uint64_t)&sc_data);
 
     // TODO: Check cpuid
     wrmsr(IA32_EFER_MSR, rdmsr(IA32_EFER_MSR) | 1); // * enable syscalls
