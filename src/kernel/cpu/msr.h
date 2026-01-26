@@ -10,10 +10,9 @@
 #define IA32_STAR_MSR               0xC0000081
 #define IA32_LSTAR_MSR              0xC0000082
 
-#define IA32_KERNEL_GS_BASE_MSR     0xC0000102
-
 #define IA32_FS_BASE_MSR            0xC0000100
 #define IA32_GS_BASE_MSR            0xC0000101
+#define IA32_KERNEL_GS_BASE_MSR     0xC0000102
 
 static inline __attribute__((always_inline)) uint64_t rdmsr(uint32_t msr)
 {

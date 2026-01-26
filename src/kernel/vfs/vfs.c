@@ -9,6 +9,8 @@
 #include "../../libc/include/errno.h"
 #include "../../libc/include/fcntl.h"
 #include "../../libc/src/misc.h"
+#include "../../libc/src/math_utils.h"
+#include "../vga/textio.h"
 
 file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 vfs_folder_tnode_t* vfs_root = NULL;
@@ -753,4 +755,46 @@ void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth)
         CONTINUE_LOG(DEBUG, ")");
         current_file = current_file->next;
     }
+}
+
+ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
+{
+    switch(direction)
+    {
+    case CHR_DIR_READ:
+        if (count == 0)
+            return 0;
+        if (no_buffered_characters(__CURRENT_TASK.input_buffer))
+        {
+            __CURRENT_TASK.reading_stdin = true;
+            switch_task();
+        }
+        uint64_t ret = minint(get_buffered_characters(__CURRENT_TASK.input_buffer), count);
+        for (uint32_t i = 0; i < count; i++)
+            // *** Only ASCII for now ***
+            buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&__CURRENT_TASK.input_buffer));
+        return ret;
+    case CHR_DIR_WRITE:
+        return 0;
+    }
+    return 0;
+}
+
+ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
+{
+    switch(direction)
+    {
+    case CHR_DIR_READ:
+        return 0;
+    case CHR_DIR_WRITE:
+        for (uint32_t i = 0; i < count; i++)
+            tty_outc(buf[i]);
+        return count;
+    }
+    return 0;
+}
+
+ssize_t task_chr_stderr(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
+{
+    return task_chr_stdout(entry, buf, count, direction);
 }

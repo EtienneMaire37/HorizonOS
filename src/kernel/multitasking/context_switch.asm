@@ -6,7 +6,6 @@ extern task_cr3_offset
 
 extern STATE_COMPONENT_BITMAP
 
-; void __attribute__((sysv_abi)) context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds, uint8_t* old_fpu_state, uint8_t* next_fpu_state)
 global context_switch
 context_switch:
 ; * RDI, RSI, RDX, RCX, R8 are arguments (they are caller saved so no need to push them)

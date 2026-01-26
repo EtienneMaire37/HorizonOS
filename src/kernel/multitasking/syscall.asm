@@ -1,13 +1,15 @@
 bits 64
 section .text
 
+extern c_syscall_handler
+
 global syscall_handler
 syscall_handler:
     cld
 
-    swapgs
-
     cli
+
+    swapgs
 
     mov gs:0, rsp
     mov rsp, gs:8
@@ -30,9 +32,10 @@ syscall_handler:
     push r14
     push r15
 
-    sub rsp, 8 ; * align stack
+    mov rdi, rsp
+    sub rsp, 8
 
-    ; 
+    call c_syscall_handler
 
     add rsp, 8
 

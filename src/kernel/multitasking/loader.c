@@ -65,7 +65,7 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
 
     startup_data_struct_t data_cpy = *data;
 
-    if (~(data->argc + data->envc) & 1)   // * align stack to 16 bytes
+    if ((data->argc + data->envc) & 1)   // * align stack to 16 bytes
         task_stack_push(&task, 0);
 
     for (int i = 0; i <= data->envc; i++)

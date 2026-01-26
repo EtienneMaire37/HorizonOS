@@ -13,6 +13,7 @@ uint64_t syscall1_1(uint64_t calln, uint64_t a1);
 void STUB()
 {
 	while (true);
+	__builtin_unreachable();
 }
 
 namespace mlibc 
@@ -44,8 +45,8 @@ namespace mlibc
 
 	int sys_tcb_set(void* pointer) 
 	{
-		syscall1_1(SYS_SETFS, (uint64_t)pointer);
-		STUB();
+		syscall1_1(SYS_SETFS, (uint64_t)pointer); // + sizeof(Tcb));
+		return 0;
 	}
 
 	int sys_anon_allocate(size_t size, void** pointer) 

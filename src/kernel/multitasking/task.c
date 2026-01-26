@@ -42,6 +42,7 @@ thread_t task_create_empty()
 
     task.cr3 = physical_null;
     task.ring = 0;
+    task.fs_base = 0;
 
     task.rsp = 0;
 

@@ -26,3 +26,13 @@ static void wrgsbase(uint64_t address)
 
     wrmsr(IA32_GS_BASE_MSR, address);
 }
+
+static uint64_t rdfsbase()
+{
+    return rdmsr(IA32_FS_BASE_MSR);
+}
+
+static uint64_t rdgsbase()
+{
+    return rdmsr(IA32_GS_BASE_MSR);
+}

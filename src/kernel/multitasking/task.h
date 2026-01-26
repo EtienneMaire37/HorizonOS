@@ -1,10 +1,10 @@
 #pragma once
 
 #include "../io/keyboard.h"
-#include "mutex.h"
 #include "../vfs/vfs.h"
 #include "../../libc/include/limits.h"
 #include "../gdt/gdt.h"
+#include "../cpu/segbase.h"
 
 #include "mutex.h"
 
@@ -15,6 +15,7 @@ typedef struct thread
     char name[THREAD_NAME_MAX];
 
     uint64_t rsp, cr3;
+    uint64_t fs_base;
 
     utf32_buffer_t input_buffer;
     bool reading_stdin, is_dead;
@@ -104,12 +105,15 @@ static inline int vfs_allocate_thread_file(int index)
     return -1;
 }
 
-extern void __attribute__((sysv_abi)) context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds, uint8_t* old_fpu_state, uint8_t* next_fpu_state);
+extern void context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds, uint8_t* old_fpu_state, uint8_t* next_fpu_state);
 static inline void full_context_switch(uint16_t next_task_index)
 {
     int last_index = current_task_index;
     current_task_index = next_task_index;
     TSS.rsp0 = TASK_KERNEL_STACK_TOP_ADDRESS;
+
+    tasks[last_index].fs_base = rdfsbase();
+    wrfsbase(__CURRENT_TASK.fs_base);
     
     context_switch(&tasks[last_index], &__CURRENT_TASK, __CURRENT_TASK.ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT,
     tasks[last_index].fpu_state, __CURRENT_TASK.fpu_state);
