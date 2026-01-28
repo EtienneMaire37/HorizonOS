@@ -46,6 +46,7 @@ namespace mlibc
 	int sys_tcb_set(void* pointer) 
 	{
 		syscall1_1(SYS_SETFS, (uint64_t)pointer); // + sizeof(Tcb));
+		while (true);
 		return 0;
 	}
 

@@ -109,8 +109,8 @@ _interrupt_handler:
     mov ax, 0x10
     mov ds, ax
     mov es, ax
-    mov fs, ax
-    mov gs, ax
+    ; mov fs, ax
+    ; mov gs, ax
     mov ss, ax
 
     mov rax, cr2
@@ -130,18 +130,13 @@ _interrupt_handler:
     call interrupt_handler
     cli
     
-    ; mov rdi, 'A'
-    ; call putchar
-    ; mov rdi, 10
-    ; call putchar
-    
     add rsp, 8 + 8  ; skip cr2 and cr3
 
     pop rax
     mov ds, ax
     mov es, ax
-    mov fs, ax
-    mov gs, ax
+    ; mov fs, ax
+    ; mov gs, ax
 
     pop r15
     pop r14

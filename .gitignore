@@ -24,3 +24,5 @@ pci.ids
 .VSCodeCounter/
 
 data.txt
+
+mlibc/.built

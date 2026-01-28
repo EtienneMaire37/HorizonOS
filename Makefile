@@ -19,13 +19,18 @@ ASM_OBJ := $(ASM_SRC:src/kernel/%.asm=bin/%.asm.o)
 
 KERNEL_ELF := bin/kernel.elf
 
-.PHONY: all run rmbin clean mlibc
+MLIBC_STAMP := mlibc/.built
+
+.PHONY: all run rmbin clean
 
 all: horizonos.iso
 
-mlibc: mlibc/src/syscall.cpp mlibc/src/sysdeps.cpp $(HOSGCC)
+mlibc: $(MLIBC_STAMP)
+
+$(MLIBC_STAMP): mlibc/src/syscall.cpp mlibc/src/sysdeps.cpp $(HOSGCC)
 	cp mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
 	cd mlibc/mlibc && PATH="${SYSROOT_DIR}/usr/bin:${PATH}" DESTDIR=${SYSROOT_DIR} ninja -C build install
+	touch $@
 
 bin/%.o: src/kernel/%.c Makefile
 	mkdir -p $(dir $@)
@@ -89,7 +94,7 @@ src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/echo s
 	-ffreestanding -nostdlib \
 	-lgcc
 
-src/tasks/bin/echo: src/tasks/src/echo/* mlibc $(HOSGCC) Makefile
+src/tasks/bin/echo: src/tasks/src/echo/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
 	$(HOSGCC) ./src/tasks/src/echo/main.c -o src/tasks/bin/echo -O3
 

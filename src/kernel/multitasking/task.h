@@ -15,7 +15,7 @@ typedef struct thread
     char name[THREAD_NAME_MAX];
 
     uint64_t rsp, cr3;
-    uint64_t fs_base;
+    uint64_t fs_base, gs_base;
 
     utf32_buffer_t input_buffer;
     bool reading_stdin, is_dead;
@@ -113,7 +113,9 @@ static inline void full_context_switch(uint16_t next_task_index)
     TSS.rsp0 = TASK_KERNEL_STACK_TOP_ADDRESS;
 
     tasks[last_index].fs_base = rdfsbase();
+    tasks[last_index].gs_base = rdgsbase();
     wrfsbase(__CURRENT_TASK.fs_base);
+    wrgsbase(__CURRENT_TASK.gs_base);
     
     context_switch(&tasks[last_index], &__CURRENT_TASK, __CURRENT_TASK.ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT,
     tasks[last_index].fpu_state, __CURRENT_TASK.fpu_state);

@@ -594,6 +594,8 @@ void _start()
     wrmsr(IA32_STAR_MSR, ((uint64_t)(KERNEL_DATA_SEGMENT | 3) << 48) | ((uint64_t)KERNEL_CODE_SEGMENT << 32));
     wrmsr(IA32_LSTAR_MSR, (uint64_t)syscall_handler);
 
+    log_segbase();
+
     multitasking_start();
 
     while(true)

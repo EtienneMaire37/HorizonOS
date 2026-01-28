@@ -9,6 +9,7 @@ initrd_file_t* kernel_symbols_file = NULL;
 #include "../multitasking/syscall.h"
 #include "int.h"
 #include "irq.h"
+#include "nmi.h"
 
 #include "kernel_panic.h"
 
@@ -16,6 +17,13 @@ initrd_file_t* kernel_symbols_file = NULL;
 
 void interrupt_handler(interrupt_registers_t* registers)
 {
+    // LOG(TRACE, "Interrupt %llu", registers->interrupt_number);
+    if (registers->interrupt_number == 2)       // * NMI
+    {
+        LOG(TRACE, "NMI: %#x, %#x", inb(SYSTEM_CONTROL_PORT_A), inb(SYSTEM_CONTROL_PORT_B));
+
+        return_from_isr();
+    }
     if (registers->interrupt_number < 32)       // * Fault
     {
         LOG(WARNING, multitasking_enabled ? "[task \"%s\" (pid %u)]: " : "", __CURRENT_TASK.name, __CURRENT_TASK.pid);
@@ -23,6 +31,8 @@ void interrupt_handler(interrupt_registers_t* registers)
             registers->interrupt_number, get_error_message(registers->interrupt_number, registers->error_code), 
             registers->error_code, registers->cr2, registers->cr3, registers->rip);
         
+        LOG(WARNING, "CS: %#.16llx DS: %#.16llx SS: %#.16llx", registers->cs, registers->ds, registers->ss);
+
         if (__CURRENT_TASK.system_task || task_count == 1 || !multitasking_enabled || registers->interrupt_number == 8 || registers->interrupt_number == 18)
         // System task or last task or multitasking not enabled or Double Fault or Machine Check
         {

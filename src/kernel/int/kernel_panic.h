@@ -9,6 +9,7 @@
 #include "int.h"
 #include "../paging/paging.h"
 #include "../../libc/src/math_utils.h"
+#include "../cpu/segbase.h"
 
 extern initrd_file_t* commit_file;
 
@@ -16,7 +17,8 @@ extern initrd_file_t* commit_file;
     registers->rsp, registers->rbp, registers->rax, registers->rbx, registers->rcx, registers->rdx);    \
     LOG(INFO, "R8=%#.16llx R9=%#.16llx R10=%#.16llx R11=%#.16llx R12=%#.16llx R13=%#.16llx R14=%#.16llx R15=%#.16llx",  \
     registers->r8, registers->r9, registers->r10, registers->r11, registers->r12, registers->r13, registers->r14, registers->r15);  \
-    LOG(INFO, "RDI=%#.16llx RSI=%#.16llx", registers->rdi, registers->rsi);
+    LOG(INFO, "RDI=%#.16llx RSI=%#.16llx", registers->rdi, registers->rsi); \
+    log_segbase();
 
 #define is_a_valid_function(symbol_type) ((symbol_type) == 'T' || (symbol_type) == 'R' || (symbol_type) == 't' || (symbol_type) == 'r')  
 

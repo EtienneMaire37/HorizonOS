@@ -5,11 +5,11 @@
 void c_syscall_handler(syscall_registers_t* registers)
 {
     // LOG(DEBUG, "syscall %llu", registers->rax);
-    switch(registers->rax)
+    switch (registers->rax)
     {
     {
     sc_case(SYS_SETFS, 1, uint64_t)
-        SC_LOG("syscall SYS_SETFS(%llx)", arg1);
+        SC_LOG("syscall SYS_SETFS(%#llx)", arg1);
         wrfsbase(arg1);
         break;
     }

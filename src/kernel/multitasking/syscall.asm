@@ -11,10 +11,8 @@ syscall_handler:
 
     swapgs
 
-    mov gs:0, rsp
-    mov rsp, gs:8
-
-    sti
+    mov [gs:0], rsp
+    mov rsp, [gs:8]
 
     push rax
     push rcx
@@ -33,11 +31,20 @@ syscall_handler:
     push r15
 
     mov rdi, rsp
-    sub rsp, 8
 
+    xor rax, rax
+    mov ax, ds
+    push rax
+
+    mov ax, ss
+    mov ds, ax
+
+    sti
     call c_syscall_handler
+    cli
 
-    add rsp, 8
+    pop rax
+    mov ds, ax
 
     pop r15
     pop r14
@@ -55,9 +62,7 @@ syscall_handler:
     pop rcx
     pop rax
 
-    cli
-
-    mov rsp, gs:0
+    mov rsp, [gs:0]
 
     swapgs
 
