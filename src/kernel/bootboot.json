@@ -5,6 +5,6 @@
     "initrd": { "type": "tar", "gzip": false, "directory": "./bin/initrd_contents" },
     "partitions": [
         { "type": "boot", "size": 16 },
-        { "type": "fat", "size": 2048, "name": "HorizonOS", "file": "bin/horizonos.bin" }
+        { "type": "fat", "size": 128, "name": "HorizonOS", "file": "bin/horizonos.bin" }
     ]
 }

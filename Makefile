@@ -5,7 +5,6 @@ CROSSNM := ./hostoolchain/usr/bin/x86_64-horizonos-nm
 CROSSAR := ./hostoolchain/usr/bin/x86_64-horizonos-ar
 CROSSSTRIP := ./hostoolchain/usr/bin/x86_64-horizonos-strip
 HOSGCC := ./hostoolchain/usr/bin/x86_64-horizonos-gcc
-DIR2FAT32 := ./dir2fat32/dir2fat32.sh
 USER_CFLAGS := 
 MKBOOTIMG := ./bootboot/mkbootimg/mkbootimg
 SYSROOT_DIR := ${PWD}/root
@@ -61,7 +60,7 @@ run:
 	-drive file=horizonos.iso,index=0,media=disk,format=raw \
 	-smp 8
 
-horizonos.iso: $(HOSGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF)
+horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF)
 	mkdir -p ./bin/initrd_contents
 
 	rm -f src/tasks/bin/*.o
@@ -76,7 +75,8 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.ids src/tasks/b
 
 	rm -f bin/horizonos.bin
 
-	PATH="/usr/sbin:${PATH}" $(DIR2FAT32) bin/horizonos.bin 2048 ./root
+# 	PATH="/usr/sbin:${PATH}" $(DIR2FAT32) bin/horizonos.bin 2048 ./root
+	dd if=/dev/zero of=bin/horizonos.bin bs=1M count=1
 	
 	$(MKBOOTIMG) src/kernel/bootboot.json horizonos.iso
 
@@ -177,10 +177,6 @@ $(HOSGCC):
 $(MKBOOTIMG):
 	git clone https://gitlab.com/bztsrc/bootboot.git bootboot
 	cd bootboot/mkbootimg && make
-
-$(DIR2FAT32):
-	git clone https://github.com/Othernet-Project/dir2fat32.git dir2fat32
-	chmod +x dir2fat32/dir2fat32.sh
 
 resources/pci.ids:
 	mkdir -p resources

@@ -58,10 +58,11 @@ typedef struct __attribute__((packed))
     { \
         SC_ARGS_SELECT(argc, __VA_ARGS__)
 
-#define SC_RET0     registers->rax
-#define SC_RET1     registers->rbx
+#define SC_RET0         registers->rax
+#define SC_RET1         registers->rbx
 
-#define sc_ret(n) SC_RET##n
+#define sc_ret(n)       SC_RET##n
+#define sc_ret_errno    sc_ret(0)
 
 #ifdef LOG_SYSCALLS
 #define SC_LOG(fmt, ...) LOG(TRACE, fmt, __VA_ARGS__)

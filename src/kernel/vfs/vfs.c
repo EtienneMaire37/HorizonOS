@@ -702,7 +702,7 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
     return 0;
 }
 
-int vfs_write(int fd, unsigned char* buffer, uint64_t bytes_to_write, uint64_t* bytes_written)
+int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, uint64_t* bytes_written)
 {
     if (!bytes_written) abort();
     if (__CURRENT_TASK.file_table[fd] < 0 || __CURRENT_TASK.file_table[fd] >= MAX_FILE_TABLE_ENTRIES)
@@ -718,7 +718,7 @@ int vfs_write(int fd, unsigned char* buffer, uint64_t bytes_to_write, uint64_t* 
     if (file_table[__CURRENT_TASK.file_table[fd]].entry_type == ET_FILE)
     {
         mode_t mode = file_table[__CURRENT_TASK.file_table[fd]].tnode.file->inode->st.st_mode;
-        *bytes_written = file_table[__CURRENT_TASK.file_table[fd]].tnode.file->inode->io_func(&file_table[__CURRENT_TASK.file_table[fd]], buffer, bytes_to_write, CHR_DIR_WRITE);
+        *bytes_written = file_table[__CURRENT_TASK.file_table[fd]].tnode.file->inode->io_func(&file_table[__CURRENT_TASK.file_table[fd]], (unsigned char*)buffer, bytes_to_write, CHR_DIR_WRITE);
         if (*bytes_written > 0)
             file_table[__CURRENT_TASK.file_table[fd]].position += *bytes_written;
         return 0;

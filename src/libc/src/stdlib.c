@@ -512,7 +512,7 @@ do_return:
         case SIGBUS:
         case SIGFPE:
         case SIGILL:
-            printf("%s", strsignal(WTERMSIG(return_value)));
+            printf("\n%s", strsignal(WTERMSIG(return_value)));
         default:
         }
     }

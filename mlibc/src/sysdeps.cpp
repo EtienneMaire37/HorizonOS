@@ -14,11 +14,11 @@ void STUB()
 	__builtin_unreachable();
 }
 
-namespace mlibc 
+namespace mlibc
 {
 	void sys_libc_panic() 
 	{
-		sys_libc_log("!!! mlibc panic !!!");
+		sys_libc_log("\n\x1b[31m[[!!! mlibc panic !!!]]\x1b[0m\n");
 		sys_exit(-1);
 		__builtin_trap();
 	}

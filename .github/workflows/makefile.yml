@@ -15,10 +15,8 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        sudo apt-get update
         sudo apt update
-        sudo apt-get install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
-        sudo apt install -y nasm xorriso mtools mkbootimg util-linux dosfstools mtools qemu-utils unzip autoconf2.69 zip meson
+        sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo nasm xorriso mtools mkbootimg util-linux dosfstools mtools qemu-utils unzip autoconf2.69 zip meson
 
     - name: Cache cross-compiler
       uses: actions/cache@v3
