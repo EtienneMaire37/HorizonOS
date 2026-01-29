@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <stdint.h>
-#include "../libc/include/stddef.h"
+#include <stddef.h>
 #include "cpu/util.h"
 
 #include <bootboot.h>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdint.h>
-#include "../../libc/include/stddef.h"
+#include <stddef.h>
 #include "../cpu/util.h"
 
 struct gdt_decriptor

@@ -274,7 +274,7 @@ void free_range(uint64_t* pml4,
         uint64_t* pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pd_entry));
 
         uint64_t* pt_entry = &pt[pte];
-        if (is_pdpt_entry_present(pt_entry))
+        if (!is_pdpt_entry_present(pt_entry))
             continue;
 
         uint64_t address = (uint64_t)get_pdpt_entry_address(pt_entry);

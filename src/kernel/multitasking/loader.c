@@ -68,6 +68,7 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
     if ((data->argc + data->envc) & 1)   // * align stack to 16 bytes
         task_stack_push(&task, 0);
 
+    task_stack_push(&task, 0);
     for (int i = 0; i <= data->envc; i++)
         task_stack_push(&task, (uint64_t)data->environ[data->envc - i]);
 
@@ -83,6 +84,8 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
         else
             task_write_at_address_8b(&task, (uint64_t)&data_cpy.environ[i], 0);
     }
+
+    task_stack_push(&task, 0);
 
     for (int i = 0; i <= data->argc; i++)
         task_stack_push(&task, (uint64_t)data->cmd[data->argc - i]);
@@ -107,9 +110,12 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
     for (int i = 0; i < data->argc + 1; i++)
         task_stack_push(&task, task_read_at_aligned_address_8b(&task, (uint64_t)&data_cpy.cmd[data->argc - i]));
 
-    task_stack_push(&task, (uint64_t)data_cpy.environ);
-    task_stack_push(&task, (uint64_t)data_cpy.cmd);
+    // task_stack_push(&task, (uint64_t)data_cpy.environ);
+    // task_stack_push(&task, (uint64_t)data_cpy.cmd);
     task_stack_push(&task, (uint64_t)data_cpy.argc);
+
+    // for (int i = 0; i < 16; i++)
+    //     LOG(DEBUG, "%d: %#llx", i, task_read_at_aligned_address_8b(&task, task.rsp + 8 * i));
 
     // task_stack_push(&task, task.rsp);
 

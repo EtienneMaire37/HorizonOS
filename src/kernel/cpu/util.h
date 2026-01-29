@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "../../libc/include/stdio.h"
-#include "../../libc/include/stddef.h"
+#include <stddef.h>
 #include "../../libc/src/current_func.h"
 
 typedef uint64_t physical_address_t;
@@ -15,6 +15,8 @@ extern uint64_t* global_cr3;
 #define disable_interrupts()    asm volatile ("cli")
 
 #define hlt()                   asm volatile ("hlt")
+
+#define swapgs()                asm volatile ("swapgs")
 
 static inline void __attribute__((noreturn)) _halt()
 {

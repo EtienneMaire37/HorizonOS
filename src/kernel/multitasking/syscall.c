@@ -2,6 +2,8 @@
 #include "../cpu/segbase.h"
 #include "../../../mlibc/src/syscall.hpp"
 #include <sys/mman.h>
+#include "../cpu/memory.h"
+#include "../memalloc/virtual_memory_allocator.h"
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -31,6 +33,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         __CURRENT_TASK.is_dead = true;
         // tasks_log();
         unlock_task_queue();
+        swapgs();
         switch_task();
         break;
     // sc_case(SYS_ISATTY, 1, int)
@@ -39,7 +42,48 @@ void c_syscall_handler(syscall_registers_t* registers)
     //     break;
     sc_case(SYS_VM_MAP, 6, void*, size_t, int, int, int, off_t)
         SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#x, %#x, %d, %lld)", arg1, arg2, arg3, arg4, arg5, (long long)arg6);
-        sc_ret_errno = EINVAL;
+        
+        if (arg2 & 0xfff || arg2 == 0 || (uint64_t)arg1 & 0xfff)
+        {
+            sc_ret_errno = EINVAL;
+            sc_ret(1) = (uint64_t)MAP_FAILED;
+            break;
+        }
+
+        // * Only support READ/WRITE for now
+        if (arg3 & ~(PROT_READ | PROT_WRITE | PROT_EXEC))
+        {
+            sc_ret_errno = EINVAL;
+            sc_ret(1) = (uint64_t)MAP_FAILED;
+            break;
+        }
+
+        // * Don't support file mapping/sharing shenanigans for now
+        if (arg4 != (MAP_PRIVATE | MAP_ANONYMOUS))
+        {
+            sc_ret_errno = EINVAL;
+            sc_ret(1) = (uint64_t)MAP_FAILED;
+            break;
+        }
+
+        void* addr = vmm_find_free_user_space_pages(arg1, arg2 / 4096);
+        SC_LOG("MMAP: Found %zu free pages at %p", arg2 / 4096, addr);
+
+        if (!addr)
+        {
+            sc_ret_errno = EINVAL;
+            sc_ret(1) = (uint64_t)MAP_FAILED;
+            break;
+        }
+
+        allocate_range((uint64_t*)(get_cr3() + PHYS_MAP_OFFSET), (uint64_t)addr, arg2 / 4096, PG_USER, (arg3 & PROT_WRITE) ? PG_READ_WRITE : PG_READ_ONLY, CACHE_WB);
+        for (size_t i = 0; i < arg2 / 4096; i++)
+            invlpg(i * 4096 + (uint64_t)addr);
+
+        memset(addr, 0, arg2);
+
+        sc_ret_errno = 0;
+        sc_ret(1) = (uint64_t)addr;
         break;
     }
     default:
@@ -48,6 +92,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         __CURRENT_TASK.return_value = SIGILL | WSIGNALBIT;
         __CURRENT_TASK.is_dead = true;
         unlock_task_queue();
+        swapgs();
         switch_task();
     }
 }

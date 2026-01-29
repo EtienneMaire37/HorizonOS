@@ -22,9 +22,9 @@ void _main()
     uint64_t* data = (uint64_t*)kernel_data;
 
     int argc = data[0];
-    char** argv = (char**)data[1];
+    char** argv = (char**)&data[1];
 
-    char** __environ = (char**)data[2];
+    char** __environ = (char**)&data[1 + argc + 1];
 
     int environ_num = 0;
     if (__environ)

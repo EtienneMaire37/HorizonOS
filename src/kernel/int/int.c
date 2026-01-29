@@ -1,5 +1,5 @@
 #include "../initrd/initrd.h"
-#include "../../libc/include/stddef.h"
+#include <stddef.h>
 
 initrd_file_t* kernel_symbols_file = NULL;
 

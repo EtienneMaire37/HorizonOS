@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 static inline void invlpg(uint64_t addr)
 {
     asm volatile("invlpg [%0]" :: "r" (addr) : "memory");
