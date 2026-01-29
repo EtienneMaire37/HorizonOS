@@ -1,7 +1,7 @@
 #pragma once
 
-#include "path_max.h"
-#include "sys/types.h"
+#include <sys/types.h>
+#include <limits.h>
 
 struct dirent
 {

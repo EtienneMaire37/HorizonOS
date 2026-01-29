@@ -4,7 +4,7 @@
 #include "../../libc/src/syscall_defines.h"
 #include "startup_data.h"
 #include "../multitasking/loader.h"
-#include "../../libc/include/signal.h"
+#include <signal.h>
 #include "../../libc/include/sys/wait.h"
 #include "../../libc/src/math_utils.h"
 #include "../../libc/include/fcntl.h"
@@ -37,7 +37,19 @@ typedef struct __attribute__((packed))
     t1 arg1 = (t1)registers->rbx;
 #define SC_ARG2(t1, t2) \
     SC_ARG1(t1) \
-    t2 arg2 = (t2)registers->rcx;
+    t2 arg2 = (t2)registers->rdx;
+#define SC_ARG3(t1, t2, t3) \
+    SC_ARG2(t1, t2) \
+    t3 arg3 = (t3)registers->rsi;
+#define SC_ARG4(t1, t2, t3, t4) \
+    SC_ARG3(t1, t2, t3) \
+    t4 arg4 = (t4)registers->rdi;
+#define SC_ARG5(t1, t2, t3, t4, t5) \
+    SC_ARG4(t1, t2, t3, t4) \
+    t5 arg5 = (t5)registers->r8;
+#define SC_ARG6(t1, t2, t3, t4, t5, t6) \
+    SC_ARG5(t1, t2, t3, t4, t5) \
+    t6 arg6 = (t6)registers->r9;
 
 #define SC_ARGS_SELECT(count, ...) SC_ARG##count(__VA_ARGS__)
 
@@ -45,6 +57,11 @@ typedef struct __attribute__((packed))
     case syscall_id: \
     { \
         SC_ARGS_SELECT(argc, __VA_ARGS__)
+
+#define SC_RET0     registers->rax
+#define SC_RET1     registers->rbx
+
+#define sc_ret(n) SC_RET##n
 
 #ifdef LOG_SYSCALLS
 #define SC_LOG(fmt, ...) LOG(TRACE, fmt, __VA_ARGS__)

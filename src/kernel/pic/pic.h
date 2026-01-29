@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 
 #define PIC1		    0x20
 #define PIC2		    0xA0

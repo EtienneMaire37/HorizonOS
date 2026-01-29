@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 
 typedef struct __attribute__((packed)) startup_data_struct
 {

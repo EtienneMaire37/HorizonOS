@@ -1,10 +1,9 @@
 CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -flto -march=x86-64 # v4
 DATE := `date +"%Y-%m-%d"`
-CROSSGCC := ./crosstoolchain/bin/x86_64-elf-gcc
-CROSSLD := ./crosstoolchain/bin/x86_64-elf-ld
-CROSSNM := ./crosstoolchain/bin/x86_64-elf-nm
-CROSSAR := ./crosstoolchain/bin/x86_64-elf-ar
-CROSSSTRIP := ./crosstoolchain/bin/x86_64-elf-strip
+CROSSLD := ./hostoolchain/usr/bin/x86_64-horizonos-ld
+CROSSNM := ./hostoolchain/usr/bin/x86_64-horizonos-nm
+CROSSAR := ./hostoolchain/usr/bin/x86_64-horizonos-ar
+CROSSSTRIP := ./hostoolchain/usr/bin/x86_64-horizonos-strip
 HOSGCC := ./hostoolchain/usr/bin/x86_64-horizonos-gcc
 DIR2FAT32 := ./dir2fat32/dir2fat32.sh
 USER_CFLAGS := 
@@ -34,9 +33,9 @@ $(MLIBC_STAMP): mlibc/src/syscall.cpp mlibc/src/sysdeps.cpp $(HOSGCC)
 
 bin/%.o: src/kernel/%.c Makefile
 	mkdir -p $(dir $@)
-	$(CROSSGCC) -c $< -o $@ \
+	$(HOSGCC) -c $< -o $@ \
 	-MMD -MP \
-	-Wall -Werror -Wno-address-of-packed-member -fpic -I./bootboot/dist/ \
+	-Wall -Werror -Wno-address-of-packed-member -fpic -I./bootboot/dist -I./root/usr/include \
 	-O2 \
 	$(CFLAGS) \
 	-mno-red-zone \
@@ -46,8 +45,8 @@ bin/%.o: src/kernel/%.c Makefile
 bin/%.asm.o: src/kernel/%.asm Makefile
 	mkdir -p $(dir $@)
 	nasm -f elf64 $< -o $@
-$(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) src/libc/lib/klibc.a
-	$(CROSSGCC) -nostdlib -n -T src/kernel/link.ld -ffreestanding -flto \
+$(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) src/libc/lib/klibc.a Makefile
+	$(HOSGCC) -nostdlib -n -T src/kernel/link.ld -ffreestanding -flto \
 	-o $@ \
 	$(KERNEL_OBJ) $(ASM_OBJ) src/libc/lib/klibc.a \
 	-lgcc
@@ -62,7 +61,7 @@ run:
 	-drive file=horizonos.iso,index=0,media=disk,format=raw \
 	-smp 8
 
-horizonos.iso: $(CROSSGCC) $(USERGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF)
+horizonos.iso: $(HOSGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF)
 	mkdir -p ./bin/initrd_contents
 
 	rm -f src/tasks/bin/*.o
@@ -85,8 +84,8 @@ horizonos.iso: $(CROSSGCC) $(USERGCC) $(MKBOOTIMG) $(DIR2FAT32) resources/pci.id
 
 src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
-	$(CROSSGCC) -c "src/tasks/src/init/main.c" -o "src/tasks/bin/init.o" $(CFLAGS) -I"src/libc/include" -O3
-	$(CROSSGCC) \
+	$(HOSGCC) -c "src/tasks/src/init/main.c" -o "src/tasks/bin/init.o" $(CFLAGS) -I"src/libc/include" -O3
+	$(HOSGCC) \
 	-o "src/tasks/bin/init" $(CFLAGS) \
 	"src/tasks/bin/init.o" \
 	"src/libc/lib/crt0.o" \
@@ -100,8 +99,8 @@ src/tasks/bin/echo: src/tasks/src/echo/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 
 src/tasks/bin/ls: src/tasks/src/ls/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
-	$(CROSSGCC) -c "src/tasks/src/ls/main.c" -o "src/tasks/bin/ls.o" $(CFLAGS) -I"src/libc/include" -O3
-	$(CROSSGCC) \
+	$(HOSGCC) -c "src/tasks/src/ls/main.c" -o "src/tasks/bin/ls.o" $(CFLAGS) -I"src/libc/include" -O3
+	$(HOSGCC) \
     -o "src/tasks/bin/ls" \
 	"src/libc/lib/crt0.o" \
     "src/tasks/bin/ls.o" \
@@ -111,8 +110,8 @@ src/tasks/bin/ls: src/tasks/src/ls/* src/libc/lib/crt0.o src/libc/lib/libc.so sr
 
 src/tasks/bin/cat: src/tasks/src/cat/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
-	$(CROSSGCC) -c "src/tasks/src/cat/main.c" -o "src/tasks/bin/cat.o" $(CFLAGS) -I"src/libc/include" -O3
-	$(CROSSGCC) \
+	$(HOSGCC) -c "src/tasks/src/cat/main.c" -o "src/tasks/bin/cat.o" $(CFLAGS) -I"src/libc/include" -O3
+	$(HOSGCC) \
     -o "src/tasks/bin/cat" \
 	"src/libc/lib/crt0.o" \
     "src/tasks/bin/cat.o" \
@@ -122,8 +121,8 @@ src/tasks/bin/cat: src/tasks/src/cat/* src/libc/lib/crt0.o src/libc/lib/libc.so 
 
 src/tasks/bin/clear: src/tasks/src/clear/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
-	$(CROSSGCC) -c "src/tasks/src/clear/main.c" -o "src/tasks/bin/clear.o" $(CFLAGS) -I"src/libc/include" -O3
-	$(CROSSGCC) \
+	$(HOSGCC) -c "src/tasks/src/clear/main.c" -o "src/tasks/bin/clear.o" $(CFLAGS) -I"src/libc/include" -O3
+	$(HOSGCC) \
     -o "src/tasks/bin/clear" \
 	"src/libc/lib/crt0.o" \
     "src/tasks/bin/clear.o" \
@@ -133,8 +132,8 @@ src/tasks/bin/clear: src/tasks/src/clear/* src/libc/lib/crt0.o src/libc/lib/libc
 
 src/tasks/bin/printenv: src/tasks/src/printenv/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
-	$(CROSSGCC) -c "src/tasks/src/printenv/main.c" -o "src/tasks/bin/printenv.o" $(CFLAGS) -I"src/libc/include" -O3
-	$(CROSSGCC) \
+	$(HOSGCC) -c "src/tasks/src/printenv/main.c" -o "src/tasks/bin/printenv.o" $(CFLAGS) -I"src/libc/include" -O3
+	$(HOSGCC) \
     -o "src/tasks/bin/printenv" \
 	"src/libc/lib/crt0.o" \
     "src/tasks/bin/printenv.o" \
@@ -144,8 +143,8 @@ src/tasks/bin/printenv: src/tasks/src/printenv/* src/libc/lib/crt0.o src/libc/li
 
 src/tasks/bin/term: src/tasks/src/term/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin
-	$(CROSSGCC) -c "src/tasks/src/term/main.c" -o "src/tasks/bin/term.o" $(CFLAGS) -I"src/libc/include" -O3
-	$(CROSSGCC) \
+	$(HOSGCC) -c "src/tasks/src/term/main.c" -o "src/tasks/bin/term.o" $(CFLAGS) -I"src/libc/include" -O3
+	$(HOSGCC) \
     -o "src/tasks/bin/term" \
 	"src/libc/lib/crt0.o" \
     "src/tasks/bin/term.o" \
@@ -155,12 +154,12 @@ src/tasks/bin/term: src/tasks/src/term/* src/libc/lib/crt0.o src/libc/lib/libc.s
 
 src/libc/lib/libc.so: src/libc/src/* src/libc/include/*
 	mkdir -p src/libc/lib
-	$(CROSSGCC) -c src/libc/src/libc.c -o src/libc/lib/libc.o -O2 $(CFLAGS) -fno-lto -fpic
+	$(HOSGCC) -c src/libc/src/libc.c -o src/libc/lib/libc.o -O2 $(CFLAGS) -fno-lto -fpic -I./root/usr/include
 	$(CROSSLD) -shared -o src/libc/lib/libc.so src/libc/lib/libc.o -fpic
 	$(CROSSAR) rcs "src/libc/lib/libc.a" "src/libc/lib/libc.o"
 src/libc/lib/libm.so: src/libc/src/* src/libc/include/*
 	mkdir -p ./src/libc/lib
-	$(CROSSGCC) -c "src/libc/src/math.c" -o "src/libc/lib/libm.o" -O2 $(CFLAGS) -malign-double -fno-lto -fpic
+	$(HOSGCC) -c "src/libc/src/math.c" -o "src/libc/lib/libm.o" -O2 $(CFLAGS) -malign-double -fno-lto -fpic  -I./root/usr/include
 	$(CROSSLD) -shared -o src/libc/lib/libm.so src/libc/lib/libm.o -fpic
 	$(CROSSAR) rcs "src/libc/lib/libm.a" "src/libc/lib/libm.o"
 src/libc/lib/crt0.o: src/libc/src/crt0.asm
@@ -169,11 +168,8 @@ src/libc/lib/crt0.o: src/libc/src/crt0.asm
 
 src/libc/lib/klibc.a: src/libc/src/* src/libc/include/*
 	mkdir -p src/libc/lib
-	$(CROSSGCC) -c src/libc/src/klibc.c -o src/libc/lib/klibc.o -O2 $(CFLAGS) -mno-80387 -mno-mmx -mno-sse -mno-avx -fno-lto -fpic
+	$(HOSGCC) -c src/libc/src/klibc.c -o src/libc/lib/klibc.o -O2 $(CFLAGS) -mno-80387 -mno-mmx -mno-sse -mno-avx -fno-lto -fpic
 	$(CROSSAR) rcs "src/libc/lib/klibc.a" "src/libc/lib/klibc.o"
-
-$(CROSSGCC):
-	sh install-cross-toolchain.sh
 
 $(HOSGCC):
 	sh install-hos-toolchain.sh

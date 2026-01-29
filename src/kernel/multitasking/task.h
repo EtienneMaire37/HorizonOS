@@ -2,7 +2,7 @@
 
 #include "../io/keyboard.h"
 #include "../vfs/vfs.h"
-#include "../../libc/include/limits.h"
+#include <limits.h>
 #include "../gdt/gdt.h"
 #include "../cpu/segbase.h"
 

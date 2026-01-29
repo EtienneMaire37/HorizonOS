@@ -8,8 +8,6 @@
 
 #include "syscall.hpp"
 
-uint64_t syscall1_1(uint64_t calln, uint64_t a1);
-
 void STUB()
 {
 	while (true);
@@ -33,33 +31,31 @@ namespace mlibc
 
 	int sys_isatty(int fd)
 	{
-		
-		STUB();
+		return syscall1_1(SYS_ISATTY, (uint64_t)fd);
 	}
 
-	int sys_write(int fd, void const* buf, size_t size, ssize_t* ret) 
+	int sys_write(int fd, void const* buf, size_t size, ssize_t* written) 
 	{
-		
-		STUB();
+		uint64_t r64;
+		int ret = syscall3_2(SYS_WRITE, (uint64_t)fd, (uint64_t)buf, (uint64_t)size, &r64);
+		*written = (ssize_t)r64;
+		return ret;
 	}
 
-	int sys_tcb_set(void* pointer) 
+	int sys_tcb_set(void* pointer)
 	{
-		syscall1_1(SYS_SETFS, (uint64_t)pointer); // + sizeof(Tcb));
-		while (true);
+		syscall1_1(SYS_SETFS, (uint64_t)pointer);
 		return 0;
 	}
 
 	int sys_anon_allocate(size_t size, void** pointer) 
 	{
-		
-		STUB();
+		return sys_vm_map(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, pointer);
 	}
 
-	int sys_anon_free(void*, unsigned long) 
+	int sys_anon_free(void* pointer, size_t size) 
 	{ 
-		
-		STUB(); 
+		return sys_vm_unmap(pointer, size);
 	}
 
 	int sys_seek(int, off_t, int, off_t*) 
@@ -70,8 +66,7 @@ namespace mlibc
 
 	void sys_exit(int status) 
 	{
-		
-		// syscall1_1(SYS_EXIT, status);
+		syscall1_1(SYS_EXIT, status);
 		__builtin_unreachable();
 	}
 
@@ -100,10 +95,12 @@ namespace mlibc
 		 
 		STUB(); 
 	}
-	int sys_vm_map(void*, size_t, int, int, int, off_t, void**) 
+	int sys_vm_map(void* hint, size_t size, int prot, int flags, int fd, off_t offset, void** window) 
 	{
-		
-		STUB();
+		uint64_t addr;
+		int ret = syscall6_2(SYS_VM_MAP, (uint64_t)hint, (uint64_t)size, (uint64_t)prot, (uint64_t)flags, (uint64_t)fd, (uint64_t)offset, &addr);
+		*window = (void*)addr;
+		return ret;
 	}
 	int sys_vm_unmap(void* , size_t) 
 	{

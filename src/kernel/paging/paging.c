@@ -1,4 +1,4 @@
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include <stdbool.h>
 
 uint64_t PHYS_MAP_BASE = 0;

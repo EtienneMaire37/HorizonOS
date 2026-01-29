@@ -3,7 +3,7 @@
 #include "../debug/out.h"
 #include "keyboard.h"
 #include "../../libc/include/stdlib.h"
-#include "../../libc/include/signal.h"
+#include <signal.h>
 #include "../../libc/include/sys/wait.h"
 #include "../vfs/vfs.h"
 #include "../multitasking/task.h"

@@ -4,7 +4,7 @@
 #define NULL ((void*)0)
 #endif
 
-typedef unsigned long long size_t;
+#include <bits/size_t.h>
 
 // void* memcpy(void* dst, const void* src, size_t n);
 // void* memset(void* dst, int c, size_t n);

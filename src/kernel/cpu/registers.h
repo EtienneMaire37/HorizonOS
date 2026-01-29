@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 
 static inline uint64_t get_cr0()
 {

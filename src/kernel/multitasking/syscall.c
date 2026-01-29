@@ -1,6 +1,7 @@
 #include "syscall.h"
 #include "../cpu/segbase.h"
 #include "../../../mlibc/src/syscall.hpp"
+#include <sys/mman.h>
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -12,11 +13,27 @@ void c_syscall_handler(syscall_registers_t* registers)
         SC_LOG("syscall SYS_SETFS(%#llx)", arg1);
         wrfsbase(arg1);
         break;
+    sc_case(SYS_WRITE, 3, int, const void*, size_t)
+        SC_LOG("syscall SYS_WRITE(%d, %p, %zu)", arg1, arg2, arg3);
+        while (true);
+        break;
+    sc_case(SYS_EXIT, 1, int)
+        SC_LOG("syscall SYS_EXIT(%d)", arg1);
+        while (true);
+        break;
+    sc_case(SYS_ISATTY, 1, int)
+        SC_LOG("syscall SYS_ISATTY(%d)", arg1);
+        while (true);
+        break;
+    sc_case(SYS_VM_MAP, 6, void*, size_t, int, int, int, off_t)
+        SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#x, %#x, %d, %lld)", arg1, arg2, arg3, arg4, arg5, (long long)arg6);
+        while (true);
+        break;
     }
     default:
         LOG(DEBUG, "syscall %llu not implemented", registers->rax);
         lock_task_queue();
-        __CURRENT_TASK.return_value = 0x7f | WEXITBIT;
+        __CURRENT_TASK.return_value = SIGILL | WSIGNALBIT;
         __CURRENT_TASK.is_dead = true;
         unlock_task_queue();
         switch_task();

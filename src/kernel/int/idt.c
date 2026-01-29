@@ -2,7 +2,7 @@
 #include "../pic/pic.h"
 #include "../gdt/gdt.h"
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 
 struct idt_entry IDT[256] __attribute__((aligned(8)));
 

@@ -7,14 +7,14 @@ static int num_environ;
 // #include <stdint.h>
 #include <stdatomic.h>
 
-#include "../include/inttypes.h"
+#include <inttypes.h>
 
 #include "math_utils.h"
 
 #include "../../kernel/multicore/spinlock.h"
 #include "syscall_defines.h"
-#include "../include/limits.h"
-#include "../include/sys/types.h"
+#include <limits.h>
+#include <sys/types.h>
 
 #include "../include/errno.h"
 #include "string.c"
@@ -26,7 +26,7 @@ static int num_environ;
 #include "../include/stdlib.h"
 #include "../include/time.h"
 #include "../include/stdarg.h"
-#include "../include/sys/types.h"
+#include <sys/types.h>
 #include "../include/horizonos.h"
 #include "../include/sys/stat.h"
 #include "../include/dirent.h"

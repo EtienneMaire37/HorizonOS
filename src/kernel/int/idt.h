@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include "../cpu/util.h"
 
 #define ISR_INTERRUPT_GATE_64   0b1110 

@@ -1,8 +1,7 @@
 #include "../include/math.h"
 #include "../include/errno_defs.h"
 extern int errno;
-#include "../include/inttypes.h"
-// #include <stdint.h>
+#include <inttypes.h>
 
 #include "math_float_util.h"
 #include "math_fmod.c"

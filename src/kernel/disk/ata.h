@@ -3,7 +3,7 @@
 #include "mbr.h"
 #include "../vfs/vfs.h"
 #include "../multitasking/mutex.h"
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 
 #include "ata_defs.h"
 

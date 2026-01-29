@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include "../../libc/include/stddef.h"
 #include "../cpu/util.h"
 

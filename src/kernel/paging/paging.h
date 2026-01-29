@@ -2,7 +2,7 @@
 
 #include "../cpu/msr.h"
 #include "../cpu/cpuid.h"
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include "../../libc/include/stdlib.h"
 #include "../cpu/util.h"
 

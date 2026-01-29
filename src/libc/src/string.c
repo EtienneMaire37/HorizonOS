@@ -1,4 +1,4 @@
-#include "../include/signal.h"
+#include <signal.h>
 
 void* memset(void* dst, int value, size_t n)
 {

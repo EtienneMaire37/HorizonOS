@@ -1,4 +1,4 @@
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include "ata_defs.h"
 
 pci_ide_controller_data_t pci_ide_controller[IDE_MAX];

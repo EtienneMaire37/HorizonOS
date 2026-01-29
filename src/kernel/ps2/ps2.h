@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include <stdbool.h>
 
 #define PS2_DATA                0x60

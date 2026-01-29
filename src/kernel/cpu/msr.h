@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 
 #define IA32_APIC_BASE_MSR          0x1B
 

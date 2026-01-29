@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include "../../libc/include/stdio.h"
 #include "../../libc/include/stddef.h"
 #include "../../libc/src/current_func.h"

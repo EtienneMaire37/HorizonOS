@@ -11,8 +11,8 @@
 #define EXIT_SUCCESS 0
 #define MB_CUR_MAX   1  // Only ASCII is supported
 
-typedef unsigned long long size_t;
-typedef char wchar_t;
+#include <bits/size_t.h>
+#include <bits/wchar_t.h>
 
 void exit(int r);
 int rand();

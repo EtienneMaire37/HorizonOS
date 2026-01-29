@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include "startup_data.h"
 
 #include "../vfs/vfs.h"

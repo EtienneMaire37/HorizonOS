@@ -1,5 +1,5 @@
 #include "ps2.h"
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include <stdbool.h>
 #include "../time/time.h"
 #include "../io/io.h"

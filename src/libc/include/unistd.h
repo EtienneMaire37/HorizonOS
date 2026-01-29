@@ -1,7 +1,7 @@
 #pragma once
 
-#include "inttypes.h"
-#include "sys/types.h"
+#include <inttypes.h>
+#include <sys/types.h>
 
 #define STDIN_FILENO    0
 #define STDOUT_FILENO   1

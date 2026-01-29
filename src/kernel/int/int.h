@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../libc/include/stdint.h"
+#include <stdint.h>
 #include "../initrd/initrd.h"
 
 typedef struct __attribute__((packed)) interrupt_registers

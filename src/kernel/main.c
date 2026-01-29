@@ -1,7 +1,7 @@
 // #include <stdint.h>
 #include <stdbool.h>
 #include <stdatomic.h>
-#include "../libc/include/stdint.h"
+#include <stdint.h>
 #include "../libc/include/stddef.h"
 #include "cpu/util.h"
 
@@ -23,8 +23,8 @@ int num_environ;
 
 #include "../libc/src/math_utils.h"
 
-#include "../libc/include/inttypes.h"
-#include "../libc/include/limits.h"
+#include <inttypes.h>
+#include <limits.h>
 
 #include "time/time.h"
 
@@ -46,7 +46,7 @@ int num_environ;
 #include "../libc/include/unistd.h"
 #include "../libc/include/termios.h"
 #include "../libc/include/assert.h"
-#include "../libc/include/sys/types.h"
+#include <sys/types.h>
 #include "../libc/include/sys/wait.h"
 #include "../libc/include/sys/stat.h"
 #include "../libc/include/fcntl.h"
