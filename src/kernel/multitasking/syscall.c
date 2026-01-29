@@ -36,10 +36,19 @@ void c_syscall_handler(syscall_registers_t* registers)
         swapgs();
         switch_task();
         break;
-    // sc_case(SYS_ISATTY, 1, int)
-    //     SC_LOG("syscall SYS_ISATTY(%d)", arg1);
-    //     while (true);
-    //     break;
+    sc_case(SYS_ISATTY, 1, int)
+        SC_LOG("syscall SYS_ISATTY(%d)", arg1);
+        if (!is_fd_valid(arg1))
+        {
+            sc_ret_errno = EBADF;
+            break;
+        }
+        file_entry_t* entry = &file_table[__CURRENT_TASK.file_table[arg1]];
+        if (vfs_isatty(entry))
+            sc_ret_errno = 0;
+        else
+            sc_ret_errno = ENOTTY;
+        break;
     sc_case(SYS_VM_MAP, 6, void*, size_t, int, int, int, off_t)
         SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#x, %#x, %d, %lld)", arg1, arg2, arg3, arg4, arg5, (long long)arg6);
         
@@ -84,6 +93,58 @@ void c_syscall_handler(syscall_registers_t* registers)
 
         sc_ret_errno = 0;
         sc_ret(1) = (uint64_t)addr;
+        break;
+    sc_case(SYS_VM_UNMAP, 2, void*, size_t)
+        SC_LOG("syscall SYS_VM_UNMAP(%p, %zu)", arg1, arg2);
+        while (true);
+        break;
+    sc_case(SYS_SEEK, 3, int, off_t, int)
+        SC_LOG("syscall SYS_SEEK(%d, %lld, %d)", arg1, (long long)arg2, arg3);
+        if (!is_fd_valid(arg1))
+        {
+            sc_ret_errno = EBADF;
+            sc_ret(1) = (uint64_t)((off_t)-1);
+            break;
+        }
+        if (arg3 != SEEK_SET && arg3 != SEEK_CUR && arg3 != SEEK_END)
+        {
+            sc_ret_errno = EINVAL;
+            sc_ret(1) = (uint64_t)((off_t)-1);
+            break;
+        }
+        file_entry_t* entry = &file_table[__CURRENT_TASK.file_table[arg1]];
+        if (entry->entry_type != ET_FILE)
+        {
+            sc_ret_errno = 0;
+            sc_ret(1) = (uint64_t)((off_t)0);
+            break;
+        }
+        off_t offset = arg2;
+        switch (arg3)
+        {
+        case SEEK_SET:
+            goto do_seek;
+        case SEEK_CUR:
+            offset += entry->position;
+            goto do_seek;
+        case SEEK_END:
+            offset += entry->tnode.file->inode->st.st_size;
+            goto do_seek;
+        }
+        if (false)
+        {
+        do_seek:
+            if (offset < 0) // || offset >= entry->tnode.file->inode->st.st_size)
+            {
+                sc_ret_errno = EINVAL;
+                sc_ret(1) = (uint64_t)((off_t)-1);
+                break;
+            }
+            entry->position = offset;
+            sc_ret_errno = 0;
+            sc_ret(1) = (uint64_t)entry->position;
+            break;
+        }
         break;
     }
     default:

@@ -1,9 +1,10 @@
 #include "virtual_memory_allocator.h"
 #include "../multitasking/task.h"
 
+const uint64_t start = 0x800000;
+
 void* vmm_find_free_user_space_pages(void* hint, size_t pages)
 {
-    const uint64_t start = 0x800000;
     if (pages > 0x800000000 - start) 
         return NULL;
     for (uint64_t vaddr = (uint64_t)(hint + 0xfff) & ~0xfff;; vaddr += 0x1000)

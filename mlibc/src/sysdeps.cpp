@@ -58,10 +58,12 @@ namespace mlibc
 		return sys_vm_unmap(pointer, size);
 	}
 
-	int sys_seek(int, off_t, int, off_t*) 
+	int sys_seek(int fd, off_t off, int flags, off_t* ret_val) 
 	{
-		
-		STUB();
+		uint64_t _ret_val;
+		int ret = syscall3_2(SYS_SEEK, (uint64_t)fd, (uint64_t)off, (uint64_t)flags, &_ret_val);
+		*ret_val = (off_t)_ret_val;
+		return ret;
 	}
 
 	void sys_exit(int status) 
@@ -72,27 +74,24 @@ namespace mlibc
 
 	int sys_close(int) 
 	{ 
-		
 		STUB(); 
 	}
 	int sys_futex_wake(int*) 
 	{ 
-		
 		STUB(); 
 	}
 	int sys_futex_wait(int*, int, timespec const*) 
 	{
-		 
 		STUB(); 
 	}
 	int sys_read(int, void*, unsigned long, long*) 
 	{
-		 
+		
 		STUB(); 
 	}
 	int sys_open(const char*, int, unsigned int, int*) 
 	{
-		 
+		
 		STUB(); 
 	}
 	int sys_vm_map(void* hint, size_t size, int prot, int flags, int fd, off_t offset, void** window) 
@@ -102,14 +101,13 @@ namespace mlibc
 		*window = (void*)addr;
 		return ret;
 	}
-	int sys_vm_unmap(void* , size_t) 
+	int sys_vm_unmap(void* addr, size_t size) 
 	{
-		 
-		STUB(); 
+		return syscall2_1(SYS_VM_UNMAP, (uint64_t)addr, (uint64_t)size);
 	}
 	int sys_clock_get(int, time_t*, long*) 
 	{
-		 
+		
 		STUB(); 
 	}
 }
