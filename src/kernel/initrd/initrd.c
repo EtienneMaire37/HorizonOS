@@ -7,7 +7,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 {
     LOG(INFO, "Parsing initrd");
 
-    LOG(INFO, "Initrd size : %llu bytes", initrd_size);
+    LOG(INFO, "Initrd size : %" PRIu64 " bytes", initrd_size);
 
     uint64_t initrd_offset = 0;
 
@@ -20,7 +20,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 
         if (!USTAR_IS_VALID_HEADER(*header))
         {
-            LOG(WARNING, "Invalid USTAR header at offset %llu", initrd_offset);
+            LOG(WARNING, "Invalid USTAR header at offset %" PRIu64 "", initrd_offset);
             break;
         }
 
@@ -80,7 +80,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
             {
             case USTAR_TYPE_FILE_1:
             case USTAR_TYPE_FILE_2:
-                LOG(INFO, "%s── File : \"%s\" ; Size : %llu bytes", tree_inter, initrd_files[i].name, initrd_files[i].size);
+                LOG(INFO, "%s── File : \"%s\" ; Size : %" PRIu64 " bytes", tree_inter, initrd_files[i].name, initrd_files[i].size);
                 break;
             case USTAR_TYPE_HARD_LINK:
                 LOG(INFO, "%s── Hard link : \"%s\" pointing to \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);

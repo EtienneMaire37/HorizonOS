@@ -119,7 +119,7 @@ void ioapic_write_redirection_entry(volatile io_apic_registers_t* ioapic, uint32
 
 void map_ioapic_in_current_vas(uint64_t address, uint8_t privilege, uint8_t read_write)
 {
-    LOG(DEBUG, "Mapping I/O APIC at address %#llx in memory", address);
+    LOG(DEBUG, "Mapping I/O APIC at address %#" PRIx64 " in memory", address);
 
     remap_range((uint64_t*)(get_cr3() + PHYS_MAP_BASE), 
         address, address,

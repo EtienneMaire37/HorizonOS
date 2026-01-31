@@ -1,10 +1,10 @@
 #include "idle.h"
 #include "vas.h"
 #include "../fpu/fpu.h"
-#include "../../libc/src/math_utils.h"
+#include "../util/math.h"
 #include "../cpu/memory.h"
 #include "../paging/paging.h"
-#include "../../libc/include/fcntl.h"
+#include <fcntl.h>
 #include "../vga/textio.h"
 
 mutex_t file_table_lock = MUTEX_INIT;
@@ -170,7 +170,7 @@ void task_stack_push(thread_t* task, uint64_t value)
 
     // * not needed
     // if (!is_address_canonical(task->rsp))
-    //     LOG(ERROR, "rsp: %#llx is not canonical!!", task->rsp);
+    //     LOG(ERROR, "rsp: %#" PRIx64 " is not canonical!!", task->rsp);
 
     task_write_at_address_8b(task, (physical_address_t)task->rsp, value);
 }
@@ -214,7 +214,7 @@ void task_write_at_aligned_address_8b(thread_t* task, uint64_t address, uint64_t
     }
     if (address & 7)    // ! Not aligned
     {
-        LOG(CRITICAL, "task_write_at_aligned_address_8b: Address %#.16llx not aligned", address);
+        LOG(CRITICAL, "task_write_at_aligned_address_8b: Address %#.16" PRIx64 " not aligned", address);
         abort();
     }
 
@@ -264,7 +264,7 @@ uint64_t task_read_at_aligned_address_8b(thread_t* task, uint64_t address)
     }
     if (address & 7)    // ! Not aligned
     {
-        LOG(CRITICAL, "task_write_at_aligned_address_8b: Address %#.16llx not aligned", address);
+        LOG(CRITICAL, "task_write_at_aligned_address_8b: Address %#.16" PRIx64 " not aligned", address);
         abort();
     }
 
@@ -461,7 +461,7 @@ void tasks_log()
     for (uint16_t i = 0; i < task_count; i++)
     {
         thread_t* task = &tasks[i];
-        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s%s%s", i == task_count - 1 ? "└" : "├",
+        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s%s%s%s%s", i == task_count - 1 ? "└" : "├",
             task->name, task->pid, task->ppid, task->pgid, task->stored_cpu_ticks / 10, task->stored_cpu_ticks % 10,
             task_is_blocked(i) ? " (blocked)" : "", 
             task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)",

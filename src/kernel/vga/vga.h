@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../graphics/color.h"
-#include "../../libc/include/stdlib.h"
+#include <stdlib.h>
 
 // ! VGA Registers are not guaranteed to work under UEFI
 

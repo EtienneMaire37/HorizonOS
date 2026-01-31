@@ -3,7 +3,7 @@
 #include "../cpu/msr.h"
 #include "../cpu/cpuid.h"
 #include <stdint.h>
-#include "../../libc/include/stdlib.h"
+#include <stdlib.h>
 #include "../cpu/util.h"
 
 #include <stdbool.h>

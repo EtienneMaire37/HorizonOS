@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include "../../libc/include/string.h"
-#include "../../libc/include/stdlib.h"
+#include <string.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 uint16_t fpu_test;
@@ -15,7 +15,7 @@ uint32_t xsave_area_size, xsave_area_pages;
 
 #include "../memalloc/page_frame_allocator.h"
 #include "../debug/out.h"
-#include "../../libc/include/assert.h"
+#include <assert.h>
 
 void fpu_init_defaults()
 {

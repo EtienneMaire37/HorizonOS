@@ -1,5 +1,5 @@
 #include "../files/psf.h"
-#include "../../libc/include/termios.h"
+#include <termios.h>
 #include "constants.h"
 
 uint16_t tty_data[TTY_RES_X * TTY_RES_Y] = {0};

@@ -12,8 +12,6 @@
 
 #include <horizonos.h>
 
-#include "../../libc/src/misc.h"
-
 const char* kb_layouts[] = {"us_qwerty", "fr_azerty"};
 
 int main(int argc, char** argv)
@@ -35,7 +33,6 @@ int main(int argc, char** argv)
         read(STDIN_FILENO, &kb_layout_choice_str[0], 2);
         kb_layout_choice_str[1] = 0;
         kb_layout_choice = atoi(kb_layout_choice_str);
-        flush_stdin();
     }
 
     if (set_kb_layout(kb_layout_choice))

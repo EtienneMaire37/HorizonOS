@@ -1,16 +1,16 @@
 #include "vfs.h"
-#include "../../libc/include/dirent.h"
+#include <dirent.h>
 #include "../multitasking/mutex.h"
 #include "../initrd/initrd.h"
-#include "../../libc/include/sys/stat.h"
+#include <sys/stat.h>
 #include "../initrd/vfs.h"
 #include "../multitasking/task.h"
-#include "../../libc/include/stdlib.h"
-#include "../../libc/include/errno.h"
-#include "../../libc/include/fcntl.h"
-#include "../../libc/src/misc.h"
-#include "../../libc/src/math_utils.h"
+#include <stdlib.h>
+#include <errno.h>
+#include <fcntl.h>
+#include "../util/math.h"
 #include "../vga/textio.h"
+#include "../util/access.h"
 
 file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 vfs_folder_tnode_t* vfs_root = NULL;
@@ -608,69 +608,69 @@ int vfs_access(const char* path, vfs_folder_tnode_t* pwd, mode_t mode)
 
 struct dirent* vfs_readdir(struct dirent* dirent, DIR* dirp)
 {
-    vfs_folder_tnode_t* folder_tnode = vfs_get_folder_tnode(dirp->path, NULL);
-    if (!folder_tnode)
-    {
-        errno = ENOENT;
-        return NULL;
-    }
+    // vfs_folder_tnode_t* folder_tnode = vfs_get_folder_tnode(dirp->path, NULL);
+    // if (!folder_tnode)
+    // {
+    //     errno = ENOENT;
+    //     return NULL;
+    // }
 
-    if (!(folder_tnode->inode->flags & VFS_NODE_EXPLORED))
-        vfs_explore(folder_tnode);
+    // if (!(folder_tnode->inode->flags & VFS_NODE_EXPLORED))
+    //     vfs_explore(folder_tnode);
 
-    if (strcmp(dirp->current_entry, "") == 0)
-    {
-        strcpy(dirp->current_entry, ".");
-        memcpy(dirent->d_name, dirp->current_entry, 2);
-        dirent->d_ino = folder_tnode->inode->st.st_ino;
-        errno = 0;
-        return dirent;
-    }
+    // if (strcmp(dirp->current_entry, "") == 0)
+    // {
+    //     strcpy(dirp->current_entry, ".");
+    //     memcpy(dirent->d_name, dirp->current_entry, 2);
+    //     dirent->d_ino = folder_tnode->inode->st.st_ino;
+    //     errno = 0;
+    //     return dirent;
+    // }
 
-    if (strcmp(dirp->current_entry, ".") == 0)
-    {
-        strcpy(dirp->current_entry, "..");
-        memcpy(dirent->d_name, dirp->current_entry, 3);
-        dirent->d_ino = folder_tnode->inode->parent->inode->st.st_ino;
-        errno = 0;
-        return dirent;
-    }
+    // if (strcmp(dirp->current_entry, ".") == 0)
+    // {
+    //     strcpy(dirp->current_entry, "..");
+    //     memcpy(dirent->d_name, dirp->current_entry, 3);
+    //     dirent->d_ino = folder_tnode->inode->parent->inode->st.st_ino;
+    //     errno = 0;
+    //     return dirent;
+    // }
 
-    bool found_last_entry = strcmp(dirp->current_entry, "..") == 0;
+    // bool found_last_entry = strcmp(dirp->current_entry, "..") == 0;
 
-    vfs_folder_tnode_t* current_folder = folder_tnode->inode->folders;
+    // vfs_folder_tnode_t* current_folder = folder_tnode->inode->folders;
 
-    while (current_folder)
-    {
-        if (found_last_entry)
-        {
-            memcpy(dirp->current_entry, current_folder->name, PATH_MAX);
-            memcpy(dirent->d_name, dirp->current_entry, PATH_MAX);
-            dirent->d_ino = current_folder->inode->st.st_ino;
-            errno = 0;
-            return dirent;
-        }
-        if (strcmp(dirp->current_entry, current_folder->name) == 0)
-            found_last_entry = true;
-        current_folder = current_folder->next;
-    }
+    // while (current_folder)
+    // {
+    //     if (found_last_entry)
+    //     {
+    //         memcpy(dirp->current_entry, current_folder->name, PATH_MAX);
+    //         memcpy(dirent->d_name, dirp->current_entry, PATH_MAX);
+    //         dirent->d_ino = current_folder->inode->st.st_ino;
+    //         errno = 0;
+    //         return dirent;
+    //     }
+    //     if (strcmp(dirp->current_entry, current_folder->name) == 0)
+    //         found_last_entry = true;
+    //     current_folder = current_folder->next;
+    // }
 
-    vfs_file_tnode_t* current_file = folder_tnode->inode->files;
+    // vfs_file_tnode_t* current_file = folder_tnode->inode->files;
 
-    while (current_file)
-    {
-        if (found_last_entry)
-        {
-            memcpy(dirp->current_entry, current_file->name, PATH_MAX);
-            memcpy(dirent->d_name, dirp->current_entry, PATH_MAX);
-            dirent->d_ino = current_file->inode->st.st_ino;
-            errno = 0;
-            return dirent;
-        }
-        if (strcmp(dirp->current_entry, current_file->name) == 0)
-            found_last_entry = true;
-        current_file = current_file->next;
-    }
+    // while (current_file)
+    // {
+    //     if (found_last_entry)
+    //     {
+    //         memcpy(dirp->current_entry, current_file->name, PATH_MAX);
+    //         memcpy(dirent->d_name, dirp->current_entry, PATH_MAX);
+    //         dirent->d_ino = current_file->inode->st.st_ino;
+    //         errno = 0;
+    //         return dirent;
+    //     }
+    //     if (strcmp(dirp->current_entry, current_file->name) == 0)
+    //         found_last_entry = true;
+    //     current_file = current_file->next;
+    // }
 
     errno = 0;
     return NULL;
@@ -736,7 +736,7 @@ void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth)
     LOG(DEBUG, "");
     for (int i = 0; i < depth; i++)
         CONTINUE_LOG(DEBUG, "    ");
-    CONTINUE_LOG(DEBUG, "`%s` [inode %lld] (access: %s, device id: %d)%s", tnode->name, tnode->inode->st.st_ino, get_access_string(tnode->inode->st.st_mode, access_str), tnode->inode->st.st_dev, tnode->inode->flags & VFS_NODE_EXPLORED ? ":" : " (not explored)");
+    CONTINUE_LOG(DEBUG, "`%s` [inode %" PRId64 "] (access: %s, device id: %lu)%s", tnode->name, tnode->inode->st.st_ino, get_access_string(tnode->inode->st.st_mode, access_str), tnode->inode->st.st_dev, tnode->inode->flags & VFS_NODE_EXPLORED ? ":" : " (not explored)");
     vfs_folder_tnode_t* current_folder = tnode->inode->folders;
     while (current_folder)
     {
@@ -749,9 +749,9 @@ void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth)
         LOG(DEBUG, "");
         for (int i = 0; i < depth + 1; i++)
             CONTINUE_LOG(DEBUG, "    ");
-        CONTINUE_LOG(DEBUG, "`%s` [inode %lld] (access: %s", current_file->name, current_file->inode->st.st_ino, get_access_string(current_file->inode->st.st_mode, access_str));
+        CONTINUE_LOG(DEBUG, "`%s` [inode %" PRId64 "] (access: %s", current_file->name, current_file->inode->st.st_ino, get_access_string(current_file->inode->st.st_mode, access_str));
         if (S_ISCHR(current_file->inode->st.st_mode) || S_ISBLK(current_file->inode->st.st_mode))
-            CONTINUE_LOG(DEBUG, ", special file device id: %d", tnode->inode->st.st_rdev);
+            CONTINUE_LOG(DEBUG, ", special file device id: %lu", tnode->inode->st.st_rdev);
         CONTINUE_LOG(DEBUG, ")");
         current_file = current_file->next;
     }

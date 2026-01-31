@@ -19,9 +19,9 @@ int num_environ;
 
 #include "cpu/units.h"
 
-#include "../libc/src/current_func.h"
+#include "util/cfunc.h"
 
-#include "../libc/src/math_utils.h"
+#include "util/math.h"
 
 #include <inttypes.h>
 #include <limits.h>
@@ -33,24 +33,23 @@ int num_environ;
 #include "cpu/msr.h"
 #include "cpu/registers.h"
 #include "multicore/spinlock.h"
-#include "../libc/src/misc.h"
 #include "graphics/linear_framebuffer.h"
 #include "cpu/cpuid.h"
 #include "fpu/sse.h"
 #include "debug/out.h"
 
-#include "../libc/include/errno.h"
-#include "../libc/include/stdio.h"
-#include "../libc/include/stdlib.h"
-#include "../libc/include/string.h"
-#include "../libc/include/unistd.h"
-#include "../libc/include/termios.h"
-#include "../libc/include/assert.h"
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <termios.h>
+#include <assert.h>
 #include <sys/types.h>
-#include "../libc/include/sys/wait.h"
-#include "../libc/include/sys/stat.h"
-#include "../libc/include/fcntl.h"
-#include "../libc/include/dirent.h"
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <dirent.h>
 
 #include "vfs/vfs.h"
 #include "time/ktime.h"
@@ -81,38 +80,6 @@ int num_environ;
 
 initrd_file_t* commit_file;
 
-FILE _stdin, _stdout, _stderr;
-
-uint8_t stdin_buffer[BUFSIZ];
-uint8_t stdout_buffer[BUFSIZ];
-uint8_t stderr_buffer[BUFSIZ];
-
-#define _init_file_flags(f) { f->fd = -1; f->buffer_size = BUFSIZ; f->buffer_index = 0; f->buffer_mode = 0; f->flags = FILE_FLAGS_BF_ALLOC; f->current_flags = 0; f->buffer_end_index = 0;}
-
-void kernel_init_std()
-{
-    stdin = &_stdin;
-    stdout = &_stdout;
-    stderr = &_stderr;
-
-    stdin->buffer = stdin_buffer;
-    stdout->buffer = stdout_buffer;
-    stderr->buffer = stderr_buffer;
-
-    _init_file_flags(stdin);
-    _init_file_flags(stdout);
-    _init_file_flags(stderr);
-    
-    stdin->fd = STDIN_FILENO;
-    stdin->flags = FILE_FLAGS_READ;
-
-    stdout->fd = STDOUT_FILENO;
-    stdout->flags = FILE_FLAGS_WRITE | FILE_FLAGS_LBF;
-
-    stderr->fd = STDERR_FILENO;
-    stderr->flags = FILE_FLAGS_WRITE | FILE_FLAGS_NBF;
-}
-
 atomic_flag print_spinlock = ATOMIC_FLAG_INIT;
 atomic_bool did_init_std = false;
 
@@ -141,14 +108,12 @@ void _start()
     {
         LOG(DEBUG, "_start");
 
-        kernel_init_std();
-
         kernel_start_phys = (physical_address_t)&kernel_start;
         kernel_end_phys = (physical_address_t)&kernel_end;
 
-        LOG(INFO, "Kernel booted successfully with BOOTBOOT (%#llx-%#llx)", kernel_start_phys, kernel_end_phys);
-        LOG(INFO, "Kernel is %llu bytes long", kernel_end_phys - kernel_start_phys);
-        LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %#llx", bootboot.fb_width, bootboot.fb_height, bootboot.fb_scanline, bootboot.fb_ptr);
+        LOG(INFO, "Kernel booted successfully with BOOTBOOT (%#" PRIx64 "-%#" PRIx64 ")", kernel_start_phys, kernel_end_phys);
+        LOG(INFO, "Kernel is %" PRIu64 " bytes long", kernel_end_phys - kernel_start_phys);
+        LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %#" PRIx64 "", bootboot.fb_width, bootboot.fb_height, bootboot.fb_scanline, bootboot.fb_ptr);
         LOG(INFO, "Type: %s", fb_type_string[bootboot.fb_type]);
 
         framebuffer.width = bootboot.fb_width;
@@ -163,7 +128,7 @@ void _start()
         cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
         // !! Actually will cause a triple fault on CPUs that don't support CPUID but you shouldn't be running this OS on such hardware anyway
 
-        LOG(INFO, "CPUID highest function parameter: 0x%x", cpuid_highest_function_parameter);
+        LOG(INFO, "CPUID highest function parameter: %#x", cpuid_highest_function_parameter);
 
         *(uint32_t*)&manufacturer_id_string[0] = ebx;
         *(uint32_t*)&manufacturer_id_string[4] = edx;
@@ -173,7 +138,7 @@ void _start()
         LOG(INFO, "CPU manufacturer id : \"%s\"", manufacturer_id_string);
 
         cpuid(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
-        LOG(INFO, "CPUID highest extended function parameter: 0x%x", cpuid_highest_extended_function_parameter);
+        LOG(INFO, "CPUID highest extended function parameter: %#x", cpuid_highest_extended_function_parameter);
 
         if (cpuid_highest_extended_function_parameter >= 0x80000008)
         {
@@ -225,7 +190,7 @@ void _start()
 
     printf("Detected ");
     tty_set_color(FG_LIGHTBLUE, BG_BLACK);
-    printf("%llu ", allocatable_memory);
+    printf("%" PRIu64 " ", allocatable_memory);
     tty_set_color(FG_WHITE, BG_BLACK);
     printf("bytes of allocatable memory\n");
     
@@ -256,7 +221,7 @@ void _start()
         global_cr3 = (uint64_t*)pfa_allocate_physical_page();
         uint64_t* bootboot_cr3 = (uint64_t*)get_cr3();
 
-        LOG(DEBUG, "bootboot_cr3: %#llx", bootboot_cr3);
+        LOG(DEBUG, "bootboot_cr3: %#" PRIx64 "", (uint64_t)bootboot_cr3);
 
     // * "When the kernel gains control, the memory mapping looks like this:"
     // *  -128M         "mmio" area           (0xFFFFFFFFF8000000)
@@ -268,8 +233,8 @@ void _start()
     // *    0-16G       RAM identity mapped   (0x0000000400000000)
 
     // * bootboot + environment + code segment + stack
-        printf("Copying mapping of range %#llx-%#llx from bootboot\n", 0xFFFFFFFFFFE00000, 0ULL);
-        LOG(DEBUG, "Copying mapping of range %#llx-%#llx from bootboot", 0xFFFFFFFFFFE00000, 0ULL);
+        printf("Copying mapping of range %#" PRIx64 "-%#" PRIx64 " from bootboot\n", 0xFFFFFFFFFFE00000, (uint64_t)0);
+        LOG(DEBUG, "Copying mapping of range %#" PRIx64 "-%#" PRIx64 " from bootboot", 0xFFFFFFFFFFE00000, (uint64_t)0);
 
         copy_mapping(bootboot_cr3, global_cr3, 0xFFFFFFFFFFE00000, (uint64_t)(-0xFFFFFFFFFFE00000) >> 12);
 
@@ -286,27 +251,27 @@ void _start()
             if (ptr + len >= 1 * TB)
                 len = 1 * TB - ptr;
                 
-            LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
-            printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
+            LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
+            printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
             remap_range(global_cr3, ptr + PHYS_MAP_OFFSET, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
         }
 
     // * LAPIC registers
-        printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
-        LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
+        printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
+        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
         remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
 
     // * Framebuffer
-        printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
-        LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
+        printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
+        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
         
     // ? Write-combining cache
         remap_range(global_cr3, (uint64_t)framebuffer.address + PHYS_MAP_OFFSET, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
             PG_SUPERVISOR, PG_READ_WRITE, CACHE_WC);
 
     // * initrd
-        printf("Mapping range %#llx-%#llx to %#llx-%#llx\n", bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-        LOG(DEBUG, "Mapping range %#llx-%#llx to %#llx-%#llx", bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+        printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
         remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_OFFSET, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
     }
 
@@ -362,8 +327,8 @@ void _start()
     printf("\"%s\"\n", manufacturer_id_string);
     tty_set_color(FG_WHITE, BG_BLACK);
 
-    printf("CPUID highest function parameter: 0x%x\n", cpuid_highest_function_parameter);
-    printf("CPUID highest extended function parameter: 0x%x\n", cpuid_highest_extended_function_parameter);
+    printf("CPUID highest function parameter: %#x\n", cpuid_highest_function_parameter);
+    printf("CPUID highest extended function parameter: %#x\n", cpuid_highest_extended_function_parameter);
 
     printf("Physical address is ");
     tty_set_color(FG_LIGHTBLUE, BG_BLACK);
@@ -445,7 +410,7 @@ void _start()
     printf("Time: ");
 
     tty_set_color(FG_LIGHTCYAN, BG_BLACK);
-    printf("%llu-%llu-%llu %llu:%llu:%llu\n", system_year, system_month, system_day, system_hours, system_minutes, system_seconds);
+    printf("%" PRIu64 "-%" PRIu64 "-%" PRIu64 " %" PRIu64 ":%" PRIu64 ":%" PRIu64 "\n", system_year, system_month, system_day, system_hours, system_minutes, system_seconds);
     tty_set_color(FG_WHITE, BG_BLACK);
 
     enable_interrupts(); 
@@ -568,8 +533,8 @@ void _start()
     // {
     //     uint64_t rsp;
     //     asm volatile("mov rax, rsp" : "=a"(rsp));
-    //     LOG(DEBUG, "rsp: %#llx", rsp);
-    //     LOG(DEBUG, "%llu bytes left", 1024 + rsp);
+    //     LOG(DEBUG, "rsp: %#" PRIx64 "", rsp);
+    //     LOG(DEBUG, "%" PRIu64 " bytes left", 1024 + rsp);
     //     while (true);
     // }
 
@@ -577,6 +542,7 @@ void _start()
     if (!multitasking_add_task_from_vfs("init", "/initrd/bin/init", 0, true, &data, vfs_root))
     {
         LOG(CRITICAL, "init task couldn't start");
+        printf("\x1b[31merror\x1b[0m: init task couldn't start\n");
         abort();
     }
 

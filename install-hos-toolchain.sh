@@ -92,8 +92,8 @@ meson \
     setup \
     --cross-file=../cross_file \
     --prefix=/usr \
-    -Dno_headers=true \
     -Ddefault_library=static \
     build
 
-DESTDIR=${SYSROOT_DIR} ninja -C build install
+DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
+cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}

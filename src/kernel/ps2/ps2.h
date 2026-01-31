@@ -67,7 +67,7 @@
 struct ps2_full_scancode;
 typedef struct ps2_full_scancode ps2_full_scancode_t;
 
-#define ps2_print_read_buffer() // { printf("PS/2 read buffer : "); for (uint8_t i = 0; i < ps2_data_bytes_received; i++) printf("%#llx ", ps2_data_buffer[i]); putchar('\n'); }
+#define ps2_print_read_buffer() // { printf("PS/2 read buffer : "); for (uint8_t i = 0; i < ps2_data_bytes_received; i++) printf("%#" PRIx64 " ", ps2_data_buffer[i]); putchar('\n'); }
 
 extern uint8_t ps2_device_1_type;
 extern uint8_t ps2_device_2_type;

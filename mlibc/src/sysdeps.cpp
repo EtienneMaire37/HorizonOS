@@ -80,13 +80,16 @@ namespace mlibc
 		__builtin_unreachable();
 	}
 
-	int sys_open(const char*, int, unsigned int, int*) 
+	int sys_open(const char* path, int oflags, unsigned int mode, int* fd) 
 	{
-		STUB("sys_open");
+		uint64_t _fd;
+		int ret = syscall3_2(SYS_OPEN, (uint64_t)path, (uint64_t)oflags, (uint64_t)mode, &_fd);
+		*fd = (int)_fd;
+		return ret;
 	}
-	int sys_close(int) 
+	int sys_close(int fd) 
 	{ 
-		STUB("sys_close");
+		return syscall1_1(SYS_CLOSE, (uint64_t)fd);
 	}
 
 	int sys_futex_wake(int*) 
@@ -114,4 +117,14 @@ namespace mlibc
 	{
 		STUB("sys_clock_get");
 	}
+}
+
+extern "C" void flush_stdin()
+{
+	STUB("flush_stdin");
+}
+extern "C" bool set_kb_layout(int layout_idx)
+{
+	(void)layout_idx;
+	STUB("set_kb_layout");
 }

@@ -1,15 +1,14 @@
 #pragma once
 
 #include "../int/int.h"
-#include "../../libc/src/syscall_defines.h"
 #include "startup_data.h"
 #include "../multitasking/loader.h"
 #include <signal.h>
-#include "../../libc/include/sys/wait.h"
-#include "../../libc/src/math_utils.h"
-#include "../../libc/include/fcntl.h"
+#include <sys/wait.h>
+#include "../util/math.h"
+#include <fcntl.h>
 #include "../vga/textio.h"
-#include "../../libc/include/errno.h"
+#include <errno.h>
 #include "../io/keyboard.h"
 #include "../multitasking/task.h"
 #include "../paging/paging.h"

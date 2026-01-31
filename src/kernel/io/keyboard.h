@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../cpu/util.h"
-#include "../../libc/src/math_utils.h"
+#include "../util/math.h"
 
 typedef uint32_t utf32_char_t;
 

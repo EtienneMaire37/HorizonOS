@@ -7,7 +7,7 @@ uint16_t connected_pci_ide_controllers = 0;
 #include "ata.h"
 #include "../pci/pci.h"
 #include "../vga/textio.h"
-#include "../../libc/include/stdlib.h"
+#include <stdlib.h>
 #include "../time/time.h"
 
 void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
@@ -96,7 +96,7 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
             for (uint16_t k = 0; k < 256; k++)
             {
                 ((uint16_t*)ide_buf)[k] = inw(pci_ide_controller[connected_pci_ide_controllers].channels[i].base_address + ATA_REG_DATA);
-                // LOG(TRACE, "IDE IDENTIFY data word %u : 0x%x", k, ((uint16_t*)ide_buf)[k]);
+                // LOG(TRACE, "IDE IDENTIFY data word %u : %#x", k, ((uint16_t*)ide_buf)[k]);
             }
 
             pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].connected = 1;
@@ -150,16 +150,16 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                 if (magnitude == 0)
                     magnitude_value *= 1024;
                     
-                LOG(INFO, "Found drive \"%s\" (%llu bytes) [%llu.%llu%llu %s]", 
+                LOG(INFO, "Found drive \"%s\" (%" PRIu64 " bytes) [%" PRIu64 ".%" PRIu64 "%" PRIu64 " %s]", 
                     pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model, 
                    bytes, magnitude_value / 1024, (magnitude_value * 10 / 1024) % 10, (magnitude_value * 100 / 1024) % 10, magnitude_text[magnitude]);
                 printf("Found drive ");
                 tty_set_color(FG_LIGHTGREEN, BG_BLACK);
                 printf("\"%s\" ", pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model);
                 tty_set_color(FG_WHITE, BG_BLACK);
-                printf("(%llu bytes) [", bytes);
+                printf("(%" PRIu64 " bytes) [", bytes);
                 tty_set_color(FG_LIGHTCYAN, BG_BLACK);
-                printf("%llu.%llu%llu ", magnitude_value / 1024, (magnitude_value * 10 / 1024) % 10, (magnitude_value * 100 / 1024) % 10);
+                printf("%" PRIu64 ".%" PRIu64 "%" PRIu64 " ", magnitude_value / 1024, (magnitude_value * 10 / 1024) % 10, (magnitude_value * 100 / 1024) % 10);
                 tty_set_color(FG_WHITE, BG_BLACK);
                 printf("%s]\n", magnitude_text[magnitude]);
             }
@@ -183,7 +183,7 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                     LOG(TRACE, "First sector of primary master drive:");
                     for (int i = 0; i < 512; i++)
                     {
-                        LOG(TRACE, "0x%x: 0x%x", i, ((uint8_t*)buffer)[i]);
+                        LOG(TRACE, "%#x: %#x", i, ((uint8_t*)buffer)[i]);
                     }
                 #endif
                 }
@@ -229,15 +229,15 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                 {
                     if (data->partition_table[k].partition_type != 0)
                     {
-                        LOG(INFO, "    Partition %u: Type 0x%x | Start LBA : %u | Size : %lluB%s", 
+                        LOG(INFO, "    Partition %u: Type %#x | Start LBA : %u | Size : %" PRIu64 "B%s", 
                             k + 1, 
-                            data->partition_table[k].partition_type, data->partition_table[k].start_lba, data->partition_table[k].size_in_sectors * 512ULL,
+                            data->partition_table[k].partition_type, data->partition_table[k].start_lba, (uint64_t)(data->partition_table[k].size_in_sectors * 512ULL),
                             data->partition_table[k].drive_attributes & 0x80 ? " [Bootable]" : "");
-                        printf("  Partition %u: Type 0x%x | Start LBA : %u | Size : ", 
+                        printf("  Partition %u: Type %#x | Start LBA : %u | Size : ", 
                             k + 1, 
                             data->partition_table[k].partition_type, data->partition_table[k].start_lba);
                         tty_set_color(FG_LIGHTCYAN, BG_BLACK);
-                        printf("%llu", data->partition_table[k].size_in_sectors * 512ULL);
+                        printf("%" PRIu64 "", (uint64_t)(data->partition_table[k].size_in_sectors * 512ULL));
                         tty_set_color(FG_WHITE, BG_BLACK);
                         printf("B");
                         if (data->partition_table[k].drive_attributes & 0x80)
@@ -258,11 +258,11 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
     LOG(DEBUG, "    %s mode on primary channel", pci_ide_controller[connected_pci_ide_controllers - 1].channels[0].compatibility_mode ? "Compatibility" : "Native");
     LOG(DEBUG, "    %s mode on secondary channel", pci_ide_controller[connected_pci_ide_controllers - 1].channels[1].compatibility_mode ? "Compatibility" : "Native");
 
-    LOG(DEBUG, "    Primary channel base address : 0x%x | Control base address : 0x%x | IRQ : %u",
+    LOG(DEBUG, "    Primary channel base address : %#x | Control base address : %#x | IRQ : %u",
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[0].base_address,
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[0].ctrl_base_address,
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[0].irq);
-    LOG(DEBUG, "    Secondary channel base address : 0x%x | Control base address : 0x%x | IRQ : %u",
+    LOG(DEBUG, "    Secondary channel base address : %#x | Control base address : %#x | IRQ : %u",
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[1].base_address,
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[1].ctrl_base_address,
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[1].irq);

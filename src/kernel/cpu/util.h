@@ -2,9 +2,10 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../../libc/include/stdio.h"
+#include <stdio.h>
 #include <stddef.h>
-#include "../../libc/src/current_func.h"
+
+#include "../util/cfunc.h"
 
 typedef uint64_t physical_address_t;
 typedef uint64_t virtual_address_t;

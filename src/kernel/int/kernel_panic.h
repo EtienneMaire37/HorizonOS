@@ -8,16 +8,16 @@
 #include "../vga/textio.h"
 #include "int.h"
 #include "../paging/paging.h"
-#include "../../libc/src/math_utils.h"
+#include "../util/math.h"
 #include "../cpu/segbase.h"
 
 extern initrd_file_t* commit_file;
 
-#define log_registers() LOG(INFO, "RSP=%#.16llx RBP=%#.16llx RAX=%#.16llx RBX=%#.16llx RCX=%#.16llx RDX=%#.16llx", \
+#define log_registers() LOG(INFO, "RSP=%#.16" PRIx64 " RBP=%#.16" PRIx64 " RAX=%#.16" PRIx64 " RBX=%#.16" PRIx64 " RCX=%#.16" PRIx64 " RDX=%#.16" PRIx64 "", \
     registers->rsp, registers->rbp, registers->rax, registers->rbx, registers->rcx, registers->rdx);    \
-    LOG(INFO, "R8=%#.16llx R9=%#.16llx R10=%#.16llx R11=%#.16llx R12=%#.16llx R13=%#.16llx R14=%#.16llx R15=%#.16llx",  \
+    LOG(INFO, "R8=%#.16" PRIx64 " R9=%#.16" PRIx64 " R10=%#.16" PRIx64 " R11=%#.16" PRIx64 " R12=%#.16" PRIx64 " R13=%#.16" PRIx64 " R14=%#.16" PRIx64 " R15=%#.16" PRIx64 "",  \
     registers->r8, registers->r9, registers->r10, registers->r11, registers->r12, registers->r13, registers->r14, registers->r15);  \
-    LOG(INFO, "RDI=%#.16llx RSI=%#.16llx", registers->rdi, registers->rsi); \
+    LOG(INFO, "RDI=%#.16" PRIx64 " RSI=%#.16" PRIx64 "", registers->rdi, registers->rsi); \
     log_segbase();
 
 #define is_a_valid_function(symbol_type) ((symbol_type) == 'T' || (symbol_type) == 'R' || (symbol_type) == 't' || (symbol_type) == 'r')  
@@ -133,12 +133,12 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
 
     const char* error_message = get_error_message(registers->interrupt_number, registers->error_code);
 
-    printf("Exception number: %llu\n", registers->interrupt_number);
+    printf("Exception number: %" PRIu64 "\n", registers->interrupt_number);
     printf("Error:       ");
     tty_set_color(FG_YELLOW, BG_BLACK);
     puts(error_message);
     tty_set_color(FG_WHITE, BG_BLACK);
-    printf("Error code:  %#llx\n\n", registers->error_code);
+    printf("Error code:  %#" PRIx64 "\n\n", registers->error_code);
 
     if (registers->interrupt_number == 14)  // * Page fault
     {
@@ -148,7 +148,7 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
         uint16_t pte =      ((registers->cr2 >> 12) & 0x1ff);
         if (registers->cr2)
         {
-            printf("cr2:  %#llx (pml4e %llu pdpte %llu pde %llu pte %llu offset %#llx)\n", registers->cr2, pml4e, pdpte, pde, pte, registers->cr2 & 0xfff);
+            printf("cr2:  %#" PRIx64 " (pml4e %u pdpte %u pde %u pte %u offset %#" PRIx64 ")\n", registers->cr2, pml4e, pdpte, pde, pte, registers->cr2 & 0xfff);
         }
         else
         {
@@ -157,34 +157,34 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
             printf("NULL\n");
             tty_set_color(FG_WHITE, BG_BLACK);
         }
-        printf("cr3: %#llx\n\n", registers->cr3);
+        printf("cr3: %#" PRIx64 "\n\n", registers->cr3);
 
         uint64_t* pml4 = (uint64_t*)(registers->cr3 + PHYS_MAP_BASE);
 
         uint64_t* pml4_entry = &pml4[pml4e];
-        printf("pml4 entry: %#.16llx\n", *pml4_entry);
-        LOG(INFO, "pml4 entry: %#.16llx", *pml4_entry);
+        printf("pml4 entry: %#.16" PRIx64 "\n", *pml4_entry);
+        LOG(INFO, "pml4 entry: %#.16" PRIx64 "", *pml4_entry);
 
         if (is_pdpt_entry_present(pml4_entry))
         {
             uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
             uint64_t* pdpt_entry = &pdpt[pdpte];
-            printf("pdpt entry: %#.16llx\n", *pdpt_entry);
-            LOG(INFO, "pdpt entry: %#.16llx", *pdpt_entry);
+            printf("pdpt entry: %#.16" PRIx64 "\n", *pdpt_entry);
+            LOG(INFO, "pdpt entry: %#.16" PRIx64 "", *pdpt_entry);
 
             if (is_pdpt_entry_present(pdpt_entry))
             {
                 uint64_t* pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pdpt_entry));
                 uint64_t* pd_entry = &pd[pde];
-                printf("pd entry: %#.16llx\n", *pd_entry);
-                LOG(INFO, "pd entry: %#.16llx", *pd_entry);
+                printf("pd entry: %#.16" PRIx64 "\n", *pd_entry);
+                LOG(INFO, "pd entry: %#.16" PRIx64 "", *pd_entry);
 
                 if (is_pdpt_entry_present(pd_entry))
                 {
                     uint64_t* pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pd_entry));
                     uint64_t* pt_entry = &pt[pte];
-                    printf("pt entry: %#.16llx\n", *pt_entry);
-                    LOG(INFO, "pt entry: %#.16llx", *pt_entry);
+                    printf("pt entry: %#.16" PRIx64 "\n", *pt_entry);
+                    LOG(INFO, "pt entry: %#.16" PRIx64 "", *pt_entry);
                 }
             }
         }
@@ -193,13 +193,13 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
 
     log_registers();
 
-    printf("RSP=%#.16llx RBP=%#.16llx\n",
+    printf("RSP=%#.16" PRIx64 " RBP=%#.16" PRIx64 "\n",
     registers->rsp, registers->rbp);
-    printf("RAX=%#.16llx RBX=%#.16llx RCX=%#.16llx RDX=%#.16llx\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
-    printf("R8=%#.16llx R9=%#.16llx R10=%#.16llx R11=%#.16llx\n",
+    printf("RAX=%#.16" PRIx64 " RBX=%#.16" PRIx64 " RCX=%#.16" PRIx64 " RDX=%#.16" PRIx64 "\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
+    printf("R8=%#.16" PRIx64 " R9=%#.16" PRIx64 " R10=%#.16" PRIx64 " R11=%#.16" PRIx64 "\n",
     registers->r8, registers->r9, registers->r10, registers->r11);
-    printf("R12=%#.16llx R13=%#.16llx R14=%#.16llx R15=%#.16llx\n", registers->r12, registers->r13, registers->r14, registers->r15);
-    printf("RDI=%#.16llx RSI=%#.16llx\n\n", registers->rdi, registers->rsi);
+    printf("R12=%#.16" PRIx64 " R13=%#.16" PRIx64 " R14=%#.16" PRIx64 " R15=%#.16" PRIx64 "\n", registers->r12, registers->r13, registers->r14, registers->r15);
+    printf("RDI=%#.16" PRIx64 " RSI=%#.16" PRIx64 "\n\n", registers->rdi, registers->rsi);
 
     printf("Stack trace : \n");
     LOG(INFO, "Stack trace : ");
@@ -216,11 +216,11 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
     // ~ Log the last function (the one the exception happened in)
     printf("rip : 0x");
     tty_set_color(FG_YELLOW, BG_BLACK);
-    printf("%llx", registers->rip);
+    printf("%" PRIx64 "", registers->rip);
     tty_set_color(FG_WHITE, BG_BLACK);
     putchar(' ');
 
-    LOG(INFO, "rip : %#llx ", registers->rip);
+    LOG(INFO, "rip : %#" PRIx64 " ", registers->rip);
     print_kernel_symbol_name(registers->rip, (uintptr_t)rbp);
     putchar('\n');
 
@@ -249,8 +249,8 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
         }
         else
         {
-            printf("rip : %#llx | rbp : %#llx ", rbp->rip, rbp);
-            LOG(INFO, "rip : %#llx | rbp : %#llx ", rbp->rip, rbp);
+            printf("rip : %#" PRIx64 " | rbp : %#" PRIx64 " ", rbp->rip, (uint64_t)rbp);
+            LOG(INFO, "rip : %#" PRIx64 " | rbp : %#" PRIx64 " ", rbp->rip, (uint64_t)rbp);
             print_kernel_symbol_name(rbp->rip - 1, (uintptr_t)rbp);
             putchar('\n');
             rbp = (call_frame_t*)rbp->rbp;

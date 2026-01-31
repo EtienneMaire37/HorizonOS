@@ -109,7 +109,7 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
     task_stack_push(&task, (uint64_t)data_cpy.argc);
 
     // for (int i = 0; i < 16; i++)
-    //     LOG(DEBUG, "%d: %#llx", i, task_read_at_aligned_address_8b(&task, task.rsp + 8 * i));
+    //     LOG(DEBUG, "%d: %#" PRIx64 "", i, task_read_at_aligned_address_8b(&task, task.rsp + 8 * i));
 
     // task_stack_push(&task, task.rsp);
 
@@ -122,7 +122,7 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
     task.system_task = system;
     task.cwd = cwd;
 
-    LOG(DEBUG, "Entry point : %#llx", header->entry);
+    LOG(DEBUG, "Entry point : %#" PRIx64 "", header->entry);
 
     const elf64_half_t n_ph = header->phnum;
 
@@ -133,10 +133,10 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
 
         LOG(DEBUG, "Program header %u : ", i);
         LOG(DEBUG, "├── Type : \"%s\"", elf64_get_phtype_string(ph->type));
-        LOG(DEBUG, "├── Virtual address : %#llx", ph->p_vaddr);
-        LOG(DEBUG, "├── File offset : %#llx", ph->p_offset);
-        LOG(DEBUG, "├── Memory size : %u bytes", ph->p_memsz);
-        LOG(DEBUG, "└── File size : %u bytes", ph->p_filesz);
+        LOG(DEBUG, "├── Virtual address : %#" PRIx64 "", ph->p_vaddr);
+        LOG(DEBUG, "├── File offset : %#" PRIx64 "", ph->p_offset);
+        LOG(DEBUG, "├── Memory size : %" PRIu64 " bytes", ph->p_memsz);
+        LOG(DEBUG, "└── File size : %" PRIu64 " bytes", ph->p_filesz);
 
         if (ph->type != ELF_PROGRAM_TYPE_LOAD) 
         {
@@ -150,7 +150,7 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
         virtual_address_t end_address = ph->p_vaddr + ph->p_memsz;
         uint64_t num_pages = (end_address - start_address + 0xfff) >> 12;
 
-        // LOG(DEBUG, "%#llx : %llu pages", start_address, num_pages);
+        // LOG(DEBUG, "%#" PRIx64 " : %" PRIu64 " pages", start_address, num_pages);
 
         allocate_range((uint64_t*)(task.cr3 + PHYS_MAP_BASE), 
                     start_address, num_pages, 
@@ -199,8 +199,8 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
         LOG(DEBUG, "Section header %u : ", i);
         LOG(DEBUG, "├── Name : \"%s\"", name);
         LOG(DEBUG, "├── Type : \"%s\"", elf64_get_shtype_string(sh->type));
-        LOG(DEBUG, "├── Address : %#llx", sh->addr);
-        LOG(DEBUG, "└── Size : %llu bytes", sh->size);
+        LOG(DEBUG, "├── Address : %#" PRIx64 "", sh->addr);
+        LOG(DEBUG, "└── Size : %" PRIu64 " bytes", sh->size);
     }
 
     tasks[task_count++] = task;

@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../../libc/include/string.h"
+#include <string.h>
 #include "defs.h"
 #include "../cpu/util.h"
 #include <stdbool.h>
@@ -39,7 +39,7 @@ bool acpi_table_valid(physical_address_t table_address)
 
 void map_table_in_current_vas(uint64_t address, uint8_t privilege, uint8_t read_write)
 {
-    LOG(DEBUG, "Mapping table at address %#llx in memory", address);
+    LOG(DEBUG, "Mapping table at address %#" PRIx64 " in memory", address);
 
     uint64_t* current_cr3 = (uint64_t*)(get_cr3() + PHYS_MAP_BASE);
 
@@ -122,7 +122,7 @@ void acpi_find_tables()
     for (uint32_t i = 0; i < sdt_count; i++)
     {
         physical_address_t address = read_rsdt_ptr(i);
-        LOG(INFO, "\tFound table at address %#llx", address);
+        LOG(INFO, "\tFound table at address %#" PRIx64 "", address);
         map_table_in_current_vas(address, PG_SUPERVISOR, PG_READ_ONLY);
 
         {
@@ -131,8 +131,8 @@ void acpi_find_tables()
                 struct sdt_header* sdt = (struct sdt_header*)address;
                 uint32_t signature = *(uint64_t*)&sdt->signature;
                 char signature_text[5] = { (char)signature, (char)(signature >> 8), (char)(signature >> 16), (char)(signature >> 24), 0 };
-                LOG(INFO, "\t\tSignature: %s (0x%x)", signature_text, signature);
-                printf("Signature: %s (0x%x)\n", signature_text, signature);
+                LOG(INFO, "\t\tSignature: %s (%#x)", signature_text, signature);
+                printf("Signature: %s (%#x)\n", signature_text, signature);
                 switch (signature)
                 {
                 case 0x50434146:    // FACP : FADT

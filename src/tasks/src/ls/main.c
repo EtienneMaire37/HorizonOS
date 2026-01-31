@@ -7,10 +7,9 @@
 #include <dirent.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <errno.h>
 
-#include "../../libc/src/misc.h"
-
-extern int errno;
+#include "../../../kernel/util/access.h"
 
 int main(int argc, char** argv)
 {

@@ -31,7 +31,7 @@ make USER_CFLAGS="${options}"
 Here's a list of the supported options:
 | Option | Value   | Description |
 | ------ | ------- | ----------- |
-| -DLOG_LEVEL | ={TRACE, DEBUG, INFO, WARNING, ERROR, FATAL} | Level from which logs are written to port 0xe9 |
+| -DLOG_LEVEL | ={TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL} | Level from which logs are written to port 0xe9 |
 | -DLOG_SYSCALLS | N/A | Whether to log syscalls |
 | -DLOG_MEMORY | N/A | Whether to log page allocation |
 

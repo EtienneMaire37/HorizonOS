@@ -1,8 +1,8 @@
 #include "../ps2/keyboard.h"
 #include "../memalloc/page_frame_allocator.h"
-#include "../../libc/include/assert.h"
-#include "../../libc/include/string.h"
-#include "../../libc/src/math_utils.h"
+#include <assert.h>
+#include <string.h>
+#include "../util/math.h"
 #include "../multitasking/task.h"
 #include "../vga/textio.h"
 

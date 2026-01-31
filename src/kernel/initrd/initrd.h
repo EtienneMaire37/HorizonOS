@@ -1,11 +1,11 @@
 #pragma once
 
 #include "../files/ustar.h"
-#include "../../libc/include/unistd.h"
+#include <unistd.h>
 #include "../debug/out.h"
-#include "../../libc/include/stdio.h"
-#include "../../libc/include/string.h"
-#include "../../libc/include/sys/stat.h"
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
 
 typedef uint8_t tar_file_type;
 

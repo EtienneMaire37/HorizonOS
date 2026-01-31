@@ -4,6 +4,7 @@
 
 #include "../io/io.h"
 #include <stdbool.h>
+#include <inttypes.h>
 
 #define LOG_LEVEL_TRACE     0
 #define LOG_LEVEL_DEBUG     1
@@ -61,18 +62,16 @@ static const char* LOG_LEVEL_COLOR[] =
 extern bool first_log;
 
 #ifndef ANSI_COLORS
-#define LOG_FMT         "\
-%llu-%.2llu-%.2llu \
-%.2llu:%.2llu:%.2llu.%.3llu\
- - %s%s \t"
+#define LOG_FMT         "%" PRId64 "-%.2" PRId64 "-%.2" PRId64 " \
+%.2" PRId64 ":%.2" PRId64 ":%.2" PRId64 ".%.3" PRId64 " - %s%s \t"
 
 #define LOG_FMT_NOTIME  "\
 0000-00-00 00:00:00.000\
  - %s%s \t"
 #else
 #define LOG_FMT "\
-\x1b[38;2;200;200;200m\x1b[48;2;40;40;40m%llu-%.2llu-%.2llu \x1b[0m\
-\x1b[38;2;150;200;255m\x1b[48;2;40;40;40m%.2llu:%.2llu:%.2llu.%.3llu\x1b[0m\
+\x1b[38;2;200;200;200m\x1b[48;2;40;40;40m%" PRIu64 "-%.2" PRIu64 "-%.2" PRIu64 " \x1b[0m\
+\x1b[38;2;150;200;255m\x1b[48;2;40;40;40m%.2" PRIu64 ":%.2" PRIu64 ":%.2" PRIu64 ".%.3llu\x1b[0m\
  - %s%s\x1b[0m \t"
 
 #define LOG_FMT_NOTIME "\

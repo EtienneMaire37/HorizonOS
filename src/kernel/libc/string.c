@@ -1,4 +1,8 @@
-#include <signal.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <abi-bits/errno.h>
 
 void* memset(void* dst, int value, size_t n)
 {
@@ -62,6 +66,7 @@ size_t strlen(const char* str)
         str += 4;
         s += 4;
     }
+    __builtin_unreachable();
 }
 
 int strcmp(const char* str1, const char* str2)
@@ -108,6 +113,15 @@ char* strncpy(char* destination, const char* source, size_t n)
     return _dest;
 }
 
+char* strdup(const char* str)
+{
+    size_t len = strlen(str);
+    char* dup = malloc(len);
+    if (!dup) return NULL;
+    __builtin_memcpy(dup, str, len + 1);
+    return dup;
+}
+
 char* strerror(int errnum)
 {
     switch (errnum) 
@@ -150,40 +164,4 @@ char* strerror(int errnum)
         case EXDEV: return "Cross-device link";
         default: return "Unknown error";
     }
-}
-
-char* strsignal(int signum)
-{
-    switch (signum)
-    {
-        case SIGHUP:    return "Hangup";
-        case SIGINT:    return "Interrupt";
-        case SIGQUIT:   return "Quit";
-        case SIGILL:    return "Illegal instruction";
-        case SIGTRAP:   return "Trace/breakpoint trap";
-        case SIGABRT:   return "Aborted";
-        case SIGBUS:    return "Bus error";
-        case SIGFPE:    return "Floating point exception";
-        case SIGKILL:   return "Killed";
-        case SIGUSR1:   return "User defined signal 1";
-        case SIGSEGV:   return "Segmentation fault";
-        case SIGUSR2:   return "User defined signal 2";
-        case SIGPIPE:   return "Broken pipe";
-        case SIGALRM:   return "Alarm clock";
-        case SIGTERM:   return "Terminated";
-        case SIGSTOP:   return "Stopped (signal)";
-        case SIGTSTP:   return "Stopped";
-        default:        return "Unknown signal";
-    }
-}
-
-#include "../include/stdlib.h"
-
-char* strdup(const char* str)
-{
-    size_t len = strlen(str);
-    char* dup = malloc(len);
-    if (!dup) return NULL;
-    __builtin_memcpy(dup, str, len + 1);
-    return dup;
 }

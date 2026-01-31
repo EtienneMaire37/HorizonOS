@@ -7,7 +7,7 @@ bool pat_enabled = false;
 
 #include "../cpu/memory.h"
 #include "paging.h"
-#include "../../libc/include/string.h"
+#include <string.h>
 #include "../memalloc/page_frame_allocator.h"
 
 uint64_t* create_empty_pdpt()
@@ -91,7 +91,7 @@ void set_pdpt_entry(uint64_t* entry, uint64_t address, uint8_t privilege, uint8_
     uint64_t masked_address = (address & 0xfffffffffffff000) & get_physical_address_mask();
     if (masked_address != address)
     {
-        LOG(CRITICAL, "Kernel tried to map physical address %#llx but it doesn't fit in %u bits", address, physical_address_width);
+        LOG(CRITICAL, "Kernel tried to map physical address %#" PRIx64 " but it doesn't fit in %u bits", address, physical_address_width);
         abort();
     }
 

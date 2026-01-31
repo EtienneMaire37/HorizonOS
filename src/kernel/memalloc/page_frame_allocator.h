@@ -25,7 +25,7 @@ extern uint64_t memory_allocated, allocatable_memory;
 extern atomic_flag pfa_spinlock;
 
 #ifdef LOG_MEMORY
-#define LOG_MEM_ALLOCATED() { uint32_t percentage = 10000 * memory_allocated / allocatable_memory; LOG(TRACE, "Used memory : %llu / %llu bytes (%u.%u%u %%)", memory_allocated, allocatable_memory, percentage / 100, (percentage / 10) % 10, percentage % 10); }
+#define LOG_MEM_ALLOCATED() { uint32_t percentage = 10000 * memory_allocated / allocatable_memory; LOG(TRACE, "Used memory : %" PRIu64 " / %" PRIu64 " bytes (%u.%u%u %%)", memory_allocated, allocatable_memory, percentage / 100, (percentage / 10) % 10, percentage % 10); }
 #else
 #define LOG_MEM_ALLOCATED()
 #endif

@@ -42,6 +42,6 @@ static inline void enable_avx()
     load_cr4(cr4);
 
     STATE_COMPONENT_BITMAP = get_supported_xcr0();
-    LOG(DEBUG, "XCR0: %#llx", STATE_COMPONENT_BITMAP);
+    LOG(DEBUG, "XCR0: %#" PRIx64 "", STATE_COMPONENT_BITMAP);
     load_xcr0(STATE_COMPONENT_BITMAP);
 }

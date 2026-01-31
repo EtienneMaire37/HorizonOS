@@ -2,9 +2,9 @@
 #include "../io/keyboard.h"
 #include "../debug/out.h"
 #include "keyboard.h"
-#include "../../libc/include/stdlib.h"
+#include <stdlib.h>
 #include <signal.h>
-#include "../../libc/include/sys/wait.h"
+#include <sys/wait.h>
 #include "../vfs/vfs.h"
 #include "../multitasking/task.h"
 #include "../vga/textio.h"
@@ -207,7 +207,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                     ;
                 }
 
-                // LOG(TRACE, "PS/2 keyboard scancode : 0x%x %s", current_ps2_keyboard_scancodes[port_index].scancode, current_ps2_keyboard_scancodes[port_index].extended ? "(extended)" : "");
+                // LOG(TRACE, "PS/2 keyboard scancode : %#x %s", current_ps2_keyboard_scancodes[port_index].scancode, current_ps2_keyboard_scancodes[port_index].extended ? "(extended)" : "");
             }
 
             // ps2_kb_update_leds(port);
@@ -242,7 +242,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                             {
                                 if (tasks[i].pgid == tty_foreground_pgrp)
                                 {
-                                    tasks[i].return_value = SIGINT | WSIGNALBIT;
+                                    tasks[i].return_value = SIGINT;
                                     tasks[i].is_dead = true;
                                     if (tasks[i].pid == __CURRENT_TASK.pid)
                                         *task_switch = true;

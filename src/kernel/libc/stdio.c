@@ -1,45 +1,82 @@
-#ifndef BUILDING_KERNEL
-#include "../include/math.h"
-#include "math_float_util.h"
-#include "math_fmod.c"
-#endif
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <abi-bits/errno.h>
 
-#include "../include/fcntl.h"
+int errno;
 
-int putchar(int c)
-{
-    unsigned char ch = (unsigned char)c;
-    if (fputc(ch, stdout) == EOF) return EOF;
-    return ch;
-}
-
-int puts(const char* s)
-{
-    if (!s) 
-    {
-        errno = EINVAL; 
-        return EOF;
-    }
-    if (fwrite(s, strlen(s), 1, stdout) != 1) return EOF;
-    if (putchar('\n') == EOF) return EOF;
-    return 0;
-}
-
-int fputs(const char* s, FILE* stream)
-{
-    if (!s) 
-    {
-        errno = EINVAL; 
-        return EOF;
-    }
-    if (fwrite(s, strlen(s), 1, stream) != 1) return EOF;
-    return 0;
-}
+#include "../vga/textio.h"
+#include "../debug/out.h"
 
 #define LM_NONE 0
 #define LM_L    1
 #define LM_LL   2
 #define LM_Z    3
+
+FILE* stdin = (FILE*)STDIN_FILENO;
+FILE* stdout = (FILE*)STDOUT_FILENO;
+FILE* stderr = (FILE*)STDERR_FILENO;
+
+int fputc(int c, FILE* stream)
+{
+    switch((uint64_t)stream)
+    {
+    case STDIN_FILENO:
+        return EOF;
+    case STDOUT_FILENO:
+        tty_outc((char)c);
+        return c;
+    case STDERR_FILENO:
+        debug_outc((char)c);
+        return c;
+    default:
+        return EOF;
+    }
+}
+
+int putchar(int c)
+{
+    return fputc(c, stdout);
+}
+
+int puts(const char* s)
+{
+    while (*s)
+    {
+        if (putchar(*(s++)) == EOF)
+            return EOF;
+    }
+    putchar('\n');
+    return 0;
+}
+
+// * NOOP
+int fflush(FILE* stream)
+{
+    switch((uint64_t)stream)
+    {
+    case STDIN_FILENO:
+    case STDOUT_FILENO:
+    case STDERR_FILENO:
+        return 0;
+    default:
+        errno = EBADF;
+        return EOF;
+    }
+}
+
+size_t fwrite(const void* ptr, size_t size, size_t n, FILE* restrict stream)
+{
+    for (size_t i = 0; i < size * n; i++)
+    {
+        if (fputc(((char*)ptr)[i], stream) == EOF)
+            return i / size;
+    }
+    return n;
+}
 
 int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format, va_list args)
 {
@@ -412,7 +449,7 @@ int vprintf(const char* format, va_list args)
     return _printf(_putc, _puts, format, args);
 }
 
-int dprintf(int fd, const char*format, ...)
+int dprintf(int fd, const char* format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -421,7 +458,7 @@ int dprintf(int fd, const char*format, ...)
     return length;
 }
 
-int vdprintf(int fd, const char*format, va_list args)
+int vdprintf(int fd, const char* format, va_list args)
 {
     int _putc(char c)
     {
@@ -438,7 +475,7 @@ int vdprintf(int fd, const char*format, va_list args)
     return _printf(_putc, _puts, format, args);
 }
 
-int fprintf(FILE* stream, const char*format, ...)
+int fprintf(FILE* stream, const char* format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -447,7 +484,7 @@ int fprintf(FILE* stream, const char*format, ...)
     return length;
 }
 
-int vfprintf(FILE* stream, const char*format, va_list args)
+int vfprintf(FILE* stream, const char* format, va_list args)
 {
     int _putc(char c)
     {
@@ -464,374 +501,11 @@ int vfprintf(FILE* stream, const char*format, va_list args)
     return _printf(_putc, _puts, format, args);
 }
 
-int printf(const char*format, ...)
+int printf(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
     int length = vfprintf(stdout, format, args);
     va_end(args);
     return length;
-}
-
-FILE* fopen(const char* path, const char* mode)
-{
-    if (!path || !mode) 
-    {
-        errno = EINVAL;
-        return NULL;
-    }
-
-    int plus = 0;
-    int excl = 0;
-    int cloexec = 0;
-    char base = '\0';
-
-    for (const char* p = mode; *p; p++) 
-    {
-        char c = *p;
-        switch (c) 
-        {
-        case 'r': 
-        case 'w': 
-        case 'a':
-            if (base != '\0') 
-            {
-                errno = EINVAL;
-                return NULL;
-            }
-            base = c;
-            break;
-            
-        case '+':
-            plus = 1;
-            break;
-        case 'x':
-            excl = 1;
-            break;
-        case 'e':
-            cloexec = 1;
-            break;
-
-        case 'b':
-        case 't':
-            break;
-        default:
-            errno = EINVAL;
-            return NULL;
-        }
-    }
-
-    if (base == '\0') 
-    {
-        errno = EINVAL;
-        return NULL;
-    }
-
-    int oflags = 0;
-    mode_t cmode = 0666;
-
-    if (base == 'r')
-        oflags = plus ? O_RDWR : O_RDONLY;
-    else if (base == 'w') 
-    {
-        oflags = plus ? O_RDWR : O_WRONLY;
-        oflags |= O_CREAT | O_TRUNC;
-    } 
-    else 
-    {
-        oflags = plus ? O_RDWR : O_WRONLY;
-        oflags |= O_CREAT | O_APPEND;
-    }
-
-    if (cloexec) oflags |= O_CLOEXEC;
-
-    if (excl && (oflags & O_CREAT)) oflags |= O_EXCL;
-    else if (excl && !(oflags & O_CREAT)) 
-    {
-        errno = EINVAL;
-        return NULL;
-    }
-
-    int fd;
-    if (oflags & O_CREAT)
-        fd = open(path, oflags, cmode);
-    else
-        fd = open(path, oflags);
-
-    if (fd == -1) 
-        return NULL;
-
-    FILE* stream = malloc(sizeof(FILE));
-    if (!stream) 
-    {
-        int saved = errno;
-        close(fd);
-        errno = saved ? saved : ENOMEM;
-        return NULL;
-    }
-
-    memset(stream, 0, sizeof(FILE));
-
-    unsigned char* buf = malloc(BUFSIZ);
-    if (!buf) 
-    {
-        int saved = errno;
-        close(fd);
-        free(stream);
-        errno = saved ? saved : ENOMEM;
-        return NULL;
-    }
-
-    stream->fd = fd;
-    stream->buffer = buf;
-    stream->buffer_size = BUFSIZ;
-    stream->buffer_index = 0;
-    stream->buffer_end_index = 0;
-
-    stream->flags = 0;
-    stream->current_flags = 0;
-
-    if (plus)
-        stream->flags |= (FILE_FLAGS_READ | FILE_FLAGS_WRITE);
-    else 
-    {
-        if (base == 'r') 
-            stream->flags |= FILE_FLAGS_READ;
-        else stream->flags |= FILE_FLAGS_WRITE;
-    }
-
-    stream->flags |= FILE_FLAGS_FBF;
-
-    if ((stream->flags & FILE_FLAGS_WRITE) && isatty(fd)) 
-    {
-        stream->flags &= ~FILE_FLAGS_FBF;
-        stream->flags |= FILE_FLAGS_LBF;
-    }
-
-    stream->flags |= FILE_FLAGS_BF_ALLOC;
-
-    stream->buffer_mode = (stream->flags & FILE_FLAGS_READ) ? FILE_BFMD_READ : FILE_BFMD_WRITE;
-
-    return stream;
-}
-
-int fclose(FILE* stream)
-{
-    if (!stream) 
-    {
-        errno = EBADF;
-        return EOF;
-    }
-    int ret_f = fflush(stream);
-    if (stream->buffer && (stream->flags & FILE_FLAGS_BF_ALLOC)) free(stream->buffer);
-    int ret_c = close(stream->fd);
-    free(stream);
-    return (ret_f == EOF || ret_c == -1) ? EOF : 0;
-}
-
-size_t fread(void* ptr, size_t size, size_t nitems, FILE* stream)
-{
-    if (!stream)
-    {
-        errno = EBADF;
-        return 0;
-    }
-
-    if (!ptr)
-    {
-        errno = EINVAL;
-        return 0;
-    }
-
-    if (!(stream->flags & FILE_FLAGS_READ)) 
-    {
-        stream->current_flags |= FILE_CFLAGS_ERR;
-        errno = EBADF;
-        return 0;
-    }
-
-    if (stream->current_flags & FILE_CFLAGS_EOF)
-        return 0;
-
-    if (size == 0 || nitems == 0) return 0;
-
-    if (stream->fd == STDIN_FILENO) // ! Not defined by the standard but a lot of programs rely on it
-        fflush(stdout);
-
-    if (stream->buffer_mode == FILE_BFMD_WRITE)
-    {
-        fflush(stream);
-        stream->buffer_mode = FILE_BFMD_READ;
-        int ret = read(stream->fd, stream->buffer, stream->buffer_size);
-        if (ret < 0) 
-        {
-            stream->current_flags |= FILE_CFLAGS_ERR;
-            stream->buffer_end_index = 0;
-            return 0;
-        }
-        stream->buffer_end_index = ret;
-    }
-
-    size_t bytes = size * nitems; // ! Might overflow
-    size_t bytes_copied;
-    for (size_t i = 0; i < bytes; i += bytes_copied)
-    {
-        if (stream->buffer_index >= stream->buffer_end_index)
-        {
-            stream->buffer_index = 0;
-            int ret = read(stream->fd, stream->buffer, stream->buffer_size);
-            if (ret == 0)
-            {
-                stream->current_flags |= FILE_CFLAGS_EOF;
-                stream->buffer_end_index = 0;
-                return i / size;
-            }
-            if (ret < 0)
-            {
-                stream->current_flags |= FILE_CFLAGS_ERR;
-                return i / size;
-            }
-            
-            stream->buffer_end_index = ret;
-        }
-        bytes_copied = stream->buffer_end_index - stream->buffer_index;
-        __builtin_memcpy(ptr + i, stream->buffer, bytes_copied);
-        stream->buffer_index += bytes_copied;
-    }
-    return nitems;
-}
-
-size_t fwrite(const void* ptr, size_t size, size_t nitems, FILE* stream)
-{
-    if (!stream)
-    {
-        errno = EBADF;
-        return 0;
-    }
-
-    if (!ptr)
-    {
-        errno = EINVAL;
-        return 0;
-    }
-
-    if (!(stream->flags & FILE_FLAGS_WRITE)) 
-    {
-        stream->current_flags |= FILE_CFLAGS_ERR;
-        errno = EBADF;
-        return 0;
-    }
-
-    if (!stream || !ptr || size == 0 || nitems == 0)
-    {
-        if (stream)
-            stream->current_flags |= FILE_CFLAGS_ERR;
-        return 0;
-    }
-
-    if (stream->buffer_mode == FILE_BFMD_READ)
-    {
-        stream->buffer_index = 0;
-        stream->buffer_end_index = 0;
-        stream->buffer_mode = FILE_BFMD_WRITE;
-    }
-
-    const uint8_t* data = ptr;
-    size_t bytes = size * nitems;
-
-    for (size_t i = 0; i < bytes; i++)
-    {
-        if (stream->buffer_index >= stream->buffer_size)
-        {
-            if (fflush(stream) != 0)
-                return i / size;
-        }
-
-        stream->buffer[stream->buffer_index++] = data[i];
-
-        if ((stream->flags & FILE_FLAGS_LBF) && data[i] == '\n')
-        {
-            if (fflush(stream) != 0)
-                return i / size;
-        }
-
-        if (stream->flags & FILE_FLAGS_NBF)
-        {
-            if (fflush(stream) != 0)
-                return i / size;
-        }
-    }
-
-    return nitems;
-}
-
-int fflush(FILE* stream)
-{
-    if (!stream)
-    {
-        errno = EBADF;
-        return EOF;
-    }
-
-    if (stream->buffer_mode == FILE_BFMD_READ) 
-        return 0;
-
-    if (stream->buffer_mode == FILE_BFMD_READ || stream->buffer_index == 0)
-        return 0;
-
-    if (write(stream->fd, stream->buffer, minint(stream->buffer_index, stream->buffer_size)) < 0)
-        return EOF; // * write already sets errno appropriately
-    stream->buffer_index = 0;
-
-    return 0;
-}
-
-int feof(FILE* stream)
-{
-    return (stream->current_flags & FILE_CFLAGS_EOF) != 0;  // Posix doesn't imply that it should be 0 or 1 but helps
-}
-
-int ferror(FILE* stream)
-{
-    return (stream->current_flags & FILE_CFLAGS_ERR) != 0;
-}
-
-int fileno(FILE* stream)
-{
-    if (!stream) return (errno = EBADF, -1);
-    return stream->fd;
-}
-
-int fgetc(FILE* stream)
-{
-    unsigned char c;
-    size_t ret = fread(&c, 1, 1, stream);
-    if (ret != 1) return EOF;
-    return (int)c;
-}
-
-int fputc(int c, FILE* stream)
-{
-    if (!stream) { errno = EBADF; return EOF; }
-    unsigned char ch = (unsigned char)c;
-    size_t ret = fwrite(&ch, 1, 1, stream);
-    return ret == 1 ? (int)ch : EOF;
-}
-
-int getchar()
-{
-    return getc(stdin);
-}
-
-void perror(const char* prefix)
-{
-    int _errno = errno;
-    fprintf(stderr, "%s", prefix);
-    if (_errno != 0)
-    {
-        if (strcmp(prefix, "") != 0)
-            fprintf(stderr, ": ");
-        fprintf(stderr, "%s", strerror(_errno));
-    }
-    fputc('\n', stderr);
 }

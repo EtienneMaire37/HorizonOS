@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../../libc/include/dirent.h"
+#include <dirent.h>
 #include "../multitasking/mutex.h"
 #include "../initrd/initrd.h"
-#include "../../libc/include/sys/stat.h"
+#include <sys/stat.h>
 
 typedef int16_t file_table_index_t;
 static const file_table_index_t invalid_fd = -1;

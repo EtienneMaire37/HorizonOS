@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../files/psf.h"
-#include "../../libc/include/termios.h"
+#include <termios.h>
 #include "constants.h"
 
 static inline bool is_printable_character(char c)

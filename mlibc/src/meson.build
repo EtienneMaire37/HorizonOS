@@ -68,6 +68,9 @@ if not no_headers
 		subdir: 'abi-bits',
 		follow_symlinks: true
 	)
+	install_headers(
+		'include/horizonos.h'
+	)
 endif
 
 if not headers_only

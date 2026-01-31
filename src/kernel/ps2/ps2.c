@@ -64,7 +64,7 @@ uint8_t ps2_send_command(uint8_t command)
     if (!ps2_controller_connected)
         return 0xff;
 
-    // LOG(TRACE, "Sending command 0x%x to PS/2 controller", command);
+    // LOG(TRACE, "Sending command %#x to PS/2 controller", command);
 
     uint8_t return_val;
     for (int i = 0; i < PS2_MAX_RESEND; i++)
@@ -90,7 +90,7 @@ void ps2_send_command_no_response(uint8_t command)
 {
     if (!ps2_controller_connected)
         return;
-    // LOG(TRACE, "Sending command 0x%x to PS/2 controller", command);
+    // LOG(TRACE, "Sending command %#x to PS/2 controller", command);
     if (ps2_wait_for_output())
         return;
     outb(PS2_COMMAND_REGISTER, command);
@@ -101,7 +101,7 @@ uint8_t ps2_send_command_with_data(uint8_t command, uint8_t data)
     if (!ps2_controller_connected)
         return 0xff;
 
-    // LOG(TRACE, "Sending command 0x%x to PS/2 controller", command);
+    // LOG(TRACE, "Sending command %#x to PS/2 controller", command);
 
     uint8_t return_val;
     for (int i = 0; i < PS2_MAX_RESEND; i++)
@@ -131,7 +131,7 @@ void ps2_send_command_with_data_no_response(uint8_t command, uint8_t data)
     if (!ps2_controller_connected)
         return;
 
-    // LOG(TRACE, "Sending command 0x%x, 0x%x to PS/2 controller", command, data);
+    // LOG(TRACE, "Sending command %#x, %#x to PS/2 controller", command, data);
 
     if (ps2_wait_for_output()) 
         return;
@@ -146,7 +146,7 @@ bool ps2_send_device_command(uint8_t device, uint8_t command)
     if (!ps2_controller_connected)
         return false;
 
-    // LOG(TRACE, "Sending command 0x%x to PS/2 device %u", command, device);
+    // LOG(TRACE, "Sending command %#x to PS/2 device %u", command, device);
 
     for (int tries = 0; tries < PS2_MAX_RESEND; tries++) 
     {
@@ -281,8 +281,8 @@ void ps2_controller_init()
 
     if (self_test_code != PS2_SELF_TEST_OK) 
     {
-        LOG(ERROR, "Controller self-test failed (code 0x%x)", self_test_code);
-        printf("Controller self-test failed (code 0x%x)\n", self_test_code);
+        LOG(ERROR, "Controller self-test failed (code %#x)", self_test_code);
+        printf("Controller self-test failed (code %#x)\n", self_test_code);
         ps2_controller_connected = false;
         return;
     }
@@ -373,7 +373,7 @@ void ps2_detect_keyboards()
             if (!(ps2_data_bytes_received >= 1 && ps2_data_buffer[0] == PS2_ACK))
                 goto invalid_port_1;
 
-            LOG(INFO, "PS/2 port 1 id : 0x%x 0x%x (%u bytes)", ps2_data_buffer[1], 
+            LOG(INFO, "PS/2 port 1 id : %#x %#x (%u bytes)", ps2_data_buffer[1], 
                 ps2_data_buffer[2], ps2_data_bytes_received);
             
             if (ps2_data_bytes_received >= 3 && ps2_data_buffer[1] == 0xab) // Any PS/2 keyboard
@@ -397,7 +397,7 @@ valid_port_1:
             if (!(ps2_data_bytes_received >= 1 && ps2_data_buffer[0] == PS2_ACK))
                 goto invalid_port_2;
 
-            LOG(INFO, "PS/2 port 2 id : 0x%x 0x%x (%u bytes)", ps2_data_buffer[1], 
+            LOG(INFO, "PS/2 port 2 id : %#x %#x (%u bytes)", ps2_data_buffer[1], 
                 ps2_data_buffer[2], ps2_data_bytes_received);
             
             if (ps2_data_bytes_received >= 3 && ps2_data_buffer[1] == 0xab) // Any PS/2 keyboard

@@ -1,7 +1,7 @@
 #include "../debug/out.h"
 #include "../cpu/units.h"
-#include "../../libc/include/string.h"
-#include "../../libc/include/stdlib.h"
+#include <string.h>
+#include <stdlib.h>
 #include "../multicore/spinlock.h"
 #include "../paging/paging.h"
 #include "mmap.h"
@@ -39,9 +39,9 @@ void pfa_detect_usable_memory()
 
     for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++) 
     {
-        LOG(DEBUG, "   BOOTBOOT memory block : address : %#llx ; length : %llu | type : %u", 
+        LOG(DEBUG, "   BOOTBOOT memory block : address : %#" PRIx64 " ; length : %" PRIu64 " | type : %" PRIu64, 
             MMapEnt_Ptr(mmap_ent), MMapEnt_Size(mmap_ent), MMapEnt_Type(mmap_ent));
-        // printf("   BOOTBOOT memory block : address : %#llx ; length : %llu | type : %u\n", 
+        // printf("   BOOTBOOT memory block : address : %#" PRIx64 " ; length : %" PRIu64 " | type : %u\n", 
         //     MMapEnt_Ptr(mmap_ent), MMapEnt_Size(mmap_ent), MMapEnt_Type(mmap_ent));
 
         if (!MMapEnt_IsFree(mmap_ent))
@@ -82,8 +82,8 @@ void pfa_detect_usable_memory()
         usable_memory += len;
         usable_memory_blocks++;
 
-        LOG(INFO, "   Memory block : address : %#llx ; length : %llu", addr, len);
-        // printf("   Memory block : address : %#llx ; length : %llu\n", addr, len);
+        LOG(INFO, "   Memory block : address : %#" PRIx64 " ; length : %" PRIu64 "", addr, len);
+        // printf("   Memory block : address : %#" PRIx64 " ; length : %" PRIu64 "\n", addr, len);
     }
 
     first_alloc_block = 0;
@@ -99,7 +99,7 @@ void pfa_detect_usable_memory()
 
     bitmap = (uint8_t*)usable_memory_map[first_alloc_block].address;
 
-    printf("pfa: bitmap address: %#llx\n", bitmap);
+    printf("pfa: bitmap address: %#" PRIx64 "\n", (uint64_t)bitmap);
 
     if (usable_memory == 0 || first_alloc_block >= usable_memory_blocks) 
         goto no_memory;
@@ -117,7 +117,7 @@ void pfa_detect_usable_memory()
     for (uint8_t i = first_alloc_block; i < usable_memory_blocks; i++)
         allocatable_memory += usable_memory_map[i].length;
 
-    LOG(INFO, "Detected %llu bytes of allocatable memory", allocatable_memory);
+    LOG(INFO, "Detected %" PRIu64 " bytes of allocatable memory", allocatable_memory);
     return;
 
 no_memory:
@@ -160,7 +160,7 @@ physical_address_t pfa_allocate_physical_page()
                 memory_allocated += 0x1000;
                 LOG_MEM_ALLOCATED();
                 release_spinlock(&pfa_spinlock);
-                // LOG(TRACE, "Allocated page: %#llx", addr);
+                // LOG(TRACE, "Allocated page: %#" PRIx64 "", addr);
                 return addr;
             }
             remaining -= block_pages;
@@ -240,7 +240,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
                 memory_allocated += 0x1000 * pages;
                 LOG_MEM_ALLOCATED();
                 release_spinlock(&pfa_spinlock);
-                // LOG(TRACE, "Allocated page: %#llx", addr);
+                // LOG(TRACE, "Allocated page: %#" PRIx64 "", addr);
                 return addr;
             }
             remaining -= block_pages;
@@ -262,7 +262,7 @@ void pfa_free_physical_page(physical_address_t address)
 
     if (address & 0xfff) 
     {
-        LOG(CRITICAL, "pfa_free_physical_page: Unaligned address (%#llx)", address);
+        LOG(CRITICAL, "pfa_free_physical_page: Unaligned address (%#" PRIx64 ")", address);
         abort();
     }
 
@@ -288,7 +288,7 @@ void pfa_free_physical_page(physical_address_t address)
 
     memory_allocated -= 0x1000;
     release_spinlock(&pfa_spinlock);
-    // LOG(TRACE, "Freed page: %#llx", address);
+    // LOG(TRACE, "Freed page: %#" PRIx64 "", address);
     LOG_MEM_ALLOCATED();
 }
 
