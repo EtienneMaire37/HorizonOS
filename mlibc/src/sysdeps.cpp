@@ -8,8 +8,13 @@
 
 #include "syscall.hpp"
 
-__attribute__((noreturn)) void STUB()
+__attribute__((noreturn)) void STUB(const char* msg)
 {
+	const char* str = "\nSTUB: ";
+	ssize_t unused;
+	mlibc::sys_write(2, str, strlen(str), &unused);
+	mlibc::sys_write(2, msg, strlen(msg), &unused);
+	mlibc::sys_write(2, "\n", 1, &unused);
 	while (true);
 	__builtin_unreachable();
 }
@@ -36,8 +41,7 @@ namespace mlibc
 
 	int sys_read(int, void*, unsigned long, long*) 
 	{
-		
-		STUB();
+		STUB("sys_read");
 	}
 	int sys_write(int fd, void const* buf, size_t size, ssize_t* written) 
 	{
@@ -78,20 +82,20 @@ namespace mlibc
 
 	int sys_open(const char*, int, unsigned int, int*) 
 	{
-		STUB();
+		STUB("sys_open");
 	}
 	int sys_close(int) 
 	{ 
-		STUB();
+		STUB("sys_close");
 	}
 
 	int sys_futex_wake(int*) 
 	{
-		STUB();
+		STUB("sys_futex_wake");
 	}
 	int sys_futex_wait(int*, int, timespec const*) 
 	{
-		STUB();
+		STUB("sys_futex_wait");
 	}
 
 	int sys_vm_map(void* hint, size_t size, int prot, int flags, int fd, off_t offset, void** window) 
@@ -108,6 +112,6 @@ namespace mlibc
 
 	int sys_clock_get(int, time_t*, long*) 
 	{
-		STUB();
+		STUB("sys_clock_get");
 	}
 }
