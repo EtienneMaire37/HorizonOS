@@ -37,6 +37,6 @@ uint64_t syscall6_2(uint64_t calln,
     register int64_t r9 asm("r9") = a6;
 
     uint64_t ret;
-    asm volatile ("syscall" : "=a"(ret), "=b"(*r1) : "a"(calln), "b"(a1), "d"(a2), "S"(a3), "D"(a4), "r"(a5), "r"(a6) : "memory", "r11", "rcx");
+    asm volatile ("syscall" : "=a"(ret), "=b"(*r1) : "a"(calln), "b"(a1), "d"(a2), "S"(a3), "D"(a4), "r"(r8), "r"(r9) : "memory", "r11", "rcx");
     return ret;
 }

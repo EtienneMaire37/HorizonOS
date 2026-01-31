@@ -65,10 +65,6 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
 
     startup_data_struct_t data_cpy = *data;
 
-    if ((data->argc + data->envc) & 1)   // * align stack to 16 bytes
-        task_stack_push(&task, 0);
-
-    task_stack_push(&task, 0);
     for (int i = 0; i <= data->envc; i++)
         task_stack_push(&task, (uint64_t)data->environ[data->envc - i]);
 
@@ -84,8 +80,6 @@ bool multitasking_add_task_from_initrd(const char* name, const char* path, uint8
         else
             task_write_at_address_8b(&task, (uint64_t)&data_cpy.environ[i], 0);
     }
-
-    task_stack_push(&task, 0);
 
     for (int i = 0; i <= data->argc; i++)
         task_stack_push(&task, (uint64_t)data->cmd[data->argc - i]);

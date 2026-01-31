@@ -8,7 +8,7 @@
 
 #include "syscall.hpp"
 
-void STUB()
+__attribute__((noreturn)) void STUB()
 {
 	while (true);
 	__builtin_unreachable();
@@ -34,6 +34,11 @@ namespace mlibc
 		return syscall1_1(SYS_ISATTY, (uint64_t)fd);
 	}
 
+	int sys_read(int, void*, unsigned long, long*) 
+	{
+		
+		STUB();
+	}
 	int sys_write(int fd, void const* buf, size_t size, ssize_t* written) 
 	{
 		uint64_t r64;
@@ -52,7 +57,6 @@ namespace mlibc
 	{
 		return sys_vm_map(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, pointer);
 	}
-
 	int sys_anon_free(void* pointer, size_t size) 
 	{ 
 		return sys_vm_unmap(pointer, size);
@@ -72,28 +76,24 @@ namespace mlibc
 		__builtin_unreachable();
 	}
 
+	int sys_open(const char*, int, unsigned int, int*) 
+	{
+		STUB();
+	}
 	int sys_close(int) 
 	{ 
-		STUB(); 
+		STUB();
 	}
+
 	int sys_futex_wake(int*) 
-	{ 
-		STUB(); 
+	{
+		STUB();
 	}
 	int sys_futex_wait(int*, int, timespec const*) 
 	{
-		STUB(); 
+		STUB();
 	}
-	int sys_read(int, void*, unsigned long, long*) 
-	{
-		
-		STUB(); 
-	}
-	int sys_open(const char*, int, unsigned int, int*) 
-	{
-		
-		STUB(); 
-	}
+
 	int sys_vm_map(void* hint, size_t size, int prot, int flags, int fd, off_t offset, void** window) 
 	{
 		uint64_t addr;
@@ -105,9 +105,9 @@ namespace mlibc
 	{
 		return syscall2_1(SYS_VM_UNMAP, (uint64_t)addr, (uint64_t)size);
 	}
+
 	int sys_clock_get(int, time_t*, long*) 
 	{
-		
-		STUB(); 
+		STUB();
 	}
 }

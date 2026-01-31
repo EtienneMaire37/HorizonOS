@@ -25,8 +25,8 @@ all: horizonos.iso
 
 mlibc: $(MLIBC_STAMP)
 
-$(MLIBC_STAMP): mlibc/src/syscall.cpp mlibc/src/sysdeps.cpp $(HOSGCC)
-	cp mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
+$(MLIBC_STAMP): mlibc/src/* $(HOSGCC)
+	cp -r mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
 	cd mlibc/mlibc && PATH="${SYSROOT_DIR}/usr/bin:${PATH}" DESTDIR=${SYSROOT_DIR} ninja -C build install
 	touch $@
 
@@ -108,16 +108,9 @@ src/tasks/bin/ls: src/tasks/src/ls/* src/libc/lib/crt0.o src/libc/lib/libc.so sr
 	-ffreestanding -nostdlib \
 	-lgcc
 
-src/tasks/bin/cat: src/tasks/src/cat/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
+src/tasks/bin/cat: src/tasks/src/cat/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) -c "src/tasks/src/cat/main.c" -o "src/tasks/bin/cat.o" $(CFLAGS) -I"src/libc/include" -O3
-	$(HOSGCC) \
-    -o "src/tasks/bin/cat" \
-	"src/libc/lib/crt0.o" \
-    "src/tasks/bin/cat.o" \
-    "src/libc/lib/libc.a" \
-	-ffreestanding -nostdlib \
-	-lgcc
+	$(HOSGCC) ./src/tasks/src/cat/main.c -o src/tasks/bin/cat -O3
 
 src/tasks/bin/clear: src/tasks/src/clear/* src/libc/lib/crt0.o src/libc/lib/libc.so src/libc/lib/libm.so
 	mkdir -p ./src/tasks/bin

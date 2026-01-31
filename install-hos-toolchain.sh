@@ -12,6 +12,10 @@ git clone https://github.com/managarm/mlibc mlibc
 cd mlibc
 git checkout ccc93dd
 git apply -p2 ../../diffs/mlibc/mlibc.diff
+cp -r ../src/* sysdeps/horizonos/
+mkdir -p sysdeps/horizonos/include
+cp -r sysdeps/linux/include/abi-bits sysdeps/horizonos/include/abi-bits
+cp -r sysdeps/linux/include/bits sysdeps/horizonos/include/bits
 
 meson \
     setup \

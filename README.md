@@ -19,25 +19,27 @@ These instructions assume a Debian-like environment. Feel free to adapt those in
 
 Install dependencies:
 ```bash
-sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo nasm xorriso mtools mkbootimg util-linux dosfstools mtools qemu-system qemu-utils unzip autoconf2.69 zip meson
+sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo nasm xorriso mkbootimg util-linux dosfstools mtools qemu-system qemu-utils unzip autoconf2.69 zip meson
 ```
 
 ### Building
 
-Make sure /usr/sbin is in your PATH (to use disk utilities):
+run:
 ```bash
-export PATH="/usr/sbin:${PATH}"
+make USER_CFLAGS="${options}"
 ```
-Then simply run: 
+Here's a list of the supported options:
+| Option | Value   | Description |
+| ------ | ------- | ----------- |
+| -DLOG_LEVEL | ={TRACE, DEBUG, INFO, WARNING, ERROR, FATAL} | Level from which logs are written to port 0xe9 |
+| -DLOG_SYSCALLS | N/A | Whether to log syscalls |
+| -DLOG_MEMORY | N/A | Whether to log page allocation |
+
+For example to build with LOG_LEVEL=DEBUG and LOG_SYSCALLS:
 ```bash
-make
+make USER_CFLAGS="-DLOG_LEVEL=TRACE -DLOG_SYSCALLS"
 ```
-To build without logs. 
-Or:
-```bash
-make USER_CFLAGS=-DLOG_LEVEL=INFO
-```
-To build with E9 port logs. 
+
 A `horizonos.iso` disk image file will be created in the root of the repository.
 
 ### Running HorizonOS
@@ -54,17 +56,6 @@ HorizonOS uses the following third-party libraries and resources:
 - [liballoc](https://github.com/blanham/liballoc) - For libc memory allocation (Public domain)
 - [BOOTBOOT](https://gitlab.com/bztsrc/bootboot) - A UEFI bootloader (MIT license)
 - [pci.ids](https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids) - List of PCI IDs (GPLv3)
-
-## Memory map
-
-| Range     | Mapping         |
-| --------- | --------------- |
-| 0-128TB | Process segments, heap and stack    |
-| 128TB-[-64TB] | Noncanonical addresses |
-| [-64TB]-[-63TB] | Mapped to physical 0-1TB |
-| [-63TB]-[-512GB] | Unused addresses |
-| [-512GB]-[-128MB] | Hole |
-| [-128MB]-0 | mmio, framebuffer, bootboot data and kernel code segment |
 
 ## Contributing
 
