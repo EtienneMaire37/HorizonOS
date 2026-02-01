@@ -7,17 +7,7 @@
 #include <stdint.h>
 
 #include "syscall.hpp"
-
-__attribute__((noreturn)) void STUB(const char* msg)
-{
-	const char* str = "\nSTUB: ";
-	ssize_t unused;
-	mlibc::sys_write(2, str, strlen(str), &unused);
-	mlibc::sys_write(2, msg, strlen(msg), &unused);
-	mlibc::sys_write(2, "\n", 1, &unused);
-	while (true);
-	__builtin_unreachable();
-}
+#include "stub.h"
 
 namespace mlibc
 {
@@ -39,15 +29,18 @@ namespace mlibc
 		return syscall1_1(SYS_ISATTY, (uint64_t)fd);
 	}
 
-	int sys_read(int, void*, unsigned long, long*) 
+	int sys_read(int fd, void* buf, size_t size, ssize_t* bytes_read) 
 	{
-		STUB("sys_read");
+		uint64_t r64;
+		int ret = syscall3_2(SYS_READ, (uint64_t)fd, (uint64_t)buf, (uint64_t)size, &r64);
+		*bytes_read = (ssize_t)r64;
+		return ret;
 	}
-	int sys_write(int fd, void const* buf, size_t size, ssize_t* written) 
+	int sys_write(int fd, void const* buf, size_t size, ssize_t* bytes_written) 
 	{
 		uint64_t r64;
 		int ret = syscall3_2(SYS_WRITE, (uint64_t)fd, (uint64_t)buf, (uint64_t)size, &r64);
-		*written = (ssize_t)r64;
+		*bytes_written = (ssize_t)r64;
 		return ret;
 	}
 
@@ -116,14 +109,4 @@ namespace mlibc
 	{
 		STUB("sys_clock_get");
 	}
-}
-
-extern "C" void flush_stdin()
-{
-	STUB("flush_stdin");
-}
-extern "C" bool set_kb_layout(int layout_idx)
-{
-	(void)layout_idx;
-	STUB("set_kb_layout");
 }

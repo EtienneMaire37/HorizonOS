@@ -413,6 +413,22 @@ void _start()
     printf("%" PRIu64 "-%" PRIu64 "-%" PRIu64 " %" PRIu64 ":%" PRIu64 ":%" PRIu64 "\n", system_year, system_month, system_day, system_hours, system_minutes, system_seconds);
     tty_set_color(FG_WHITE, BG_BLACK);
 
+    LOG(DEBUG, "Setting up FS/GS segment bases");
+
+    sc_data.kernel_rsp = TASK_KERNEL_STACK_TOP_ADDRESS;
+    wrmsr(IA32_KERNEL_GS_BASE_MSR, (uint64_t)&sc_data);
+
+    // TODO: Check cpuid
+    wrmsr(IA32_EFER_MSR, rdmsr(IA32_EFER_MSR) | 1); // * enable syscalls
+    // * In Long Mode, userland CS will be loaded from STAR 63:48 + 16 and userland SS from STAR 63:48 + 8 on SYSRET.
+    wrmsr(IA32_STAR_MSR, ((uint64_t)(KERNEL_DATA_SEGMENT | 3) << 48) | ((uint64_t)KERNEL_CODE_SEGMENT << 32));
+    wrmsr(IA32_LSTAR_MSR, (uint64_t)syscall_handler);
+    wrmsr(IA32_FMASK_MSR, (1 << 9)); // * disable interrupts
+
+    log_segbase();
+
+    LOG(DEBUG, "Done setting up FS/GS segment bases");
+
     enable_interrupts(); 
 
     LOG(INFO, "Parsing ACPI tables..");
@@ -549,16 +565,6 @@ void _start()
     // multitasking_add_task_from_function("test", test_func);
 
     LOG(DEBUG, "Starting multitasking...");
-
-    wrgsbase(0);    // For ring 3
-    sc_data.kernel_rsp = TASK_KERNEL_STACK_TOP_ADDRESS;
-    wrmsr(IA32_KERNEL_GS_BASE_MSR, (uint64_t)&sc_data);
-
-    // TODO: Check cpuid
-    wrmsr(IA32_EFER_MSR, rdmsr(IA32_EFER_MSR) | 1); // * enable syscalls
-    // * In Long Mode, userland CS will be loaded from STAR 63:48 + 16 and userland SS from STAR 63:48 + 8 on SYSRET.
-    wrmsr(IA32_STAR_MSR, ((uint64_t)(KERNEL_DATA_SEGMENT | 3) << 48) | ((uint64_t)KERNEL_CODE_SEGMENT << 32));
-    wrmsr(IA32_LSTAR_MSR, (uint64_t)syscall_handler);
 
     log_segbase();
 

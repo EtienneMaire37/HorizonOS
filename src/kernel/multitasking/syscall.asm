@@ -7,8 +7,6 @@ global syscall_handler
 syscall_handler:
     cld
 
-    cli
-
     swapgs
 
     mov [gs:0], rsp

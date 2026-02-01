@@ -681,10 +681,10 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
     if (!bytes_read) abort();
     if (__CURRENT_TASK.file_table[fd] < 0 || __CURRENT_TASK.file_table[fd] >= MAX_FILE_TABLE_ENTRIES)
     {
-        *bytes_read = (uint64_t)-1;
+        *bytes_read = -1;
         return EBADF;
     }
-    if (!((file_table[__CURRENT_TASK.file_table[fd]].flags & O_RDONLY) || (file_table[__CURRENT_TASK.file_table[fd]].flags & O_RDWR))) 
+    if ((file_table[__CURRENT_TASK.file_table[fd]].flags & O_ACCMODE) == O_WRONLY) 
     {
         *bytes_read = -1;
         return EBADF;
@@ -702,7 +702,7 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
     return 0;
 }
 
-int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, uint64_t* bytes_written)
+int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* bytes_written)
 {
     if (!bytes_written) abort();
     if (__CURRENT_TASK.file_table[fd] < 0 || __CURRENT_TASK.file_table[fd] >= MAX_FILE_TABLE_ENTRIES)
@@ -710,7 +710,7 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, uint64_t* byt
         *bytes_written = (uint64_t)-1;
         return EBADF;
     }
-    if (!((file_table[__CURRENT_TASK.file_table[fd]].flags & O_WRONLY) || (file_table[__CURRENT_TASK.file_table[fd]].flags & O_RDWR))) 
+    if ((file_table[__CURRENT_TASK.file_table[fd]].flags & O_ACCMODE) == O_RDONLY)
     {
         *bytes_written = -1;
         return EBADF;

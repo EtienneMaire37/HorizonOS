@@ -86,6 +86,11 @@ interrupt_table:
 
 extern interrupt_handler
 _interrupt_handler:
+    cmp qword [rsp + 24], 0x08
+	je dont_swapgs1
+	swapgs
+dont_swapgs1:
+
     push rax
     push rcx
     push rdx
@@ -155,6 +160,12 @@ _interrupt_handler:
     pop rax
     
     add rsp, 8 + 8  ; skip error code and interrupt number
+
 global iretq_instruction
 iretq_instruction:
+    cmp qword [rsp + 8], 0x08
+	je dont_swapgs2
+	swapgs
+dont_swapgs2:
+
     iretq

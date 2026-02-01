@@ -7,7 +7,7 @@
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
-    SC_LOG("syscall %" PRIu64, registers->rax);
+    // SC_LOG("syscall %" PRIu64, registers->rax);
     switch (registers->rax)
     {
     {
@@ -15,6 +15,18 @@ void c_syscall_handler(syscall_registers_t* registers)
         SC_LOG("syscall SYS_SETFS(%#" PRIx64 ")", arg1);
         wrfsbase(arg1);
         sc_ret_errno = 0;
+        break;
+    sc_case(SYS_READ, 3, int, void*, size_t)
+        SC_LOG("syscall SYS_READ(%d, %p, %zu)", arg1, arg2, arg3);
+        if (!is_fd_valid(arg1))
+        {
+            sc_ret_errno = EBADF;
+            sc_ret(1) = (uint64_t)-1;
+            break;
+        }
+        ssize_t ret;
+        sc_ret_errno = (uint64_t)vfs_read(arg1, arg2, arg3, &ret);
+        sc_ret(1) = (uint64_t)ret;
         break;
     sc_case(SYS_WRITE, 3, int, const void*, size_t)
         SC_LOG("syscall SYS_WRITE(%d, %p, %zu)", arg1, arg2, arg3);
@@ -24,7 +36,9 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret(1) = (uint64_t)-1;
             break;
         }
-        sc_ret_errno = vfs_write(arg1, arg2, arg3, &sc_ret(1));
+        ssize_t ret;
+        sc_ret_errno = vfs_write(arg1, arg2, arg3, &ret);
+        sc_ret(1) = (uint64_t)ret;
         break;
     sc_case(SYS_EXIT, 1, int)
         SC_LOG("syscall SYS_EXIT(%d)", arg1);
@@ -150,7 +164,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         int fd = vfs_allocate_global_file();
 
         // * Only supported flags for now
-        if (arg2 & ~(O_CLOEXEC | O_RDONLY | O_RDWR | O_WRONLY)) // | O_APPEND | O_CREAT
+        if (arg2 & ~(O_CLOEXEC | O_ACCMODE))
         {
             sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)(-1);
@@ -170,7 +184,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             break;
         }
 
-        if ((!(st.st_mode & S_IRUSR)) && ((file_table[fd].flags & O_RDWR) | (file_table[fd].flags & O_RDONLY))) // * Assume we're the owner of every file
+        if (!(st.st_mode & S_IRUSR) && (file_table[fd].flags & O_ACCMODE) != O_WRONLY) // * Assume we're the owner of every file
         {
             vfs_remove_global_file(fd);
             sc_ret_errno = EACCES;
@@ -250,79 +264,6 @@ void c_syscall_handler(syscall_registers_t* registers)
 //         unlock_task_queue();
 //         switch_task();
 //         break;
-
-//     case SYSCALL_OPEN:      // * open | path = $rbx, oflag = $rcx, mode = $rdx | $rax = errno, $rbx = fd
-//     {
-//         const char* path = (const char*)registers->rbx;
-
-//         int fd = vfs_allocate_global_file();
-//         file_table[fd].flags = ((int)registers->rcx) & (O_CLOEXEC | O_RDONLY | O_RDWR | O_WRONLY);   // * | O_APPEND | O_CREAT
-//         file_table[fd].position = 0;
-
-//         if (file_table[fd].flags != (int)registers->rcx)
-//         {
-//             vfs_remove_global_file(fd);
-//             registers->rbx = (uint64_t)(-1);
-//             registers->rax = EINVAL;
-//             break;
-//         }
-
-//         struct stat st;
-//         int stat_ret = vfs_stat(path, __CURRENT_TASK.cwd, &st);
-//         if (stat_ret != 0)
-//         {
-//             vfs_remove_global_file(fd);
-//             registers->rbx = (uint64_t)(-1);
-//             registers->rax = stat_ret;
-//             break;
-//         }
-
-//         if ((!(st.st_mode & S_IRUSR)) && ((file_table[fd].flags & O_RDWR) | (file_table[fd].flags & O_RDONLY))) // * Assume we're the owner of every file
-//         {
-//             vfs_remove_global_file(fd);
-//             registers->rbx = (uint64_t)(-1);
-//             registers->rax = EACCES;
-//             break;
-//         }
-
-//         if ((!(st.st_mode & S_IWUSR)) && ((file_table[fd].flags & O_RDWR) | (file_table[fd].flags & O_WRONLY))) // * Assume we're the owner of every file
-//         {
-//             vfs_remove_global_file(fd);
-//             registers->rbx = (uint64_t)(-1);
-//             registers->rax = EACCES;
-//             break;
-//         }
-
-//         file_table[fd].entry_type = S_ISDIR(stat_ret) ? ET_FOLDER : ET_FILE;
-
-//         file_table[fd].flags &= ~(O_APPEND | O_CREAT);
-
-//         file_table[fd].tnode.file = NULL;
-//         file_table[fd].tnode.folder = NULL;
-
-//         if (file_table[fd].entry_type == ET_FILE)
-//             file_table[fd].tnode.file = vfs_get_file_tnode(path, __CURRENT_TASK.cwd);
-//         if (file_table[fd].entry_type == ET_FOLDER)
-//             file_table[fd].tnode.folder = vfs_get_folder_tnode(path, __CURRENT_TASK.cwd);
-
-//         int ret = vfs_allocate_thread_file(current_task_index);
-//         // LOG(DEBUG, "global fd : %d", fd);
-//         // LOG(DEBUG, "fd : %d", ret);
-//         if (ret == -1)
-//         {
-//             vfs_remove_global_file(fd);
-
-//             registers->rbx = (uint64_t)(-1);
-//             registers->rax = ENOMEM;
-//         }
-//         else
-//         {
-//             __CURRENT_TASK.file_table[ret] = fd;
-//             registers->rbx = *(uint32_t*)&ret;
-//             registers->rax = 0;
-//         }
-//         break;
-//     }
 
 //     case SYSCALL_CLOSE:     // * close | fildes = $rbx | $rax = errno, $rbx = ret
 //         int fd = (int)registers->rbx;

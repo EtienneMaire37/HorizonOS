@@ -9,6 +9,7 @@
 #define SYS_SEEK        6
 #define SYS_OPEN        7
 #define SYS_CLOSE       8
+#define SYS_READ        9
 
 uint64_t syscall1_1(uint64_t calln, 
     uint64_t a1);

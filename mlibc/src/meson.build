@@ -12,6 +12,7 @@ libc_sources += files(
 	'entry.cpp',
 	'sysdeps.cpp',
 	'syscall.cpp',
+	'horizonos.cpp'
 )
 libc_include_dirs += include_directories('include')
 
