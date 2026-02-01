@@ -20,7 +20,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 
         if (!USTAR_IS_VALID_HEADER(*header))
         {
-            LOG(WARNING, "Invalid USTAR header at offset %" PRIu64 "", initrd_offset);
+            LOG(WARNING, "Invalid USTAR header at offset %" PRIu64, initrd_offset);
             break;
         }
 

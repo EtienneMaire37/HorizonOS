@@ -539,7 +539,7 @@ void _start()
     // }
 
     startup_data_struct_t data = startup_data_init_from_command((char*[]){"/initrd/bin/init", NULL}, (char*[]){"PATH=/initrd/bin", NULL});
-    if (!multitasking_add_task_from_vfs("init", "/initrd/bin/init", 0, true, &data, vfs_root))
+    if (!multitasking_add_task_from_vfs("init", "/initrd/bin/init", 3, true, &data, vfs_root))
     {
         LOG(CRITICAL, "init task couldn't start");
         printf("\x1b[31merror\x1b[0m: init task couldn't start\n");

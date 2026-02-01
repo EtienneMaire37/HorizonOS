@@ -13,11 +13,11 @@
 
 extern initrd_file_t* commit_file;
 
-#define log_registers() LOG(INFO, "RSP=%#.16" PRIx64 " RBP=%#.16" PRIx64 " RAX=%#.16" PRIx64 " RBX=%#.16" PRIx64 " RCX=%#.16" PRIx64 " RDX=%#.16" PRIx64 "", \
+#define log_registers() LOG(INFO, "RSP=%#.16" PRIx64 " RBP=%#.16" PRIx64 " RAX=%#.16" PRIx64 " RBX=%#.16" PRIx64 " RCX=%#.16" PRIx64 " RDX=%#.16" PRIx64, \
     registers->rsp, registers->rbp, registers->rax, registers->rbx, registers->rcx, registers->rdx);    \
-    LOG(INFO, "R8=%#.16" PRIx64 " R9=%#.16" PRIx64 " R10=%#.16" PRIx64 " R11=%#.16" PRIx64 " R12=%#.16" PRIx64 " R13=%#.16" PRIx64 " R14=%#.16" PRIx64 " R15=%#.16" PRIx64 "",  \
+    LOG(INFO, "R8=%#.16" PRIx64 " R9=%#.16" PRIx64 " R10=%#.16" PRIx64 " R11=%#.16" PRIx64 " R12=%#.16" PRIx64 " R13=%#.16" PRIx64 " R14=%#.16" PRIx64 " R15=%#.16" PRIx64,  \
     registers->r8, registers->r9, registers->r10, registers->r11, registers->r12, registers->r13, registers->r14, registers->r15);  \
-    LOG(INFO, "RDI=%#.16" PRIx64 " RSI=%#.16" PRIx64 "", registers->rdi, registers->rsi); \
+    LOG(INFO, "RDI=%#.16" PRIx64 " RSI=%#.16" PRIx64, registers->rdi, registers->rsi); \
     log_segbase();
 
 #define is_a_valid_function(symbol_type) ((symbol_type) == 'T' || (symbol_type) == 'R' || (symbol_type) == 't' || (symbol_type) == 'r')  
@@ -163,28 +163,28 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
 
         uint64_t* pml4_entry = &pml4[pml4e];
         printf("pml4 entry: %#.16" PRIx64 "\n", *pml4_entry);
-        LOG(INFO, "pml4 entry: %#.16" PRIx64 "", *pml4_entry);
+        LOG(INFO, "pml4 entry: %#.16" PRIx64, *pml4_entry);
 
         if (is_pdpt_entry_present(pml4_entry))
         {
             uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
             uint64_t* pdpt_entry = &pdpt[pdpte];
             printf("pdpt entry: %#.16" PRIx64 "\n", *pdpt_entry);
-            LOG(INFO, "pdpt entry: %#.16" PRIx64 "", *pdpt_entry);
+            LOG(INFO, "pdpt entry: %#.16" PRIx64, *pdpt_entry);
 
             if (is_pdpt_entry_present(pdpt_entry))
             {
                 uint64_t* pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pdpt_entry));
                 uint64_t* pd_entry = &pd[pde];
                 printf("pd entry: %#.16" PRIx64 "\n", *pd_entry);
-                LOG(INFO, "pd entry: %#.16" PRIx64 "", *pd_entry);
+                LOG(INFO, "pd entry: %#.16" PRIx64, *pd_entry);
 
                 if (is_pdpt_entry_present(pd_entry))
                 {
                     uint64_t* pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pd_entry));
                     uint64_t* pt_entry = &pt[pte];
                     printf("pt entry: %#.16" PRIx64 "\n", *pt_entry);
-                    LOG(INFO, "pt entry: %#.16" PRIx64 "", *pt_entry);
+                    LOG(INFO, "pt entry: %#.16" PRIx64, *pt_entry);
                 }
             }
         }
@@ -216,7 +216,7 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
     // ~ Log the last function (the one the exception happened in)
     printf("rip : 0x");
     tty_set_color(FG_YELLOW, BG_BLACK);
-    printf("%" PRIx64 "", registers->rip);
+    printf("%" PRIx64, registers->rip);
     tty_set_color(FG_WHITE, BG_BLACK);
     putchar(' ');
 

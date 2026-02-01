@@ -82,7 +82,7 @@ void pfa_detect_usable_memory()
         usable_memory += len;
         usable_memory_blocks++;
 
-        LOG(INFO, "   Memory block : address : %#" PRIx64 " ; length : %" PRIu64 "", addr, len);
+        LOG(INFO, "   Memory block : address : %#" PRIx64 " ; length : %" PRIu64, addr, len);
         // printf("   Memory block : address : %#" PRIx64 " ; length : %" PRIu64 "\n", addr, len);
     }
 
@@ -160,7 +160,7 @@ physical_address_t pfa_allocate_physical_page()
                 memory_allocated += 0x1000;
                 LOG_MEM_ALLOCATED();
                 release_spinlock(&pfa_spinlock);
-                // LOG(TRACE, "Allocated page: %#" PRIx64 "", addr);
+                // LOG(TRACE, "Allocated page: %#" PRIx64, addr);
                 return addr;
             }
             remaining -= block_pages;
@@ -240,7 +240,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
                 memory_allocated += 0x1000 * pages;
                 LOG_MEM_ALLOCATED();
                 release_spinlock(&pfa_spinlock);
-                // LOG(TRACE, "Allocated page: %#" PRIx64 "", addr);
+                // LOG(TRACE, "Allocated page: %#" PRIx64, addr);
                 return addr;
             }
             remaining -= block_pages;
@@ -288,7 +288,7 @@ void pfa_free_physical_page(physical_address_t address)
 
     memory_allocated -= 0x1000;
     release_spinlock(&pfa_spinlock);
-    // LOG(TRACE, "Freed page: %#" PRIx64 "", address);
+    // LOG(TRACE, "Freed page: %#" PRIx64, address);
     LOG_MEM_ALLOCATED();
 }
 

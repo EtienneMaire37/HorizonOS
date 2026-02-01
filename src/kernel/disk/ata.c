@@ -237,7 +237,7 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                             k + 1, 
                             data->partition_table[k].partition_type, data->partition_table[k].start_lba);
                         tty_set_color(FG_LIGHTCYAN, BG_BLACK);
-                        printf("%" PRIu64 "", (uint64_t)(data->partition_table[k].size_in_sectors * 512ULL));
+                        printf("%" PRIu64, (uint64_t)(data->partition_table[k].size_in_sectors * 512ULL));
                         tty_set_color(FG_WHITE, BG_BLACK);
                         printf("B");
                         if (data->partition_table[k].drive_attributes & 0x80)

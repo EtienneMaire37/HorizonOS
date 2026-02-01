@@ -22,5 +22,7 @@ startup_data_struct_t startup_data_init_from_command(char** cmd, char** envp)
             data.envc++;
     }
 
+    LOG(DEBUG, "argc: %" PRId64 ", envc: %" PRId64, data.argc, data.envc);
+
     return data;
 }

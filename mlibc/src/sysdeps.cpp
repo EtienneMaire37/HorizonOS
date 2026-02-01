@@ -53,8 +53,7 @@ namespace mlibc
 
 	int sys_tcb_set(void* pointer)
 	{
-		syscall1_1(SYS_SETFS, (uint64_t)pointer);
-		return 0;
+		return syscall1_1(SYS_SETFS, (uint64_t)pointer);
 	}
 
 	int sys_anon_allocate(size_t size, void** pointer) 

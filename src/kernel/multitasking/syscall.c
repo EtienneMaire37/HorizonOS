@@ -7,7 +7,7 @@
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
-    // LOG(DEBUG, "syscall %" PRIu64 "", registers->rax);
+    SC_LOG("syscall %" PRIu64, registers->rax);
     switch (registers->rax)
     {
     {
@@ -227,7 +227,7 @@ void c_syscall_handler(syscall_registers_t* registers)
 
 // void handle_syscall(interrupt_registers_t* registers)
 // {
-//     // LOG(TRACE, "syscall %" PRIu64 "", registers->rax);
+//     // LOG(TRACE, "syscall %" PRIu64, registers->rax);
 //     switch (registers->rax)
 //     {
 //     case SYSCALL_EXIT:     // * exit | exit_code = $rbx |

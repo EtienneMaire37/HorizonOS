@@ -65,8 +65,8 @@ run:
 horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF)
 	mkdir -p ./bin/initrd_contents
 
-	rm -f src/tasks/bin/*.o
-# 	cp src/tasks/bin/ ./bin/initrd_contents/ -r
+	cp src/tasks/bin/ ./bin/initrd_contents/ -r
+
 	cp resources/* ./bin/initrd_contents/
 	$(CROSSNM) -n --defined-only -C bin/kernel.elf > ./bin/initrd_contents/symbols.txt
 	git log -n 1 --pretty=format:'%H' > ./bin/initrd_contents/commit.txt
@@ -86,31 +86,38 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 
 src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/init/main.c -o src/tasks/bin/init -O3
+	$(HOSGCC) ./src/tasks/src/init/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
 
 src/tasks/bin/echo: src/tasks/src/echo/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/echo/main.c -o src/tasks/bin/echo -O3
+	$(HOSGCC) ./src/tasks/src/echo/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
 
 src/tasks/bin/ls: src/tasks/src/ls/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/ls/main.c -o src/tasks/bin/ls -O3
+	$(HOSGCC) ./src/tasks/src/ls/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
 
 src/tasks/bin/cat: src/tasks/src/cat/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/cat/main.c -o src/tasks/bin/cat -O3
+	$(HOSGCC) ./src/tasks/src/cat/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
 
 src/tasks/bin/clear: src/tasks/src/clear/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/clear/main.c -o src/tasks/bin/clear -O3
+	$(HOSGCC) ./src/tasks/src/clear/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
 
 src/tasks/bin/printenv: src/tasks/src/printenv/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/printenv/main.c -o src/tasks/bin/printenv -O3
+	$(HOSGCC) ./src/tasks/src/printenv/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
 
 src/tasks/bin/term: src/tasks/src/term/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/term/main.c -o src/tasks/bin/term -O3
+	$(HOSGCC) ./src/tasks/src/term/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
 
 $(HOSGCC):
 	sh install-hos-toolchain.sh
