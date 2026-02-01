@@ -1,7 +1,7 @@
 #include "stub.h"
+#include "syscall.hpp"
 
-extern "C" bool set_kb_layout(int layout_idx)
+extern "C" int set_kb_layout(int layout_idx)
 {
-	(void)layout_idx;
-	STUB("set_kb_layout");
+	return syscall1_1(SYS_HOS_SET_KB_LAYOUT, (uint64_t)layout_idx);
 }

@@ -202,3 +202,5 @@ void task_stack_push_data(thread_t* task, void* data, size_t bytes);
 void cleanup_tasks();
 
 void tasks_log();
+
+void kill_current_task(int ret);

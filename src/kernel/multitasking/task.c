@@ -478,3 +478,12 @@ pid_t task_generate_pid()
     static pid_t current = 0;
     return current++;
 }
+
+void kill_current_task(int ret)
+{
+    lock_task_queue();
+    __CURRENT_TASK.return_value = ret;
+    __CURRENT_TASK.is_dead = true;
+    unlock_task_queue();
+    switch_task();
+}

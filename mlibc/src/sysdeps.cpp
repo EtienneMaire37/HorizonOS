@@ -109,4 +109,31 @@ namespace mlibc
 	{
 		STUB("sys_clock_get");
 	}
+
+	int sys_ioctl(int fd, unsigned long request, void* arg, int* result)
+	{
+		uint64_t _res;
+		int ret = syscall3_2(SYS_IOCTL, (uint64_t)fd, (uint64_t)request, (uint64_t)arg, &_res);
+		*result = (int)_res;
+		return ret;
+	}
+
+	int sys_execve(const char* path, char* const argv[], char* const envp[])
+	{
+		return syscall3_1(SYS_EXECVE, (uint64_t)path, (uint64_t)argv, (uint64_t)envp);
+	}
+
+	int sys_tcgetattr(int fd, struct termios* attr)
+	{
+		return syscall2_1(SYS_TCGETATTR, (uint64_t)fd, (uint64_t)attr);
+	}
+	int sys_tcsetattr(int fd, int opts, const struct termios* attr)
+	{
+		return syscall3_1(SYS_TCSETATTR, (uint64_t)fd, (uint64_t)opts, (uint64_t)attr);
+	}
+
+	int sys_getcwd(char* buffer, size_t size)
+	{
+		return syscall2_1(SYS_GETCWD, (uint64_t)buffer, (uint64_t)size);
+	}
 }

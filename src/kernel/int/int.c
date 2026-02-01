@@ -17,11 +17,6 @@ initrd_file_t* kernel_symbols_file = NULL;
 
 void interrupt_handler(interrupt_registers_t* registers)
 {
-    // LOG(TRACE, "Interrupt %" PRIu64, registers->interrupt_number);
-    if (precise_time_to_milliseconds(global_timer) % 100 == 0)
-        log_segbase();
-        // LOG(DEBUG, "gs_base: %#.16" PRIx64, rdgsbase());
-
     if (registers->interrupt_number == 2)       // * NMI
     {
         LOG(TRACE, "NMI: %#x, %#x", inb(SYSTEM_CONTROL_PORT_A), inb(SYSTEM_CONTROL_PORT_B));
@@ -45,12 +40,7 @@ void interrupt_handler(interrupt_registers_t* registers)
             kernel_panic((interrupt_registers_t*)registers);
         }
         else
-        {
-            log_registers();
-            __CURRENT_TASK.return_value = registers->interrupt_number == 14 ? SIGSEGV : SIGILL;
-            __CURRENT_TASK.is_dead = true;
-            switch_task();
-        }
+            kill_current_task(registers->interrupt_number == 14 ? SIGSEGV : SIGILL);
 
         return_from_isr();
     }

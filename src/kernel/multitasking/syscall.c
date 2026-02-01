@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include "../cpu/memory.h"
 #include "../memalloc/virtual_memory_allocator.h"
+#include "ioctl.h"
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -42,14 +43,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         break;
     sc_case(SYS_EXIT, 1, int)
         SC_LOG("syscall SYS_EXIT(%d)", arg1);
-        lock_task_queue();
-        __CURRENT_TASK.return_value = ((uint16_t)arg1 & 0x7f) << 8;
-        __CURRENT_TASK.is_dead = true;
-        // tasks_log();
-        unlock_task_queue();
-        swapgs();
-        switch_task();
-        break;
+        kill_current_task(((uint16_t)arg1 & 0x7f) << 8);        
     sc_case(SYS_ISATTY, 1, int)
         SC_LOG("syscall SYS_ISATTY(%d)", arg1);
         if (!is_fd_valid(arg1))
@@ -161,6 +155,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         }
         break;
     sc_case(SYS_OPEN, 3, const char*, int, unsigned int)
+        SC_LOG("syscall SYS_OPEN(%s, %d, %u)", arg1, arg2, arg3);
         int fd = vfs_allocate_global_file();
 
         // * Only supported flags for now
@@ -218,6 +213,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         }
         break;
     sc_case(SYS_CLOSE, 1, int)
+        SC_LOG("syscall SYS_CLOSE(%d)", arg1);
         if (!is_fd_valid(arg1))
         {
             sc_ret_errno = EBADF;
@@ -227,15 +223,121 @@ void c_syscall_handler(syscall_registers_t* registers)
         vfs_remove_global_file(__CURRENT_TASK.file_table[arg1]);
         __CURRENT_TASK.file_table[arg1] = invalid_fd;
         break;
+    sc_case(SYS_IOCTL, 3, int, unsigned long, void*)
+        SC_LOG("syscall SYS_IOCTL(%d, %lu, %p)", arg1, arg2, arg3);
+        syscall_ioctl(registers, arg1, arg2, arg3);
+        break;
+    sc_case(SYS_EXECVE, 3, const char*, char**, char**)
+        SC_LOG("syscall SYS_EXECVE(%s, %p, %p)", arg1, arg2, arg3);
+        vfs_file_tnode_t* tnode = vfs_get_file_tnode(arg1, __CURRENT_TASK.cwd);
+        if (!tnode)
+        {
+            sc_ret_errno = ENOENT;
+            break;
+        }
+        char rpath[PATH_MAX];
+        vfs_realpath_from_file_tnode(tnode, rpath);
+        if (vfs_access(arg1, __CURRENT_TASK.cwd, X_OK) != 0)
+        {
+            sc_ret_errno = EACCES;
+            break;
+        }
+        startup_data_struct_t data = startup_data_init_from_command(arg2, arg3);
+        lock_task_queue();
+        if (!multitasking_add_task_from_vfs(rpath, rpath, 3, false, &data, __CURRENT_TASK.cwd))
+        {
+            unlock_task_queue();
+            sc_ret_errno = ENOENT;
+            break;
+        }
+        else
+        {
+            const uint16_t new_task_index = task_count - 1;
+            pid_t old_pid = __CURRENT_TASK.pid;
+            
+            __CURRENT_TASK.is_dead = __CURRENT_TASK.to_reap = true;
+            __CURRENT_TASK.pid = task_generate_pid();
+
+            tasks[new_task_index].pid = old_pid;
+            tasks[new_task_index].ppid = __CURRENT_TASK.ppid;
+            tasks[new_task_index].pgid = __CURRENT_TASK.pgid;
+
+            task_copy_file_table(current_task_index, new_task_index, true);
+
+            unlock_task_queue();
+            switch_task();
+            break;
+        }
+        break;
+    sc_case(SYS_TCGETATTR, 2, int, struct termios*)
+        SC_LOG("syscall SYS_TCGETATTR(%d, %p)", arg1, arg2);
+        if (!arg2)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        if (!is_fd_valid(arg1))
+        {
+            sc_ret_errno = EBADF;
+            break;
+        }
+        if (!vfs_isatty(&file_table[__CURRENT_TASK.file_table[arg1]]))
+        {
+            sc_ret_errno = ENOTTY;
+            break;
+        }
+        *arg2 = tty_ts;
+        sc_ret_errno = 0;
+        break;
+    sc_case(SYS_TCSETATTR, 3, int, int, const struct termios*)
+        SC_LOG("syscall SYS_TCSETATTR(%d, %d, %p)", arg1, arg2, arg3);
+        if (!arg3)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        if (!is_fd_valid(arg1))
+        {
+            sc_ret_errno = EBADF;
+            break;
+        }
+        if (!vfs_isatty(&file_table[__CURRENT_TASK.file_table[arg1]]))
+        {
+            sc_ret_errno = ENOTTY;
+            break;
+        }
+        tty_ts = *arg3;
+        sc_ret_errno = 0;
+        break;
+    sc_case(SYS_GETCWD, 2, char*, size_t)
+        SC_LOG("syscall SYS_GETCWD(%p, %zu)", arg1, arg2);
+        if (!arg1 || arg2 == 0)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        char buf_cpy[PATH_MAX];
+        vfs_realpath_from_folder_tnode(__CURRENT_TASK.cwd, buf_cpy);
+        for (size_t i = 0; i < arg2 - 1; i++)
+            arg1[i] = buf_cpy[i];
+        arg1[arg2 - 1] = 0;
+        sc_ret_errno = 0;
+        break;
+    sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
+        SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
+        // * Should probably apply some form of security (user system)
+        if (arg1 >= 1 && arg1 <= NUM_KB_LAYOUTS)
+        {
+            current_keyboard_layout = keyboard_layouts[arg1 - 1];
+            sc_ret_errno = 0;
+        }
+        else
+            sc_ret_errno = EINVAL;
+        break;
     }
     default:
         LOG(DEBUG, "syscall %" PRIu64 " not implemented", registers->rax);
-        lock_task_queue();
-        __CURRENT_TASK.return_value = SIGILL;
-        __CURRENT_TASK.is_dead = true;
-        unlock_task_queue();
-        swapgs();
-        switch_task();
+        kill_current_task(SIGILL);
     }
 }
 

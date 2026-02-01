@@ -35,7 +35,7 @@ int main(int argc, char** argv)
         kb_layout_choice = atoi(kb_layout_choice_str);
     }
 
-    if (set_kb_layout(kb_layout_choice))
+    if (set_kb_layout(kb_layout_choice) == 0)
         printf("Successfully set keyboard layout to : %s\n", kb_layouts[kb_layout_choice - 1]);
     else
         printf("Error : Defaulting to the us_qwerty keyboard layout\n");
