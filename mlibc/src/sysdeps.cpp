@@ -136,4 +136,32 @@ namespace mlibc
 	{
 		return syscall2_1(SYS_GETCWD, (uint64_t)buffer, (uint64_t)size);
 	}
+
+	int sys_chdir(const char* path)
+	{
+		return syscall1_1(SYS_CHDIR, (uint64_t)path);
+	}
+
+	int sys_fork(pid_t* child)
+	{
+		uint64_t _child;
+		int ret = syscall0_2(SYS_FORK, &_child);
+		*child = (pid_t)_child;
+		return ret;
+	}
+
+	int sys_sigprocmask(int how, const sigset_t *__restrict set, sigset_t *__restrict retrieve)
+	{
+		STUB("sys_sigprocmask");
+	}
+
+	int sys_waitpid(pid_t pid, int *status, int flags, struct rusage* ru, pid_t* ret_pid) 
+	{
+		STUB("sys_waitpid");
+	}
+
+	int sys_sigaction(int signum, const struct sigaction* __restrict act, struct sigaction* __restrict oldact)
+	{
+		return syscall3_1(SYS_SIGACTION, (uint64_t)signum, (uint64_t)act, (uint64_t)oldact);
+	}
 }

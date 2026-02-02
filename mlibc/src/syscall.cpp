@@ -1,6 +1,13 @@
 #include <errno.h>
 #include <stdint.h>
 
+uint64_t syscall0_2(uint64_t calln, uint64_t* r1)
+{
+    uint64_t ret;
+    asm volatile ("syscall" : "=a"(ret), "=b"(*r1) : "a"(calln) : "memory", "r11", "rcx");
+    return ret;
+}
+
 uint64_t syscall1_1(uint64_t calln, 
     uint64_t a1)
 {

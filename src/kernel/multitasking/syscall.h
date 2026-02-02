@@ -32,6 +32,7 @@ typedef struct __attribute__((packed))
     uint64_t rax;
 } syscall_registers_t;
 
+#define SC_ARG0()
 #define SC_ARG1(t1) \
     t1 arg1 = (t1)registers->rbx;
 #define SC_ARG2(t1, t2) \
@@ -64,7 +65,7 @@ typedef struct __attribute__((packed))
 #define sc_ret_errno    sc_ret(0)
 
 #ifdef LOG_SYSCALLS
-#define SC_LOG(fmt, ...) LOG(TRACE, fmt, __VA_ARGS__)
+#define SC_LOG(...) LOG(TRACE, __VA_ARGS__)
 #else
 #define SC_LOG(fmt, ...)
 #endif

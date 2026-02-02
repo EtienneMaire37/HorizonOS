@@ -323,6 +323,49 @@ void c_syscall_handler(syscall_registers_t* registers)
         arg1[arg2 - 1] = 0;
         sc_ret_errno = 0;
         break;
+    sc_case(SYS_CHDIR, 1, const char*)
+        SC_LOG("syscall SYS_CHDIR(%s)", arg1);
+        vfs_folder_tnode_t* tnode = vfs_get_folder_tnode(arg1, __CURRENT_TASK.cwd);
+        if (!tnode)
+        {
+            sc_ret_errno = vfs_get_file_tnode(arg1, __CURRENT_TASK.cwd) ? ENOTDIR : ENOENT;
+            break;
+        }
+        if (vfs_access(arg1, __CURRENT_TASK.cwd, X_OK))
+        {
+            sc_ret_errno = EACCES;
+            break;
+        }
+        __CURRENT_TASK.cwd = tnode;
+        sc_ret_errno = 0;
+        break;
+    sc_case(SYS_FORK, 0)
+        SC_LOG("syscall SYS_FORK()");
+        if (task_count >= MAX_TASKS)
+        {
+            sc_ret_errno = ENOMEM;
+            sc_ret(1) = (uint64_t)((pid_t)-1);
+            break;
+        }
+        else
+        {
+            sc_ret_errno = 0;
+            lock_task_queue();
+            __CURRENT_TASK.forked_pid = task_generate_pid();
+            pid_t forked_pid = __CURRENT_TASK.forked_pid;
+            unlock_task_queue();
+            switch_task();
+            if (__CURRENT_TASK.pid == forked_pid)
+                sc_ret(1) = 0;
+            else
+                sc_ret(1) = forked_pid;
+            break;
+        } 
+        break;
+    sc_case(SYS_SIGACTION, 3, int, const struct sigaction*, const struct sigaction*)
+        SC_LOG("syscall SYS_SIGACTION(%d, %p, %p)", arg1, arg2, arg3);
+        while (true);
+        break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
         // * Should probably apply some form of security (user system)
