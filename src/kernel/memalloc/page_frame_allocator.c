@@ -83,7 +83,6 @@ void pfa_detect_usable_memory()
         usable_memory_blocks++;
 
         LOG(INFO, "   Memory block : address : %#" PRIx64 " ; length : %" PRIu64, addr, len);
-        // printf("   Memory block : address : %#" PRIx64 " ; length : %" PRIu64 "\n", addr, len);
     }
 
     first_alloc_block = 0;
@@ -233,7 +232,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
         for (uint32_t j = first_alloc_block; j < usable_memory_blocks; j++) 
         {
             uint64_t block_pages = usable_memory_map[j].length / 0x1000;
-            if (remaining < block_pages) 
+            if (remaining <= block_pages - pages) 
             {
                 physical_address_t addr = usable_memory_map[j].address + remaining * 0x1000;
                 first_free_page_index_hint = 64 / 8 * i + bit;

@@ -6,7 +6,9 @@
 #include "../initrd/vfs.h"
 #include "../multitasking/task.h"
 #include <stdlib.h>
-#include <errno.h>
+// #include <errno.h>
+extern int errno;
+#include <abi-bits/errno.h>
 #include <fcntl.h>
 #include "../util/math.h"
 #include "../vga/textio.h"

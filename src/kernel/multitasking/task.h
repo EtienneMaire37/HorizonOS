@@ -5,10 +5,14 @@
 #include <limits.h>
 #include "../gdt/gdt.h"
 #include "../cpu/segbase.h"
+#include <signal.h>
 
 #include "mutex.h"
 
 #define THREAD_NAME_MAX 64
+#define NUM_SIGNALS     (sizeof(sigset_t) * 8)
+
+typedef uint64_t signal_bitmask_t;
 
 typedef struct thread
 {
@@ -17,9 +21,12 @@ typedef struct thread
     uint64_t rsp, cr3;
     uint64_t fs_base, gs_base;
 
+    signal_bitmask_t sig_pending, sig_mask;
+    struct sigaction* sig_act_array;
+
     utf32_buffer_t input_buffer;
     bool reading_stdin, is_dead;
-    uint16_t doing_io;
+    uint16_t doing_io;  // makes thread unkillable while doing io
 
     uint32_t return_value;
 
@@ -32,7 +39,7 @@ typedef struct thread
 
     uint8_t ring;
     pid_t pid, ppid, pgid;
-    bool system_task;    // system_task: cause kernel panics
+    bool system_task;    // cause kernel panics
 
     vfs_folder_tnode_t* cwd;
 
@@ -204,3 +211,5 @@ void cleanup_tasks();
 void tasks_log();
 
 void kill_current_task(int ret);
+void task_mask_signal(uint16_t index, int sig);
+void task_set_pending_signal(uint16_t index, int sig);

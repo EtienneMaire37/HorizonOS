@@ -5,6 +5,7 @@
 #include "../cpu/memory.h"
 #include "../memalloc/virtual_memory_allocator.h"
 #include "ioctl.h"
+#include <string.h>
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -362,9 +363,16 @@ void c_syscall_handler(syscall_registers_t* registers)
             break;
         } 
         break;
-    sc_case(SYS_SIGACTION, 3, int, const struct sigaction*, const struct sigaction*)
+    sc_case(SYS_SIGACTION, 3, int, const struct sigaction*, struct sigaction*)
         SC_LOG("syscall SYS_SIGACTION(%d, %p, %p)", arg1, arg2, arg3);
-        while (true);
+        if (arg1 >= NUM_SIGNALS || arg1 == SIGKILL || arg1 == SIGSTOP)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        if (arg3) *arg3 = __CURRENT_TASK.sig_act_array[arg1];
+        if (arg2) __CURRENT_TASK.sig_act_array[arg1] = *arg2;
+        sc_ret_errno = 0;
         break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);

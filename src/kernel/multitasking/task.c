@@ -6,6 +6,7 @@
 #include "../paging/paging.h"
 #include <fcntl.h>
 #include "../vga/textio.h"
+#include <string.h>
 
 mutex_t file_table_lock = MUTEX_INIT;
 uint8_t global_cpu_ticks = 0;
@@ -46,6 +47,14 @@ thread_t task_create_empty()
 
     task.rsp = 0;
 
+    {
+        const size_t allocated_bytes = sizeof(struct sigaction) * NUM_SIGNALS;
+        task.sig_act_array = (struct sigaction*)malloc(allocated_bytes);
+        LOG(DEBUG, "sig_act_array: %p", task.sig_act_array);
+        memset(task.sig_act_array, 0, allocated_bytes);
+        task.sig_pending = task.sig_mask = 0;
+    }
+
     task.pid = task_generate_pid();
     task.ppid = -1;
     task.pgid = task.pid;
@@ -75,19 +84,15 @@ thread_t task_create_empty()
 void task_destroy(thread_t* task)
 {
     LOG(TRACE, "Destroying task \"%s\" (pid = %d, ring = %u)", task->name, task->pid, task->ring);
-    LOG(TRACE, "Freeing VAS...");
     task_free_vas((physical_address_t)task->cr3);
-    LOG(TRACE, "Destroying the keyboard buffer...");
     utf32_buffer_destroy(&task->input_buffer);
-    LOG(TRACE, "Freeing tnodes...");
     for (int i = 0; i < OPEN_MAX; i++)
     {
         if (task->file_table[i] != invalid_fd)
             vfs_remove_global_file(task->file_table[i]);
     }
-    LOG(TRACE, "Destroying FPU state...");
     fpu_state_destroy(&task->fpu_state);
-    LOG(TRACE, "Done.");
+    free(task->sig_act_array);
 }
 
 void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg)
@@ -486,4 +491,14 @@ void kill_current_task(int ret)
     __CURRENT_TASK.is_dead = true;
     unlock_task_queue();
     switch_task();
+}
+
+void task_mask_signal(uint16_t index, int sig)
+{
+    tasks[index].sig_mask |= (1ULL << sig);
+}
+
+void task_set_pending_signal(uint16_t index, int sig)
+{
+    tasks[index].sig_pending |= (1ULL << sig);
 }

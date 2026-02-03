@@ -241,15 +241,15 @@ void _start()
         for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++)
         {
             uint64_t ptr = MMapEnt_Ptr(mmap_ent) & 0xfffffffffffff000;
-            uint64_t len = ((MMapEnt_Size(mmap_ent) + 0xfff) / 0x1000) * 0x1000 + 0x1000;
+            uint64_t len = ((MMapEnt_Size(mmap_ent) + 0xfff) / 0x1000) * 0x1000;
 
             if (!MMapEnt_IsFree(mmap_ent))
                 continue;
 
-            if (ptr >= 1 * TB)
+            if (ptr >= MAX_MEMORY)
                 continue;
-            if (ptr + len >= 1 * TB)
-                len = 1 * TB - ptr;
+            if (ptr + len >= MAX_MEMORY)
+                len = MAX_MEMORY - ptr;
                 
             LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
             printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
