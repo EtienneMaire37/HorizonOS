@@ -40,3 +40,4 @@ static inline __attribute__((always_inline)) bool is_page_free(uint64_t vaddr)
 }
 
 void* vmm_find_free_user_space_pages(void* hint, size_t pages);
+void* vmm_find_free_kernel_space_pages(void* hint, size_t pages);

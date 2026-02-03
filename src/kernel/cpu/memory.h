@@ -2,6 +2,15 @@
 
 #include <stdint.h>
 
+typedef enum
+{
+    MEMORY_LOWER_HALF = 0,
+    MEMORY_HIGHER_HALF = 1
+} memory_half_t;
+
+#define LOWER_HALF  MEMORY_LOWER_HALF
+#define HIGHER_HALF MEMORY_HIGHER_HALF
+
 static inline void invlpg(uint64_t addr)
 {
     asm volatile("invlpg [%0]" :: "r" (addr) : "memory");
