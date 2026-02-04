@@ -502,3 +502,14 @@ void task_set_pending_signal(uint16_t index, int sig)
 {
     tasks[index].sig_pending |= (1ULL << sig);
 }
+
+void task_queue_signal(uint16_t index, int sig)
+{
+    if (sig >= 32)
+    {
+        LOG(ERROR, "RT signals are not implemented yet!!");
+        while (true);
+    }
+
+    task_set_pending_signal(index, sig);
+}

@@ -213,3 +213,4 @@ void tasks_log();
 void kill_current_task(int ret);
 void task_mask_signal(uint16_t index, int sig);
 void task_set_pending_signal(uint16_t index, int sig);
+void task_queue_signal(uint16_t index, int sig);
