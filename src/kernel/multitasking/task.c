@@ -20,6 +20,11 @@ uint16_t current_task_index = 0;
 bool multitasking_enabled = false;
 volatile bool first_task_switch = true;
 
+pid_t task_reading_stdin = -1;
+utf32_buffer_t keyboard_input_buffer;
+
+int task_lock_depth = 0;
+
 const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
 const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
 
@@ -37,9 +42,6 @@ thread_t task_create_empty()
     thread_t task;
 
     memset(task.name, 0, THREAD_NAME_MAX);
-
-    utf32_buffer_init(&task.input_buffer);
-    task.reading_stdin = false;
 
     task.cr3 = physical_null;
     task.ring = 0;
@@ -85,7 +87,6 @@ void task_destroy(thread_t* task)
 {
     LOG(TRACE, "Destroying task \"%s\" (pid = %d, ring = %u)", task->name, task->pid, task->ring);
     task_free_vas((physical_address_t)task->cr3);
-    utf32_buffer_destroy(&task->input_buffer);
     for (int i = 0; i < OPEN_MAX; i++)
     {
         if (task->file_table[i] != invalid_fd)
@@ -134,6 +135,9 @@ void multitasking_init()
 {
     task_count = 0;
     current_task_index = 0;
+
+    utf32_buffer_init(&keyboard_input_buffer);
+    task_reading_stdin = -1;
 
     vfs_init_file_table();
 
@@ -394,9 +398,6 @@ void copy_task(uint16_t index)
     tasks[new_task_index].ring = tasks[index].ring;
     tasks[new_task_index].pid = tasks[index].forked_pid;
     tasks[new_task_index].system_task = tasks[index].system_task;
-    tasks[new_task_index].reading_stdin = false;
-    
-    utf32_buffer_create_and_copy(&tasks[index].input_buffer, &tasks[new_task_index].input_buffer);
 
     tasks[new_task_index].cr3 = task_create_empty_vas(tasks[new_task_index].ring == 0 ? PG_SUPERVISOR : PG_USER);
     tasks[new_task_index].rsp = tasks[index].rsp;

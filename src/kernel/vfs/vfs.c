@@ -766,15 +766,21 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
     case CHR_DIR_READ:
         if (count == 0)
             return 0;
-        if (no_buffered_characters(__CURRENT_TASK.input_buffer))
+        lock_task_queue();
+        if (no_buffered_characters(keyboard_input_buffer))
         {
-            __CURRENT_TASK.reading_stdin = true;
+            task_reading_stdin = __CURRENT_TASK.pid;
+            unlock_task_queue();
             switch_task();
         }
-        uint64_t ret = minint(get_buffered_characters(__CURRENT_TASK.input_buffer), count);
+        else
+            unlock_task_queue();
+        lock_task_queue();
+        uint64_t ret = minint(get_buffered_characters(keyboard_input_buffer), count);
         for (uint32_t i = 0; i < count; i++)
             // *** Only ASCII for now ***
-            buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&__CURRENT_TASK.input_buffer));
+            buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&keyboard_input_buffer));
+        unlock_task_queue();
         return ret;
     case CHR_DIR_WRITE:
         return 0;

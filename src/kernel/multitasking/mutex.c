@@ -4,7 +4,7 @@
 void acquire_mutex(mutex_t* mutex)
 {
     // !! Horribly inefficient
-    // TODO: Make it better (by skipping tasks which are blocked)
+    // TODO: Make it better (by implementing proper futexes)
 	__CURRENT_TASK.doing_io++;
 	while (try_acquire_spinlock(mutex))
 		switch_task();

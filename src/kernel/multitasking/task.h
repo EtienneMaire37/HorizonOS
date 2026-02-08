@@ -14,6 +14,9 @@
 
 typedef uint64_t signal_bitmask_t;
 
+extern pid_t task_reading_stdin;
+extern utf32_buffer_t keyboard_input_buffer;
+
 typedef struct thread
 {
     char name[THREAD_NAME_MAX];
@@ -24,8 +27,7 @@ typedef struct thread
     signal_bitmask_t sig_pending, sig_mask;
     struct sigaction* sig_act_array;
 
-    utf32_buffer_t input_buffer;
-    bool reading_stdin, is_dead;
+    bool is_dead;
     uint16_t doing_io;  // makes thread unkillable while doing io
 
     uint32_t return_value;
@@ -82,6 +84,8 @@ extern uint16_t current_task_index;
 extern bool multitasking_enabled;
 extern volatile bool first_task_switch;
 
+extern int task_lock_depth;
+
 extern void iretq_instruction();
 void task_kill(uint16_t index);
 
@@ -90,16 +94,15 @@ void apic_disable();
 
 static inline void lock_task_queue()
 {
-    // lapic_disable();
     disable_interrupts();
-    // acquire_spinlock(&task_queue_spinlock);
+    task_lock_depth++;
 }
 
 static inline void unlock_task_queue()
 {
-    // lapic_enable();
-    enable_interrupts();
-    // release_spinlock(&task_queue_spinlock);
+    disable_interrupts();
+    if (--task_lock_depth == 0)
+        enable_interrupts();
 }
 
 static inline int vfs_allocate_thread_file(int index)
@@ -150,7 +153,7 @@ static inline bool task_can_be_killed(uint16_t i)
 static inline bool task_is_blocked(uint16_t index)
 {
     if (tasks[index].is_dead && task_can_be_killed(index)) return true;
-    if (tasks[index].reading_stdin) return true;
+    if (task_reading_stdin == tasks[index].pid) return true;
     if (tasks[index].forked_pid) return true;
     if (tasks[index].wait_pid != -1) return true;
     return false;
