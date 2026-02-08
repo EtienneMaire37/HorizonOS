@@ -77,9 +77,13 @@ bool keyboard_is_key_pressed(virtual_address_t vk)
     return ps2_kb_is_key_pressed(vk);
 }
 
-void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, bool echo, bool raw, int noncanonical_read_minimum_count)
+void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct termios* ts)
 {
     if (!multitasking_enabled) return;
+
+    bool echo = (ts->c_lflag & ECHO) != 0;
+    bool raw = (ts->c_lflag & ICANON) == 0; 
+    int noncanonical_read_minimum_count = ts->c_cc[VMIN];
     
     char ascii = utf32_to_bios_oem(character);
     if (!is_printable_character(ascii)
@@ -98,7 +102,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, bool ec
         {
             if (raw)
             {
-                utf32_buffer_putchar(&keyboard_input_buffer, '\b');
+                utf32_buffer_putchar(&keyboard_input_buffer, ts->c_cc[VERASE]);
                 if (echo) printf("\b \b");
             }
             else if (!no_buffered_characters(keyboard_input_buffer))

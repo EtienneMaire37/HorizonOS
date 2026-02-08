@@ -2,6 +2,7 @@
 
 #include "../cpu/util.h"
 #include "../util/math.h"
+#include <termios.h>
 
 typedef uint32_t utf32_char_t;
 
@@ -313,4 +314,4 @@ utf32_char_t utf32_buffer_getchar(utf32_buffer_t* buffer);
 void utf32_buffer_create_and_copy(const utf32_buffer_t* from, utf32_buffer_t* to);
 
 bool keyboard_is_key_pressed(virtual_address_t vk);
-void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, bool echo, bool raw, int noncanonical_read_minimum_count);
+void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct termios* ts);

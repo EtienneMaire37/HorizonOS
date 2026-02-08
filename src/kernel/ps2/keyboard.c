@@ -264,10 +264,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
             else
             {
             key:
-                keyboard_handle_character(character, vk, 
-                (tty_ts.c_lflag & ECHO) != 0, 
-                (tty_ts.c_lflag & ICANON) == 0, 
-                tty_ts.c_cc[VMIN]);
+                keyboard_handle_character(character, vk, &tty_ts);
             }
         }
 

@@ -88,15 +88,17 @@ int main(int argc, char** argv)
                 break;
             else
             {
-                switch (byte)
+                if (byte == newt.c_cc[VERASE])
                 {
-                case '\b':
                     if (write_position > 0)
                     {
                         write_position--;
                         printf("\b \b");
                     }
-                    break;
+                }
+                else
+                switch (byte)
+                {
                 case '\x1b':    // * escape sequence
                 {
                     char next_bytes[8];
