@@ -12,11 +12,6 @@
 #define THREAD_NAME_MAX 64
 #define NUM_SIGNALS     (sizeof(sigset_t) * 8)
 
-typedef uint64_t signal_bitmask_t;
-
-extern pid_t task_reading_stdin;
-extern utf32_buffer_t keyboard_input_buffer;
-
 typedef struct thread thread_t;
 
 typedef struct thread
@@ -26,7 +21,7 @@ typedef struct thread
     uint64_t rsp, cr3;
     uint64_t fs_base, gs_base;
 
-    signal_bitmask_t sig_pending, sig_mask;
+    sigset_t sig_pending, sig_mask;
     struct sigaction sig_act_array[NUM_SIGNALS];
 
     bool is_dead;
@@ -72,6 +67,9 @@ extern void syscall_handler();
 
 #define TASK_SWITCH_DELAY 40 // ms
 #define TASK_SWITCHES_PER_SECOND (1000 / TASK_SWITCH_DELAY)
+
+extern pid_t task_reading_stdin;
+extern utf32_buffer_t keyboard_input_buffer;
 
 extern mutex_t file_table_lock;
 extern uint8_t global_cpu_ticks;

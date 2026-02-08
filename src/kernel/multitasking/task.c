@@ -505,12 +505,14 @@ void kill_current_task(int ret)
 
 void task_mask_signal(thread_t* task, int sig)
 {
-    task->sig_mask |= (1ULL << sig);
+    int idx = sig / sizeof(unsigned long);
+    task->sig_mask.__sig[idx] |= (1ULL << (sig - idx * sizeof(unsigned long)));
 }
 
 void task_set_pending_signal(thread_t* task, int sig)
 {
-    task->sig_pending |= (1ULL << sig);
+    int idx = sig / sizeof(unsigned long);
+    task->sig_pending.__sig[idx] |= (1ULL << (sig - idx * sizeof(unsigned long)));
 }
 
 void task_queue_signal(thread_t* task, int sig)
