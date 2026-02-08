@@ -1,18 +1,12 @@
 #pragma once
 
 #include "task.h"
+#include "../util/linked_list.h"
 
-typedef struct thread_queue_item thread_queue_item_t;
+#define thread_queue_item_t ll_item_t
+#define thread_queue_t ll_t
 
-typedef struct thread_queue_item
-{
-    thread_t* data;
-    thread_queue_item_t *prev, *next;
-} thread_queue_item_t;
-
-typedef thread_queue_item_t* thread_queue_t;
-
-#define TQ_INIT     NULL
+#define TQ_INIT     LL_INIT
 
 extern thread_queue_t dead_tasks, reapable_tasks;
 

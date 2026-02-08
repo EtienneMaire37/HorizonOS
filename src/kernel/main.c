@@ -77,6 +77,7 @@ int num_environ;
 #include "pci/pci.h"
 #include "multitasking/startup_data.h"
 #include "cpu/segbase.h"
+#include "cpu/tsc.h"
 
 initrd_file_t* commit_file;
 
@@ -430,6 +431,11 @@ void _start()
     LOG(DEBUG, "Done setting up FS/GS segment bases");
 
     enable_interrupts();
+
+    LOG(DEBUG, "Calibrating TSC...");
+    calibrate_tsc();
+    LOG(INFO, "CPU running at approximatively %" PRIu64 " hz", tsc_cyles_per_second);
+    printf("CPU running at approximatively %" PRIu64 " hz\n", tsc_cyles_per_second);
 
     LOG(INFO, "Parsing ACPI tables..");
     printf("Parsing ACPI tables...\n");

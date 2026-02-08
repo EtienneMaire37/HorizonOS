@@ -424,12 +424,12 @@ void cleanup_tasks()
             {
                 if (parent->wait_pid != -1)
                 {
-                    if (parent->wait_pid == 0 || absint(parent->wait_pid) == cur_dead_task->data->pid)
+                    if (parent->wait_pid == 0 || absint(parent->wait_pid) == ((thread_t*)cur_dead_task->data)->pid)
                     {
                         move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
                         
                         parent->wait_pid = -1;
-                        parent->wstatus = cur_dead_task->data->return_value;
+                        parent->wstatus = ((thread_t*)cur_dead_task->data)->return_value;
                     }
                 }
             }
