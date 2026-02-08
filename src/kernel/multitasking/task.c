@@ -7,11 +7,12 @@
 #include <fcntl.h>
 #include "../vga/textio.h"
 #include <string.h>
+#include "queue.h"
 
 mutex_t file_table_lock = MUTEX_INIT;
 uint8_t global_cpu_ticks = 0;
 
-thread_t* running_tasks;
+thread_t* running_tasks = NULL;
 uint16_t task_count = 0;
 
 uint64_t multitasking_counter = TASK_SWITCH_DELAY;
@@ -54,13 +55,9 @@ thread_t* task_create_empty()
 
     task->fpu_state = fpu_state_create();
 
-    task->is_dead = false;
     task->forked_pid = 0;    // is_being_forked = false
 
     task->wait_pid = -1;
-
-    task->to_reap = false;
-    task->doing_io = false;
 
     task->cwd = vfs_root;
 
@@ -79,7 +76,6 @@ void task_destroy(thread_t* task)
             vfs_remove_global_file(task->file_table[i]);
     }
     fpu_state_destroy(&task->fpu_state);
-    free(task->sig_act_array);
 }
 
 void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg)
@@ -152,6 +148,7 @@ void multitasking_add_idle_task(char* name)
     task->cr3 = get_cr3();
 
     multitasking_add_task(task);
+    task_count++;
 }
 
 void multitasking_add_task(thread_t* task)
@@ -171,8 +168,16 @@ void multitasking_add_task(thread_t* task)
         running_tasks->prev = task;
     }
 
-    task_count++;
+    unlock_task_queue();
+}
 
+void multitasking_remove_task(thread_t* task)
+{
+    lock_task_queue();
+    if (task == running_tasks) abort();
+
+    task->prev->next = task->next;
+    task->next->prev = task->prev;
     unlock_task_queue();
 }
 
@@ -306,10 +311,7 @@ uint64_t task_read_at_address_8b(thread_t* task, uint64_t address)
 void switch_task()
 {
     if (task_count == 0)
-    {
-        LOG(CRITICAL, "No tasks!");
         abort();
-    }
 
     // ! Should never log anything here
 
@@ -330,30 +332,16 @@ void switch_task()
 thread_t* find_task_by_pid(pid_t pid)
 {
     if (pid < 0) return NULL;
-    thread_t* cur = running_tasks;
+    thread_t* cur_running = running_tasks;
     do
     {
-        if (cur->pid == pid)
-            return cur;
-        cur = cur->next;
-    } while (cur != running_tasks);
+        if (cur_running->pid == pid)
+            return cur_running;
+        cur_running = cur_running->next;
+    } while (cur_running != running_tasks);
+    // TODO: Do the same for blocked tasks
+    // ...
     return NULL;
-}
-
-void task_kill(thread_t* task)
-{
-    if (!task) return;
-    if (task_count == 1)
-    {
-        LOG(CRITICAL, "Zero tasks remaining");
-        abort();
-    }
-
-    task->prev->next = task->next;
-    task->next->prev = task->prev;
-
-    task_destroy(task);
-    free(task);
 }
 
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
@@ -400,7 +388,6 @@ void copy_task(thread_t* task)
     task_copy_file_table(task, new_task, false);
 
     new_task->forked_pid = 0;
-    new_task->is_dead = false;
 
     new_task->ppid = task->pid;
     new_task->wait_pid = -1;
@@ -408,12 +395,11 @@ void copy_task(thread_t* task)
     task_vas_copy((uint64_t*)(task->cr3 + PHYS_MAP_BASE), (uint64_t*)(new_task->cr3 + PHYS_MAP_BASE), 0, TASK_STACK_TOP_ADDRESS >> 12);
 
     multitasking_add_task(new_task);
+    task_count++;
 }
 
 void cleanup_tasks()
 {
-    if (current_task != idle_task) return;
-
     lock_task_queue();
 
     thread_t* cur_task = running_tasks;
@@ -428,41 +414,51 @@ void cleanup_tasks()
     }
     while (cur_task != running_tasks);
 
-    do
+    thread_queue_item_t* cur_dead_task = dead_tasks;
+    if (cur_dead_task)
     {
-        if (!(cur_task->is_dead && task_can_be_killed(cur_task))) goto continue1;
-        thread_t* parent = find_task_by_pid(cur_task->ppid);
-        if (parent)
+        do
         {
-            if (parent->wait_pid != -1)
+            thread_t* parent = find_task_by_pid(cur_task->ppid);
+            if (parent)
             {
-                if (parent->wait_pid == 0 || absint(parent->wait_pid) == cur_task->pid)
+                if (parent->wait_pid != -1)
                 {
-                    cur_task->to_reap = true;
-                    parent->wait_pid = -1;
-                    parent->wstatus = cur_task->return_value;
+                    if (parent->wait_pid == 0 || absint(parent->wait_pid) == cur_dead_task->data->pid)
+                    {
+                        move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
+                        
+                        parent->wait_pid = -1;
+                        parent->wstatus = cur_dead_task->data->return_value;
+                    }
                 }
             }
+            else
+                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
+            cur_dead_task = cur_dead_task->next;
         }
-        else
-            cur_task->to_reap = true;
-    continue1:
-        cur_task = cur_task->next;
+        while (dead_tasks != TQ_INIT && cur_dead_task != dead_tasks);
     }
-    while (cur_task != running_tasks);
-
-    do
+    thread_queue_item_t* cur_reapable_task = reapable_tasks;
+    if (cur_reapable_task)
     {
-        if (cur_task != current_task && cur_task->to_reap)
+        do
         {
-            thread_t* task_to_kill = cur_task;
-            cur_task = cur_task->next;
-            task_kill(task_to_kill);
+            if (cur_reapable_task->data != current_task)
+            {
+                thread_queue_item_t* removed_item = cur_reapable_task;
+                thread_t* task_to_kill = cur_reapable_task->data;
+                cur_reapable_task = cur_reapable_task->next;
+                task_destroy(task_to_kill);
+                free(task_to_kill);
+                task_count--;
+                thread_queue_remove(&reapable_tasks, removed_item);
+            }
+            else
+                cur_reapable_task = cur_reapable_task->next;
         }
-        else
-            cur_task = cur_task->next;
+        while (reapable_tasks != TQ_INIT && cur_reapable_task != reapable_tasks);
     }
-    while (cur_task != running_tasks);
 
     unlock_task_queue();
 }
@@ -474,13 +470,10 @@ void tasks_log()
     thread_t* task = running_tasks;
     do
     {
-        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s%s%s%s%s", task->next == running_tasks ? "└" : "├",
+        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s%s", task->next == running_tasks ? "└" : "├",
             task->name, task->pid, task->ppid, task->pgid, task->stored_cpu_ticks / 10, task->stored_cpu_ticks % 10,
             task_is_blocked(task) ? " (blocked)" : "", 
-            task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)",
-            task->doing_io ? " (waiting for io)" : "",
-            task->is_dead ? " (dead)" : "",
-            task->to_reap ? " (waiting to be reaped)" : "");
+            task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)");
 
         task = task->next;
     }
@@ -498,7 +491,7 @@ void kill_current_task(int ret)
 {
     lock_task_queue();
     current_task->return_value = ret;
-    current_task->is_dead = true;
+    move_running_task_to_thread_queue(&dead_tasks, current_task);
     unlock_task_queue();
     switch_task();
 }

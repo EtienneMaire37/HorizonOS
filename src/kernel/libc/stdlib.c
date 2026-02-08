@@ -7,6 +7,7 @@
 
 void __attribute__((noreturn)) abort()
 {
+    disable_interrupts();
     LOG(ERROR, "Kernel aborted.");
     halt();
 }

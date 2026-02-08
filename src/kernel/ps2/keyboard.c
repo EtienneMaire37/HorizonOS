@@ -8,6 +8,7 @@
 #include "../vfs/vfs.h"
 #include "../multitasking/task.h"
 #include "../vga/textio.h"
+#include "../multitasking/queue.h"
 
 uint8_t ps2_keyboard_state[256] = 
 {
@@ -241,11 +242,11 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                             for (thread_t* cur = running_tasks->next; cur != running_tasks; cur = cur->next)
                             {
                                 if (cur->pgid == tty_foreground_pgrp)
-                                {
-                                    cur->return_value = SIGINT;
-                                    cur->is_dead = true;
+                                {                                    
                                     if (cur->pid == current_task->pid)
                                         *task_switch = true;
+                                    cur->return_value = SIGINT;
+                                    move_running_task_to_thread_queue(&dead_tasks, cur);
                                     if (!intr)
                                     {
                                         printf("^C");

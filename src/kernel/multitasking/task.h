@@ -10,7 +10,7 @@
 #include "mutex.h"
 
 #define THREAD_NAME_MAX 64
-#define NUM_SIGNALS     (sizeof(sigset_t) * 8)
+#define NUM_SIGNALS     128 // (sizeof(sigset_t) * 8)
 
 typedef struct thread thread_t;
 
@@ -24,21 +24,16 @@ typedef struct thread
     sigset_t sig_pending, sig_mask;
     struct sigaction sig_act_array[NUM_SIGNALS];
 
-    bool is_dead;
-    uint16_t doing_io;  // makes thread unkillable while doing io
-
     uint32_t return_value;
 
     pid_t wait_pid;
     uint32_t wstatus;
 
-    bool to_reap;
-
     pid_t forked_pid;
 
     uint8_t ring;
     pid_t pid, ppid, pgid;
-    bool system_task;    // cause kernel panics
+    bool system_task;    // * Allow causing kernel panics
 
     vfs_folder_tnode_t* cwd;
 
@@ -49,6 +44,8 @@ typedef struct thread
     file_table_index_t file_table[OPEN_MAX];
     mutex_t file_table_mutex;
 
+    // * We still have to keep them here to fix the case 
+    // * where the current process is blocked before context swichting
     thread_t *prev, *next; 
 } thread_t;
 
@@ -87,7 +84,6 @@ extern volatile bool first_task_switch;
 extern int task_lock_depth;
 
 extern void iretq_instruction();
-void task_kill(thread_t* task);
 
 void apic_enable();
 void apic_disable();
@@ -148,18 +144,9 @@ static inline void end_context_switch()
         swapgs();
 }
 
-static inline bool task_can_be_killed(thread_t* task)
-{
-    lock_task_queue();
-    bool ret = !task->doing_io;
-    unlock_task_queue();
-    return ret;
-}
-
 static inline bool task_is_blocked(thread_t* task)
 {
     lock_task_queue();
-    if (task->is_dead && task_can_be_killed(task)) return (unlock_task_queue(), true);
     if (task_reading_stdin == task->pid) return (unlock_task_queue(), true);
     if (task->forked_pid) return (unlock_task_queue(), true);
     if (task->wait_pid != -1) return (unlock_task_queue(), true);
@@ -189,7 +176,9 @@ static inline bool is_fd_valid(int fd)
 }
 
 pid_t task_generate_pid();
+
 void multitasking_add_task(thread_t* task);
+void multitasking_remove_task(thread_t* task);
 
 void task_write_at_address_1b(thread_t* task, uint64_t address, uint8_t value);
 void task_write_at_aligned_address_8b(thread_t* task, uint64_t address, uint64_t value);

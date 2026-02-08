@@ -540,6 +540,8 @@ void _start()
 
     // TODO: Find out how to use efi_ptr (System Table) to get access to runtime uefi functions
 
+    LOG(DEBUG, "sizeof(thread_t): %lld", (unsigned long long)sizeof(thread_t));
+
     fflush(stdout);
 
     multitasking_init();

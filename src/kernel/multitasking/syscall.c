@@ -6,6 +6,7 @@
 #include "../memalloc/virtual_memory_allocator.h"
 #include "ioctl.h"
 #include <string.h>
+#include "queue.h"
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -256,7 +257,6 @@ void c_syscall_handler(syscall_registers_t* registers)
         {
             pid_t old_pid = current_task->pid;
             
-            current_task->is_dead = current_task->to_reap = true;
             current_task->pid = task_generate_pid();
 
             new_task->pid = old_pid;
@@ -264,6 +264,8 @@ void c_syscall_handler(syscall_registers_t* registers)
             new_task->pgid = current_task->pgid;
 
             task_copy_file_table(current_task, new_task, true);
+
+            move_running_task_to_thread_queue(&reapable_tasks, current_task);
 
             unlock_task_queue();
             switch_task();

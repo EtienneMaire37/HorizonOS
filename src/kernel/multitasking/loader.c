@@ -17,6 +17,7 @@ thread_t* multitasking_add_task_from_function(const char* name, void (*func)())
     task_setup_stack(task, (uint64_t)func, KERNEL_CODE_SEGMENT, KERNEL_DATA_SEGMENT);
 
     multitasking_add_task(task);
+    task_count++;
 
     LOG(DEBUG, "Done");
 
@@ -192,6 +193,7 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
     }
 
     multitasking_add_task(task);
+    task_count++;
 
     LOG(DEBUG, "Done");
 
