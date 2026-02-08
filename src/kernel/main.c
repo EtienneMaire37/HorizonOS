@@ -540,19 +540,9 @@ void _start()
 
     // TODO: Find out how to use efi_ptr (System Table) to get access to runtime uefi functions
 
-    // asm volatile("div rcx" :: "c"(0));
-
     fflush(stdout);
 
     multitasking_init();
-
-    // {
-    //     uint64_t rsp;
-    //     asm volatile("mov rax, rsp" : "=a"(rsp));
-    //     LOG(DEBUG, "rsp: %#" PRIx64 "", rsp);
-    //     LOG(DEBUG, "%" PRIu64 " bytes left", 1024 + rsp);
-    //     while (true);
-    // }
 
     startup_data_struct_t data = startup_data_init_from_command((char*[]){"/initrd/bin/init", NULL}, (char*[]){"PATH=/initrd/bin", NULL});
     if (!multitasking_add_task_from_vfs("init", "/initrd/bin/init", 3, true, &data, vfs_root))
@@ -561,8 +551,6 @@ void _start()
         printf("\x1b[31merror\x1b[0m: init task couldn't start\n");
         abort();
     }
-
-    // multitasking_add_task_from_function("test", test_func);
 
     LOG(DEBUG, "Starting multitasking...");
 

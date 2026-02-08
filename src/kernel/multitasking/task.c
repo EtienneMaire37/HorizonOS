@@ -419,6 +419,8 @@ void cleanup_tasks()
 {
     if (current_task_index != 0) return;
 
+    lock_task_queue();
+
     for (uint16_t i = 0; i < task_count; i++)
     {
         if (i == current_task_index) continue;
@@ -459,6 +461,8 @@ void cleanup_tasks()
             continue;
         }
     }
+
+    unlock_task_queue();
 }
 
 void tasks_log()
