@@ -238,13 +238,13 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                         {
                             bool intr = false;
                             lock_task_queue();
-                            for (int i = 1; i < task_count; i++)
+                            for (thread_t* cur = running_tasks->next; cur != running_tasks; cur = cur->next)
                             {
-                                if (tasks[i].pgid == tty_foreground_pgrp)
+                                if (cur->pgid == tty_foreground_pgrp)
                                 {
-                                    tasks[i].return_value = SIGINT;
-                                    tasks[i].is_dead = true;
-                                    if (tasks[i].pid == __CURRENT_TASK.pid)
+                                    cur->return_value = SIGINT;
+                                    cur->is_dead = true;
+                                    if (cur->pid == current_task->pid)
                                         *task_switch = true;
                                     if (!intr)
                                     {

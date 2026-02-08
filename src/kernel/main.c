@@ -429,7 +429,7 @@ void _start()
 
     LOG(DEBUG, "Done setting up FS/GS segment bases");
 
-    enable_interrupts(); 
+    enable_interrupts();
 
     LOG(INFO, "Parsing ACPI tables..");
     printf("Parsing ACPI tables...\n");

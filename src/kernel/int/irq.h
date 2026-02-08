@@ -17,15 +17,19 @@ void handle_apic_irq(interrupt_registers_t* registers)
         global_timer += GLOBAL_TIMER_INCREMENT;
         system_thousands += increment;
 
-        __CURRENT_TASK.current_cpu_ticks += increment;
-        if (system_thousands >= 1000)
+        if (current_task && multitasking_enabled)
+            current_task->current_cpu_ticks += increment;
+        if (system_thousands >= 1000 && multitasking_enabled)
         {
             lock_task_queue();
-            for (int i = 0; i < task_count; i++)
+            thread_t* cur = running_tasks;
+            do
             {
-                tasks[i].stored_cpu_ticks = tasks[i].current_cpu_ticks;
-                tasks[i].current_cpu_ticks = 0;
-            }
+                cur->stored_cpu_ticks = cur->current_cpu_ticks;
+                cur->current_cpu_ticks = 0;
+
+                cur = cur->next;
+            } while (cur != running_tasks);
             unlock_task_queue();
         }
 

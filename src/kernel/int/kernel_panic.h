@@ -127,7 +127,7 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
     tty_set_color(FG_LIGHTGREEN, BG_BLACK);
 
     if (multitasking_enabled)
-        printf("Task : \"%s\" (pid = %d) | ring = %u\n\n", __CURRENT_TASK.name, __CURRENT_TASK.pid, __CURRENT_TASK.ring);
+        printf("Task : \"%s\" (pid = %d) | ring = %u\n\n", current_task->name, current_task->pid, current_task->ring);
 
     tty_set_color(FG_WHITE, BG_BLACK);
 

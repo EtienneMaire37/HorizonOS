@@ -13,7 +13,7 @@ void syscall_ioctl(syscall_registers_t* registers, int fd, unsigned long request
             sc_ret_errno = EBADF;
             break;
         }
-        file_entry_t* entry = &file_table[__CURRENT_TASK.file_table[fd]];
+        file_entry_t* entry = &file_table[current_task->file_table[fd]];
         if (!vfs_isatty(entry))
         {
             sc_ret_errno = ENOTTY;

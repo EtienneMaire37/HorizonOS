@@ -204,7 +204,7 @@ vfs_file_tnode_t* vfs_create_special_file_tnode(const char* name, vfs_folder_tno
 void vfs_mount_device(const char* name, drive_t drive, uid_t uid, gid_t gid)
 {
     LOG(DEBUG, "Mounting device %s at /%s", get_drive_type_string(drive.type), name);
-
+    
     acquire_mutex(&vfs_root->inode->lock);
 
     vfs_folder_tnode_t** current = &vfs_root->inode->folders;
@@ -579,7 +579,7 @@ int vfs_fstat(int fd, vfs_folder_tnode_t* pwd, struct stat* st)
     if (!is_fd_valid(fd) || !st)
         return EFAULT;
 
-    file_entry_t* entry = &file_table[__CURRENT_TASK.file_table[fd]];
+    file_entry_t* entry = &file_table[current_task->file_table[fd]];
 
     switch (entry->entry_type)
     {
@@ -681,23 +681,23 @@ struct dirent* vfs_readdir(struct dirent* dirent, DIR* dirp)
 int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
 {
     if (!bytes_read) abort();
-    if (__CURRENT_TASK.file_table[fd] < 0 || __CURRENT_TASK.file_table[fd] >= MAX_FILE_TABLE_ENTRIES)
+    if (current_task->file_table[fd] < 0 || current_task->file_table[fd] >= MAX_FILE_TABLE_ENTRIES)
     {
         *bytes_read = -1;
         return EBADF;
     }
-    if ((file_table[__CURRENT_TASK.file_table[fd]].flags & O_ACCMODE) == O_WRONLY) 
+    if ((file_table[current_task->file_table[fd]].flags & O_ACCMODE) == O_WRONLY) 
     {
         *bytes_read = -1;
         return EBADF;
     }
 
-    if (file_table[__CURRENT_TASK.file_table[fd]].entry_type == ET_FILE)
+    if (file_table[current_task->file_table[fd]].entry_type == ET_FILE)
     {
-        mode_t mode = file_table[__CURRENT_TASK.file_table[fd]].tnode.file->inode->st.st_mode;
-        *bytes_read = file_table[__CURRENT_TASK.file_table[fd]].tnode.file->inode->io_func(&file_table[__CURRENT_TASK.file_table[fd]], buffer, num_bytes, CHR_DIR_READ);
+        mode_t mode = file_table[current_task->file_table[fd]].tnode.file->inode->st.st_mode;
+        *bytes_read = file_table[current_task->file_table[fd]].tnode.file->inode->io_func(&file_table[current_task->file_table[fd]], buffer, num_bytes, CHR_DIR_READ);
         if (*bytes_read > 0)
-            file_table[__CURRENT_TASK.file_table[fd]].position += *bytes_read;
+            file_table[current_task->file_table[fd]].position += *bytes_read;
         return 0;
     }
     *bytes_read = 0;
@@ -707,22 +707,22 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
 int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* bytes_written)
 {
     if (!bytes_written) abort();
-    if (__CURRENT_TASK.file_table[fd] < 0 || __CURRENT_TASK.file_table[fd] >= MAX_FILE_TABLE_ENTRIES)
+    if (current_task->file_table[fd] < 0 || current_task->file_table[fd] >= MAX_FILE_TABLE_ENTRIES)
     {
         *bytes_written = (uint64_t)-1;
         return EBADF;
     }
-    if ((file_table[__CURRENT_TASK.file_table[fd]].flags & O_ACCMODE) == O_RDONLY)
+    if ((file_table[current_task->file_table[fd]].flags & O_ACCMODE) == O_RDONLY)
     {
         *bytes_written = -1;
         return EBADF;
     }
-    if (file_table[__CURRENT_TASK.file_table[fd]].entry_type == ET_FILE)
+    if (file_table[current_task->file_table[fd]].entry_type == ET_FILE)
     {
-        mode_t mode = file_table[__CURRENT_TASK.file_table[fd]].tnode.file->inode->st.st_mode;
-        *bytes_written = file_table[__CURRENT_TASK.file_table[fd]].tnode.file->inode->io_func(&file_table[__CURRENT_TASK.file_table[fd]], (unsigned char*)buffer, bytes_to_write, CHR_DIR_WRITE);
+        mode_t mode = file_table[current_task->file_table[fd]].tnode.file->inode->st.st_mode;
+        *bytes_written = file_table[current_task->file_table[fd]].tnode.file->inode->io_func(&file_table[current_task->file_table[fd]], (unsigned char*)buffer, bytes_to_write, CHR_DIR_WRITE);
         if (*bytes_written > 0)
-            file_table[__CURRENT_TASK.file_table[fd]].position += *bytes_written;
+            file_table[current_task->file_table[fd]].position += *bytes_written;
         return 0;
     }
     *bytes_written = 0;
@@ -769,7 +769,7 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
         lock_task_queue();
         if (no_buffered_characters(keyboard_input_buffer))
         {
-            task_reading_stdin = __CURRENT_TASK.pid;
+            task_reading_stdin = current_task->pid;
             unlock_task_queue();
             switch_task();
         }
