@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include "../initrd/vfs.h"
 #include "../multitasking/task.h"
+#include "../multitasking/multitasking.h"
 #include <stdlib.h>
 // #include <errno.h>
 extern int errno;

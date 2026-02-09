@@ -1,6 +1,7 @@
 #include "loader.h"
 #include "vas.h"
 #include "task.h"
+#include "multitasking.h"
 #include "../files/elf.h"
 #include "startup_data.h"
 #include "../vfs/vfs.h"

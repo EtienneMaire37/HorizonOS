@@ -1,4 +1,3 @@
-#include "idle.h"
 #include "vas.h"
 #include "../fpu/fpu.h"
 #include "../util/math.h"
@@ -8,23 +7,7 @@
 #include "../vga/textio.h"
 #include <string.h>
 #include "queue.h"
-
-mutex_t file_table_lock = MUTEX_INIT;
-uint8_t global_cpu_ticks = 0;
-
-thread_t* running_tasks = NULL;
-uint16_t task_count = 0;
-
-uint64_t multitasking_counter = TASK_SWITCH_DELAY;
-
-thread_t* current_task = NULL;
-bool multitasking_enabled = false;
-volatile bool first_task_switch = true;
-
-pid_t task_reading_stdin = -1;
-utf32_buffer_t keyboard_input_buffer;
-
-int task_lock_depth = 0;
+#include "multitasking.h"
 
 const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
 const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
@@ -111,74 +94,6 @@ void task_set_name(thread_t* task, const char* name)
     int name_bytes = minint(strlen(name), THREAD_NAME_MAX - 1);
     memcpy(task->name, name, name_bytes);
     task->name[name_bytes] = 0;
-}
-
-void multitasking_init()
-{
-    task_count = 0;
-    current_task = NULL;
-
-    utf32_buffer_init(&keyboard_input_buffer);
-    task_reading_stdin = -1;
-
-    vfs_init_file_table();
-
-    multitasking_add_idle_task("idle");
-}
-
-void multitasking_start()
-{
-    fflush(stdout);
-    multitasking_enabled = true;
-    current_task = idle_task;
-
-    idle_main();
-}
-
-void multitasking_add_idle_task(char* name)
-{
-    if (task_count != 0)
-    {
-        LOG(CRITICAL, "The kernel task must be the first one");
-        abort();
-    }
-
-    thread_t* task = task_create_empty();
-    task_set_name(task, name);
-    task->cr3 = get_cr3();
-
-    multitasking_add_task(task);
-    task_count++;
-}
-
-void multitasking_add_task(thread_t* task)
-{
-    lock_task_queue();
-    
-    if (!running_tasks)
-    {
-        task->prev = task->next = task;
-        running_tasks = task;
-    }
-    else
-    {
-        task->prev = running_tasks->prev;
-        task->next = running_tasks;
-        running_tasks->prev->next = task;
-        running_tasks->prev = task;
-    }
-
-    unlock_task_queue();
-}
-
-void multitasking_remove_task(thread_t* task)
-{
-    lock_task_queue();
-    if (task == running_tasks) abort();
-
-    task->prev->next = task->next;
-    task->next->prev = task->prev;
-    unlock_task_queue();
 }
 
 void task_stack_push(thread_t* task, uint64_t value)

@@ -1,6 +1,7 @@
 #include "ioctl.h"
 #include "termios.h"
 #include "task.h"
+#include "multitasking.h"
 
 void syscall_ioctl(syscall_registers_t* registers, int fd, unsigned long request, void* arg)
 {

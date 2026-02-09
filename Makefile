@@ -52,7 +52,7 @@ $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) Makefile
 	$(KERNEL_OBJ) $(ASM_OBJ) \
 	-lgcc
 
-run:
+run:	all
 	mkdir debug -p
 	qemu-system-x86_64                           		\
 	-accel kvm 											\

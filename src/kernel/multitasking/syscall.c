@@ -7,6 +7,7 @@
 #include "ioctl.h"
 #include <string.h>
 #include "queue.h"
+#include "multitasking.h"
 
 void c_syscall_handler(syscall_registers_t* registers)
 {

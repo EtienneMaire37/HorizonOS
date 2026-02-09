@@ -4,6 +4,7 @@
 #include <string.h>
 #include "../util/math.h"
 #include "../multitasking/task.h"
+#include "../multitasking/multitasking.h"
 #include "../vga/textio.h"
 
 const keyboard_layout_t* current_keyboard_layout = &us_qwerty;

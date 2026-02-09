@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include "../vfs/vfs.h"
 #include "../multitasking/task.h"
+#include "../multitasking/multitasking.h"
 #include "../vga/textio.h"
 #include "../multitasking/queue.h"
 
@@ -226,6 +227,10 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                     case VK_P:
                         tasks_log();
                         break;
+                    case VK_F:
+                    	LOG(DEBUG, "Futex hashmap:");
+                    	hashmap_log(futex_hashmap);
+						break;
                     default:
                         goto key;
                     }

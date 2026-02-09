@@ -45,7 +45,7 @@ typedef struct thread
     mutex_t file_table_mutex;
 
     // * We still have to keep them here to fix the case 
-    // * where the current process is blocked before context swichting
+    // * where the current process is blocked before context switching
     thread_t *prev, *next; 
 } thread_t;
 
@@ -65,42 +65,6 @@ extern void syscall_handler();
 #define TASK_SWITCH_DELAY 40 // ms
 #define TASK_SWITCHES_PER_SECOND (1000 / TASK_SWITCH_DELAY)
 
-extern pid_t task_reading_stdin;
-extern utf32_buffer_t keyboard_input_buffer;
-
-extern mutex_t file_table_lock;
-extern uint8_t global_cpu_ticks;
-
-extern thread_t* running_tasks;
-#define idle_task running_tasks
-extern uint16_t task_count;
-
-extern uint64_t multitasking_counter;
-
-extern thread_t* current_task;
-extern bool multitasking_enabled;
-extern volatile bool first_task_switch;
-
-extern int task_lock_depth;
-
-extern void iretq_instruction();
-
-void apic_enable();
-void apic_disable();
-
-static inline void lock_task_queue()
-{
-    disable_interrupts();
-    task_lock_depth++;
-}
-
-static inline void unlock_task_queue()
-{
-    disable_interrupts();
-    if (--task_lock_depth == 0)
-        enable_interrupts();
-}
-
 static inline int vfs_allocate_thread_file(thread_t* task)
 {
     acquire_mutex(&task->file_table_mutex);
@@ -113,67 +77,13 @@ static inline int vfs_allocate_thread_file(thread_t* task)
     return -1;
 }
 
-static inline void end_context_switch();
-
 // !!! Assumes task queue is locked
 extern void context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds, uint8_t* old_fpu_state, uint8_t* next_fpu_state);
-static inline void full_context_switch(thread_t* next)
-{
-    thread_t* old_task = current_task;
-    current_task = next;
-    TSS.rsp0 = TASK_KERNEL_STACK_TOP_ADDRESS;
-
-    if (old_task->ring != 0)
-        swapgs();
-
-    old_task->fs_base = rdfsbase();
-    old_task->gs_base = rdgsbase();
-    
-    context_switch(old_task, current_task, current_task->ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT,
-    old_task->fpu_state, current_task->fpu_state);
-
-    end_context_switch();
-}
-
-static inline void end_context_switch()
-{
-    wrfsbase(current_task->fs_base);
-    wrgsbase(current_task->gs_base);
-
-    if (current_task->ring != 0)
-        swapgs();
-}
-
-static inline bool task_is_blocked(thread_t* task)
-{
-    lock_task_queue();
-    if (task_reading_stdin == task->pid) return (unlock_task_queue(), true);
-    if (task->forked_pid) return (unlock_task_queue(), true);
-    if (task->wait_pid != -1) return (unlock_task_queue(), true);
-    unlock_task_queue();
-    return false;
-}
-
-static inline thread_t* find_next_task()
-{
-    for (thread_t* task = current_task->next; task != current_task; task = task->next)
-    {
-        if (task == idle_task) continue;
-        if (!task_is_blocked(task)) return task;
-    }
-
-    if (!task_is_blocked(current_task)) return current_task;
-    return idle_task;
-}
-
-static inline bool is_fd_valid(int fd)
-{
-    if (fd < 0 || fd >= OPEN_MAX)
-        return false;
-    if (current_task->file_table[fd] == invalid_fd)
-        return false;
-    return true;
-}
+void full_context_switch(thread_t* next);
+void end_context_switch();
+bool task_is_blocked(thread_t* task);
+thread_t* find_next_task();
+bool is_fd_valid(int fd);
 
 pid_t task_generate_pid();
 

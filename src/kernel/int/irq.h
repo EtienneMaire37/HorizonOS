@@ -5,6 +5,7 @@
 #include "../pic/apic.h"
 #include "../time/time.h"
 #include "../vga/textio.h"
+#include "../multitasking/multitasking.h"
 
 void handle_apic_irq(interrupt_registers_t* registers)
 {

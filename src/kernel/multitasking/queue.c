@@ -1,4 +1,5 @@
 #include "queue.h"
+#include "multitasking.h"
 
 thread_queue_t dead_tasks = TQ_INIT;
 thread_queue_t reapable_tasks = TQ_INIT;
