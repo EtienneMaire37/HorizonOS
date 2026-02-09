@@ -36,15 +36,16 @@ void hashmap_destroy(hashmap_t* hmp)
     free(hmp);
 }
 
-static uint64_t hash64(uint64_t value)
+static uint32_t hash64(uint64_t value)
 {
 	return pcg_hash(value & 0xffffffff) + pcg_hash((value & 0xffffffff) ^ (value >> 32));
 }
 
 void hashmap_set_item(hashmap_t* hmp, uint64_t key, void* value)
 {
-	ll_t* ll = &hmp->data[hash64(key)];
-	if (!ll)
+	if (!hmp) return;
+	ll_t* ll = &hmp->data[hash64(key) % hmp->items];
+	if (!*ll)
 		goto new_item;
 	else
 	{
@@ -73,8 +74,9 @@ new_item:
 
 void hashmap_remove_item(hashmap_t* hmp, uint64_t key)
 {
-	ll_t* ll = &hmp->data[hash64(key)];
-	if (!ll)
+	if (!hmp) return;
+	ll_t* ll = &hmp->data[hash64(key) % hmp->items];
+	if (!*ll)
 		return;
 	ll_item_t* it = *ll;
 	do
@@ -92,8 +94,9 @@ void hashmap_remove_item(hashmap_t* hmp, uint64_t key)
 
 void* hashmap_get_item(hashmap_t* hmp, uint64_t key)
 {
-	ll_t* ll = &hmp->data[hash64(key)];
-	if (!ll)
+	if (!hmp) return NULL;
+	ll_t* ll = &hmp->data[hash64(key) % hmp->items];
+	if (!*ll)
 		return NULL;
 	ll_item_t* it = *ll;
 	do
@@ -102,7 +105,7 @@ void* hashmap_get_item(hashmap_t* hmp, uint64_t key)
 		if (item->key == key)
 			return item->value;
 		it = it->next;
-	} while(it != *ll);
+	} while (it != *ll);
 
 	return NULL;	
 }

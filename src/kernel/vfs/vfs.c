@@ -47,6 +47,7 @@ void vfs_init_file_table()
 
 int vfs_allocate_global_file()
 {
+	lock_task_queue();
     acquire_mutex(&file_table_lock);
     for (int i = 3; i < MAX_FILE_TABLE_ENTRIES; i++)
     {
@@ -54,25 +55,33 @@ int vfs_allocate_global_file()
         {
             file_table[i].used = 1;
             release_mutex(&file_table_lock);
+			unlock_task_queue();
             return i;
         }
     }
     release_mutex(&file_table_lock);
+	unlock_task_queue();
     return -1;
 }
 
 void vfs_remove_global_file(int fd)
 {
+	lock_task_queue();
     acquire_mutex(&file_table_lock);
+    
     if (fd >= 3 && fd < MAX_FILE_TABLE_ENTRIES)
     {
         file_table[fd].used--;
         if (file_table[fd].used <= 0)
             file_table[fd].used = 0;
+            
         release_mutex(&file_table_lock);
+		unlock_task_queue();
         return;
     }
+    
     release_mutex(&file_table_lock);
+	unlock_task_queue();
 }
 
 ino_t vfs_generate_inode_number()

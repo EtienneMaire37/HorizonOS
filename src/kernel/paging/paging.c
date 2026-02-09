@@ -374,11 +374,10 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
 }
 
 void* virtual_to_physical(uint64_t* cr3, uint64_t vaddr)
-{
+{	
     if (!cr3)
         return NULL;
-        // abort();
-
+        
     // * "uncanonize"
     vaddr &= 0xffffffffffff;
 

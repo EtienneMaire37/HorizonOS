@@ -29,9 +29,13 @@ void ll_remove(ll_t* ll, ll_item_t* item)
 {
     if (!item) return;
     if (!ll) return;
+    if (!*ll) return;
 
     if (item->prev == item)
-        *ll = NULL;
+    {
+    	*ll = NULL;
+    	goto end;
+    }
     else
     {
         item->prev->next = item->next;
@@ -41,6 +45,7 @@ void ll_remove(ll_t* ll, ll_item_t* item)
     if (item == *ll)
         *ll = item->next;
 
+end:
     free(item);
 }
 

@@ -6,7 +6,7 @@ thread_queue_t reapable_tasks = TQ_INIT;
 
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data)
 {
-    // !! Should probably have a different lock per queue
+    // !! Should probably have a different lock per queue (or pair of queues)
     // TODO: Improve this
     lock_task_queue();
 

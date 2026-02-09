@@ -52,13 +52,15 @@ thread_t* task_create_empty()
 void task_destroy(thread_t* task)
 {
     LOG(TRACE, "Destroying task \"%s\" (pid = %d, ring = %u)", task->name, task->pid, task->ring);
-    task_free_vas((physical_address_t)task->cr3);
     for (int i = 0; i < OPEN_MAX; i++)
     {
-        if (task->file_table[i] != invalid_fd)
+    	if (task->file_table[i] != invalid_fd)
             vfs_remove_global_file(task->file_table[i]);
     }
     fpu_state_destroy(&task->fpu_state);
+    // !!! NEEDS TO BE IN LAST TO ALLOW FOR THE NEEDED VIRTUAL ADDRESS TO PHYSICAL CONVERSIONS NEEDED BY FUTEXES
+    task_free_vas((physical_address_t)task->cr3);
+	LOG(TRACE, "Done.");
 }
 
 void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg)
@@ -261,6 +263,7 @@ thread_t* find_task_by_pid(pid_t pid)
 
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
 {
+	lock_task_queue();
     acquire_mutex(&file_table_lock);
     acquire_mutex(&from->file_table_mutex);
     acquire_mutex(&to->file_table_mutex);
@@ -278,6 +281,7 @@ void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
     release_mutex(&to->file_table_mutex);
     release_mutex(&from->file_table_mutex);
     release_mutex(&file_table_lock);
+    unlock_task_queue();
 }
 
 void copy_task(thread_t* task)
@@ -359,7 +363,7 @@ void cleanup_tasks()
     {
         do
         {
-            if (cur_reapable_task->data != current_task)
+        	if (cur_reapable_task->data != current_task)
             {
                 thread_queue_item_t* removed_item = cur_reapable_task;
                 thread_t* task_to_kill = cur_reapable_task->data;
@@ -372,7 +376,7 @@ void cleanup_tasks()
             else
                 cur_reapable_task = cur_reapable_task->next;
         }
-        while (reapable_tasks != TQ_INIT && cur_reapable_task != reapable_tasks);
+        while (reapable_tasks != NULL && reapable_tasks != TQ_INIT && cur_reapable_task != reapable_tasks);
     }
 
     unlock_task_queue();

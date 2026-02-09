@@ -1,3 +1,4 @@
+MAKE_DIR:=$(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
 CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -march=x86-64 # v4
 DATE := `date +"%Y-%m-%d"`
 CROSSLD := ./hostoolchain/usr/bin/x86_64-horizonos-ld
@@ -7,8 +8,8 @@ CROSSSTRIP := ./hostoolchain/usr/bin/x86_64-horizonos-strip
 HOSGCC := ./hostoolchain/usr/bin/x86_64-horizonos-gcc
 USER_CFLAGS := 
 MKBOOTIMG := ./bootboot/mkbootimg/mkbootimg
-SYSROOT_DIR := ${PWD}/root
-TOOLCHAIN_DIR := ${PWD}/hostoolchain
+SYSROOT_DIR := ${MAKE_DIR}/root
+TOOLCHAIN_DIR := ${MAKE_DIR}/hostoolchain
 
 KERNEL_SRC := $(shell find src/kernel -name '*.c')
 KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
