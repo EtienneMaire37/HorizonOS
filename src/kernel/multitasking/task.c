@@ -234,9 +234,6 @@ void switch_task()
 
     lock_scheduler();
 
-    bool was_first_task_switch = first_task_switch;
-    first_task_switch = false;
-
     thread_t* next_task = find_next_task();
     if (current_task->pid != next_task->pid)
         full_context_switch(next_task);
@@ -296,13 +293,15 @@ void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
     unlock_scheduler();
 }
 
-void copy_task(thread_t* task)
+void duplicate_task(thread_t* task)
 {
     if (!task)
         return;
 
     thread_t* new_task = (thread_t*)malloc(sizeof(thread_t));
     if (!new_task) return;
+
+    lock_scheduler();
 
     *new_task = *task;
 
@@ -327,27 +326,30 @@ void copy_task(thread_t* task)
 
     multitasking_add_task(new_task);
     task_count++;
+
+    unlock_scheduler();
 }
 
 void cleanup_tasks()
 {
     lock_scheduler();
 
-    thread_t* cur_task = running_tasks;
-    do
+    if (forked_tasks)
     {
-        if (cur_task != current_task && cur_task->forked_pid)
+        thread_queue_item_t* cur_forked_task = forked_tasks;
+        do
         {
-            copy_task(cur_task);
-            cur_task->forked_pid = 0;
+            thread_t* task_to_fork = cur_forked_task->data;
+            cur_forked_task = cur_forked_task->next;
+            duplicate_task(task_to_fork);
+            move_task_to_running_queue(&forked_tasks, cur_forked_task);
         }
-        cur_task = cur_task->next;
+        while (forked_tasks && cur_forked_task != forked_tasks);
     }
-    while (cur_task != running_tasks);
 
-    thread_queue_item_t* cur_reapable_task = reapable_tasks;
-    if (cur_reapable_task)
+    if (reapable_tasks)
     {
+        thread_queue_item_t* cur_reapable_task = reapable_tasks;
         do
         {
         	if (cur_reapable_task->data != current_task)

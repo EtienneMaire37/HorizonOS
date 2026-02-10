@@ -351,6 +351,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         lock_scheduler();
         current_task->forked_pid = task_generate_pid();
         pid_t forked_pid = current_task->forked_pid;
+        move_running_task_to_thread_queue(&forked_tasks, current_task);
         unlock_scheduler();
         switch_task();
         if (current_task->pid == forked_pid)

@@ -17,7 +17,6 @@ extern uint64_t multitasking_counter;
 
 extern thread_t* current_task;
 extern bool multitasking_enabled;
-extern volatile bool first_task_switch;
 
 extern pid_t task_reading_stdin;
 extern utf32_buffer_t keyboard_input_buffer;

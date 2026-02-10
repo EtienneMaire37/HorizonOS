@@ -17,7 +17,6 @@ uint64_t multitasking_counter = TASK_SWITCH_DELAY;
 
 thread_t* current_task = NULL;
 bool multitasking_enabled = false;
-volatile bool first_task_switch = true;
 
 pid_t task_reading_stdin = -1;
 utf32_buffer_t keyboard_input_buffer;
@@ -127,20 +126,19 @@ bool task_is_blocked(thread_t* task)
 {
     lock_scheduler();
     if (task_reading_stdin == task->pid) return (unlock_scheduler(), true);
-    if (task->forked_pid) return (unlock_scheduler(), true);
     unlock_scheduler();
     return false;
 }
 
 thread_t* find_next_task()
 {
-    for (thread_t* task = current_task->next; task != current_task; task = task->next)
+    thread_t* start = current_task->next;
+    for (thread_t* task = start; task != start->prev; task = task->next)
     {
         if (task == idle_task) continue;
         if (!task_is_blocked(task)) return task;
     }
 
-    if (!task_is_blocked(current_task)) return current_task;
     return idle_task;
 }
 
