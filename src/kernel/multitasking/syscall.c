@@ -8,6 +8,7 @@
 #include <string.h>
 #include "queue.h"
 #include "multitasking.h"
+#include "sigset.h"
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -367,6 +368,32 @@ void c_syscall_handler(syscall_registers_t* registers)
         if (arg2) current_task->sig_act_array[arg1] = *arg2;
         sc_ret_errno = 0;
         break;
+    sc_case(SYS_SIGPROCMASK, 3, int, const sigset_t* __restrict, sigset_t* __restrict)
+        SC_LOG("syscall SYS_SIGPROCMASK(%d, %p, %p)", arg1, arg2, arg3);
+        if (!arg2)
+        {
+        	sc_ret_errno = EFAULT;
+        	break;
+        }
+        if (arg3) *arg3 = current_task->sig_mask;
+        switch (arg1)
+        {
+        case SIG_BLOCK:
+        	current_task->sig_mask = sigset_bitwise_or(*arg2, current_task->sig_mask);
+        	sc_ret_errno = 0;
+        	break;
+        case SIG_UNBLOCK:
+           	current_task->sig_mask = sigset_bitwise_and(sigset_bitwise_not(*arg2), current_task->sig_mask);
+           	sc_ret_errno = 0;
+           	break;
+        case SIG_SETMASK:
+           	current_task->sig_mask = *arg2;
+           	sc_ret_errno = 0;
+           	break;
+        default:
+        	sc_ret_errno = EINVAL;
+        }
+    	break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
         // * Should probably apply some form of security (root only operation)

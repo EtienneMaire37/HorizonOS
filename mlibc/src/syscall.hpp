@@ -20,6 +20,7 @@
 #define SYS_CHDIR       15
 #define SYS_FORK        16
 #define SYS_SIGACTION   17
+#define SYS_SIGPROCMASK	18
 
 #define SYS_HOS_SET_KB_LAYOUT   100
 

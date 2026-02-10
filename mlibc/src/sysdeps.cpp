@@ -150,9 +150,9 @@ namespace mlibc
 		return ret;
 	}
 
-	int sys_sigprocmask(int how, const sigset_t *__restrict set, sigset_t *__restrict retrieve)
+	int sys_sigprocmask(int how, const sigset_t* __restrict set, sigset_t* __restrict retrieve)
 	{
-		STUB("sys_sigprocmask");
+		return syscall3_1(SYS_SIGPROCMASK, (uint64_t)how, (uint64_t)set, (uint64_t)retrieve);
 	}
 
 	int sys_waitpid(pid_t pid, int *status, int flags, struct rusage* ru, pid_t* ret_pid) 
