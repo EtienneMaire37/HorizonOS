@@ -14,7 +14,7 @@ void acquire_mutex(mutex_t* mutex)
  			return;
 
  		if (multitasking_enabled)
- 			futex_wait((uint64_t)virtual_to_physical((uint64_t*)get_cr3(), (virtual_address_t)mutex), *mutex);
+ 			futex_wait((uint64_t)virtual_to_physical((uint64_t*)(get_cr3() + PHYS_MAP_BASE), (virtual_address_t)mutex), *mutex);
  		else
  			__builtin_ia32_pause();
     }
