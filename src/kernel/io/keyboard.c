@@ -95,10 +95,11 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         && ascii != '\n' && ascii != '\t' && ascii != '\b'
         ) 
         return;
-    lock_task_queue();
+    lock_scheduler();
     if (task_reading_stdin != -1)
     {            
-        thread_t* task = find_task_by_pid(task_reading_stdin);
+        thread_t* task = find_running_task_by_pid(task_reading_stdin);
+        if (!task) return;
         if (character == '\b')
         {
             if (raw)
@@ -231,7 +232,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         if (((character == '\n' || character == 4) && get_buffered_characters(keyboard_input_buffer) != 0) || (raw && get_buffered_characters(keyboard_input_buffer) >= noncanonical_read_minimum_count))   // * EOL or EOF
             task_reading_stdin = -1;
     }
-    unlock_task_queue();
+    unlock_scheduler();
 
     fflush(stdout);
 }

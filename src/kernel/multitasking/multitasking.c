@@ -66,7 +66,7 @@ void multitasking_add_idle_task(char* name)
 
 void multitasking_add_task(thread_t* task)
 {
-    lock_task_queue();
+    lock_scheduler();
     
     if (!running_tasks)
     {
@@ -81,17 +81,17 @@ void multitasking_add_task(thread_t* task)
         running_tasks->prev = task;
     }
 
-    unlock_task_queue();
+    unlock_scheduler();
 }
 
 void multitasking_remove_task(thread_t* task)
 {
-    lock_task_queue();
+    lock_scheduler();
     if (task == running_tasks) abort();
 
     task->prev->next = task->next;
     task->next->prev = task->prev;
-    unlock_task_queue();
+    unlock_scheduler();
 }
 
 void end_context_switch();
@@ -125,11 +125,10 @@ void end_context_switch()
 
 bool task_is_blocked(thread_t* task)
 {
-    lock_task_queue();
-    if (task_reading_stdin == task->pid) return (unlock_task_queue(), true);
-    if (task->forked_pid) return (unlock_task_queue(), true);
-    if (task->wait_pid != -1) return (unlock_task_queue(), true);
-    unlock_task_queue();
+    lock_scheduler();
+    if (task_reading_stdin == task->pid) return (unlock_scheduler(), true);
+    if (task->forked_pid) return (unlock_scheduler(), true);
+    unlock_scheduler();
     return false;
 }
 
@@ -152,4 +151,55 @@ bool is_fd_valid(int fd)
     if (current_task->file_table[fd] == invalid_fd)
         return false;
     return true;
+}
+
+pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int pgid_on_call)
+{
+    lock_scheduler();
+    thread_queue_item_t* it = *tq;
+    if (!it)
+    {
+        unlock_scheduler();
+        return 0;
+    }
+    do
+    {
+        thread_t* thread = (thread_t*)it->data;
+        if (pid > 0)
+        {
+            if (thread->pid == pid)
+            {
+                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
+                if (wstatus) *wstatus = thread->return_value;
+                return thread->pid;
+            }
+        }
+        else if (pid == 0)
+        {
+            if (thread->pgid == pgid_on_call)
+            {
+                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
+                if (wstatus) *wstatus = thread->return_value;
+                return thread->pid;
+            }
+        }
+        else if (pid == -1)
+        {
+            move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
+            if (wstatus) *wstatus = thread->return_value;
+            return thread->pid;
+        }
+        else // * pid < -1
+        {
+            if (thread->pgid == -pid)
+            {
+                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
+                if (wstatus) *wstatus = thread->return_value;
+                return thread->pid;
+            }
+        }
+        it = it->next;
+    } while (it != *tq);
+    unlock_scheduler();
+    return 0;
 }

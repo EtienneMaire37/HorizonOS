@@ -243,15 +243,14 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                         if (tty_ts.c_lflag & ISIG)
                         {
                             bool intr = false;
-                            lock_task_queue();
+                            lock_scheduler();
                             for (thread_t* cur = running_tasks->next; cur != running_tasks; cur = cur->next)
                             {
                                 if (cur->pgid == tty_foreground_pgrp)
                                 {                                    
                                     if (cur->pid == current_task->pid)
                                         *task_switch = true;
-                                    cur->return_value = SIGINT;
-                                    move_running_task_to_thread_queue(&dead_tasks, cur);
+                                    kill_task(cur, SIGINT);
                                     if (!intr)
                                     {
                                         printf("^C");
@@ -260,7 +259,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                                     intr = true;
                                 }
                             }
-                            unlock_task_queue();
+                            unlock_scheduler();
                         }
                         break;
                     default:

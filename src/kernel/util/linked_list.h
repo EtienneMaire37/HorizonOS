@@ -15,3 +15,4 @@ typedef ll_item_t* ll_t;
 void ll_push_back(ll_t* ll, void* data);
 void ll_remove(ll_t* ll, ll_item_t* data);
 void ll_destroy(ll_t* ll);
+ll_item_t* ll_find_item_by_data(ll_t* ll, void* data);

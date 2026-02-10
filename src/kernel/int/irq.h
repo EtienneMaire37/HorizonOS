@@ -22,7 +22,7 @@ void handle_apic_irq(interrupt_registers_t* registers)
             current_task->current_cpu_ticks += increment;
         if (system_thousands >= 1000 && multitasking_enabled)
         {
-            lock_task_queue();
+            lock_scheduler();
             thread_t* cur = running_tasks;
             do
             {
@@ -31,7 +31,7 @@ void handle_apic_irq(interrupt_registers_t* registers)
 
                 cur = cur->next;
             } while (cur != running_tasks);
-            unlock_task_queue();
+            unlock_scheduler();
         }
 
         resolve_time();

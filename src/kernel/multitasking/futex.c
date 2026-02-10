@@ -6,7 +6,7 @@
 
 void futex_wait(uint64_t paddr, int expected)
 {
-	lock_task_queue();
+	lock_scheduler();
 	if (*(int*)(paddr + PHYS_MAP_BASE) != expected) goto end;
 	thread_queue_t* fqueue = (thread_queue_t*)hashmap_get_item(futex_hashmap, paddr);
 	if (!fqueue)
@@ -18,12 +18,12 @@ void futex_wait(uint64_t paddr, int expected)
 	move_running_task_to_thread_queue(fqueue, current_task);
 
 end:
-	unlock_task_queue();
+	unlock_scheduler();
 }
 
 void futex_wake(uint64_t paddr, int num)
 {
-	lock_task_queue();
+	lock_scheduler();
 	thread_queue_t* fqueue = (thread_queue_t*)hashmap_get_item(futex_hashmap, paddr);
 	if (!fqueue) 
 		goto end;
@@ -37,5 +37,5 @@ void futex_wake(uint64_t paddr, int num)
 		i++;
 	} while (*fqueue != NULL && it != *fqueue && i < num);
 end:
-	unlock_task_queue();
+	unlock_scheduler();
 }

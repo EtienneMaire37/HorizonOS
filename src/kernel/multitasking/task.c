@@ -74,7 +74,7 @@ void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, u
 
     task_stack_push(task, (uint64_t)iretq_instruction);
 
-    task_stack_push(task, (uint64_t)unlock_task_queue);
+    task_stack_push(task, (uint64_t)unlock_scheduler);
     task_stack_push(task, (uint64_t)cleanup_tasks);
     task_stack_push(task, (uint64_t)end_context_switch);
 
@@ -232,7 +232,7 @@ void switch_task()
 
     // ! Should never log anything here
 
-    lock_task_queue();
+    lock_scheduler();
 
     bool was_first_task_switch = first_task_switch;
     first_task_switch = false;
@@ -243,10 +243,10 @@ void switch_task()
 
     cleanup_tasks();
 
-    unlock_task_queue();
+    unlock_scheduler();
 }
 
-thread_t* find_task_by_pid(pid_t pid)
+thread_t* find_running_task_by_pid(pid_t pid)
 {
     if (pid < 0) return NULL;
     thread_t* cur_running = running_tasks;
@@ -256,14 +256,26 @@ thread_t* find_task_by_pid(pid_t pid)
             return cur_running;
         cur_running = cur_running->next;
     } while (cur_running != running_tasks);
-    // TODO: Do the same for blocked tasks
-    // ...
+    return NULL;
+}
+
+thread_t* find_task_by_pid_in_queue(thread_queue_t* queue, pid_t pid)
+{
+    if (pid < 0) return NULL;
+    thread_queue_item_t* it = *queue;
+    do
+    {
+        thread_t* thread = (thread_t*)it->data;
+        if (thread->pid == pid)
+            return thread;
+        it = it->next;
+    } while (it != *queue);
     return NULL;
 }
 
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
 {
-	lock_task_queue();
+	lock_scheduler();
     acquire_mutex(&file_table_lock);
     acquire_mutex(&from->file_table_mutex);
     acquire_mutex(&to->file_table_mutex);
@@ -281,7 +293,7 @@ void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
     release_mutex(&to->file_table_mutex);
     release_mutex(&from->file_table_mutex);
     release_mutex(&file_table_lock);
-    unlock_task_queue();
+    unlock_scheduler();
 }
 
 void copy_task(thread_t* task)
@@ -319,7 +331,7 @@ void copy_task(thread_t* task)
 
 void cleanup_tasks()
 {
-    lock_task_queue();
+    lock_scheduler();
 
     thread_t* cur_task = running_tasks;
     do
@@ -333,31 +345,6 @@ void cleanup_tasks()
     }
     while (cur_task != running_tasks);
 
-    thread_queue_item_t* cur_dead_task = dead_tasks;
-    if (cur_dead_task)
-    {
-        do
-        {
-            thread_t* parent = find_task_by_pid(cur_task->ppid);
-            if (parent)
-            {
-                if (parent->wait_pid != -1)
-                {
-                    if (parent->wait_pid == 0 || absint(parent->wait_pid) == ((thread_t*)cur_dead_task->data)->pid)
-                    {
-                        move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
-                        
-                        parent->wait_pid = -1;
-                        parent->wstatus = ((thread_t*)cur_dead_task->data)->return_value;
-                    }
-                }
-            }
-            else
-                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
-            cur_dead_task = cur_dead_task->next;
-        }
-        while (dead_tasks != TQ_INIT && cur_dead_task != dead_tasks);
-    }
     thread_queue_item_t* cur_reapable_task = reapable_tasks;
     if (cur_reapable_task)
     {
@@ -379,13 +366,71 @@ void cleanup_tasks()
         while (reapable_tasks != NULL && reapable_tasks != TQ_INIT && cur_reapable_task != reapable_tasks);
     }
 
-    unlock_task_queue();
+    unlock_scheduler();
+}
+
+void waitpid_event()
+{
+    lock_scheduler();
+    thread_queue_item_t* cur_dead_task = dead_tasks;
+    if (waitpid_tasks && cur_dead_task)
+    {
+        do
+        {
+            thread_t* thread = (thread_t*)cur_dead_task->data;
+            thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, thread->ppid);
+            pid_t pid = parent->wait_pid;
+            if (parent)
+            {
+                if (pid > 0)
+                {
+                    if (thread->pid == pid)
+                    {
+                        goto found_task;
+                    }
+                }
+                else if (pid == 0)
+                {
+                    if (thread->pgid == parent->pgid_on_waitpid)
+                    {
+                        goto found_task;
+                    }
+                }
+                else if (pid == -1)
+                {
+                    goto found_task;
+                }
+                else // * pid < -1
+                {
+                    if (thread->pgid == -pid)
+                    {
+                        goto found_task;
+                    }
+                }
+
+            found_task:
+                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
+                
+                parent->wstatus = thread->return_value;
+                parent->waitpid_ret = thread->pid;
+                move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+            }
+            else
+            {
+                if (!find_running_task_by_pid(thread->ppid))
+                    move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
+            }
+            cur_dead_task = cur_dead_task->next;
+        }
+        while (dead_tasks != TQ_INIT && cur_dead_task != dead_tasks);
+    }
+    unlock_scheduler();
 }
 
 void tasks_log()
 {
     LOG(DEBUG, "%u tasks: (Total CPU usage: %u.%u)", task_count, (1000 - idle_task->stored_cpu_ticks) / 10,  (1000 - idle_task->stored_cpu_ticks) % 10);
-    lock_task_queue();
+    lock_scheduler();
     thread_t* task = running_tasks;
     do
     {
@@ -397,7 +442,7 @@ void tasks_log()
         task = task->next;
     }
     while (task != running_tasks);
-    unlock_task_queue();
+    unlock_scheduler();
 }
 
 pid_t task_generate_pid()
@@ -406,13 +451,15 @@ pid_t task_generate_pid()
     return current++;
 }
 
-void kill_current_task(int ret)
+void kill_task(thread_t* task, int ret)
 {
-    lock_task_queue();
-    current_task->return_value = ret;
-    move_running_task_to_thread_queue(&dead_tasks, current_task);
-    unlock_task_queue();
-    switch_task();
+    lock_scheduler();
+    task->return_value = ret;
+    move_running_task_to_thread_queue(&dead_tasks, task);
+    waitpid_event();
+    unlock_scheduler();
+    if (task == current_task)
+        switch_task();
 }
 
 void task_mask_signal(thread_t* task, int sig)

@@ -155,9 +155,12 @@ namespace mlibc
 		return syscall3_1(SYS_SIGPROCMASK, (uint64_t)how, (uint64_t)set, (uint64_t)retrieve);
 	}
 
-	int sys_waitpid(pid_t pid, int *status, int flags, struct rusage* ru, pid_t* ret_pid) 
+	int sys_waitpid(pid_t pid, int* status, int flags, struct rusage* ru, pid_t* ret_pid) 
 	{
-		STUB("sys_waitpid");
+		uint64_t _ret_pid;
+		int ret = syscall4_2(SYS_WAIT4, (uint64_t)pid, (uint64_t)status, (uint64_t)flags, (uint64_t)ru, &_ret_pid);
+		*ret_pid = _ret_pid;
+		return ret;
 	}
 
 	int sys_sigaction(int signum, const struct sigaction* __restrict act, struct sigaction* __restrict oldact)

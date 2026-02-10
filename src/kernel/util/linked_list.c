@@ -60,3 +60,15 @@ void ll_destroy(ll_t* ll)
     free(*ll);
     *ll = NULL;
 }
+
+ll_item_t* ll_find_item_by_data(ll_t* ll, void* data)
+{
+    if (!ll) return NULL;
+    ll_item_t* it = *ll;
+    do
+    {
+        if (it->data == data)
+            return it;
+    } while (it != *ll);
+    return NULL;
+}

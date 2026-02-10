@@ -9,6 +9,7 @@
 #include "queue.h"
 #include "multitasking.h"
 #include "sigset.h"
+#include <sys/resource.h>
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -47,7 +48,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         break;
     sc_case(SYS_EXIT, 1, int)
         SC_LOG("syscall SYS_EXIT(%d)", arg1);
-        kill_current_task(((uint16_t)arg1 & 0x7f) << 8);        
+        kill_task(current_task, ((uint16_t)arg1 & 0x7f) << 8);        
     sc_case(SYS_ISATTY, 1, int)
         SC_LOG("syscall SYS_ISATTY(%d)", arg1);
         if (!is_fd_valid(arg1))
@@ -159,7 +160,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         }
         break;
     sc_case(SYS_OPEN, 3, const char*, int, unsigned int)
-        SC_LOG("syscall SYS_OPEN(%s, %d, %u)", arg1, arg2, arg3);
+        SC_LOG("syscall SYS_OPEN(\"%s\", %d, %u)", arg1, arg2, arg3);
         int fd = vfs_allocate_global_file();
 
         // * Only supported flags for now
@@ -232,7 +233,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         syscall_ioctl(registers, arg1, arg2, arg3);
         break;
     sc_case(SYS_EXECVE, 3, const char*, char**, char**)
-        SC_LOG("syscall SYS_EXECVE(%s, %p, %p)", arg1, arg2, arg3);
+        SC_LOG("syscall SYS_EXECVE(\"%s\", %p, %p)", arg1, arg2, arg3);
         vfs_file_tnode_t* tnode = vfs_get_file_tnode(arg1, current_task->cwd);
         if (!tnode)
         {
@@ -247,11 +248,11 @@ void c_syscall_handler(syscall_registers_t* registers)
             break;
         }
         startup_data_struct_t data = startup_data_init_from_command(arg2, arg3);
-        lock_task_queue();
+        lock_scheduler();
         thread_t* new_task = multitasking_add_task_from_vfs(rpath, rpath, 3, false, &data, current_task->cwd);
         if (!new_task)
         {
-            unlock_task_queue();
+            unlock_scheduler();
             sc_ret_errno = ENOENT;
             break;
         }
@@ -269,7 +270,7 @@ void c_syscall_handler(syscall_registers_t* registers)
 
             move_running_task_to_thread_queue(&reapable_tasks, current_task);
 
-            unlock_task_queue();
+            unlock_scheduler();
             switch_task();
             break;
         }
@@ -329,7 +330,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         sc_ret_errno = 0;
         break;
     sc_case(SYS_CHDIR, 1, const char*)
-        SC_LOG("syscall SYS_CHDIR(%s)", arg1);
+        SC_LOG("syscall SYS_CHDIR(\"%s\")", arg1);
         vfs_folder_tnode_t* tnode = vfs_get_folder_tnode(arg1, current_task->cwd);
         if (!tnode)
         {
@@ -347,10 +348,10 @@ void c_syscall_handler(syscall_registers_t* registers)
     sc_case(SYS_FORK, 0)
         SC_LOG("syscall SYS_FORK()");
         sc_ret_errno = 0;
-        lock_task_queue();
+        lock_scheduler();
         current_task->forked_pid = task_generate_pid();
         pid_t forked_pid = current_task->forked_pid;
-        unlock_task_queue();
+        unlock_scheduler();
         switch_task();
         if (current_task->pid == forked_pid)
             sc_ret(1) = 0;
@@ -394,6 +395,36 @@ void c_syscall_handler(syscall_registers_t* registers)
         	sc_ret_errno = EINVAL;
         }
     	break;
+    sc_case(SYS_WAIT4, 4, pid_t, int*, int, struct rusage*)
+        SC_LOG("syscall SYS_WAIT4(%d, %p, %d, %p)", arg1, arg2, arg3, arg4);
+        // * Don't support it for now
+        if (arg3 & (WUNTRACED | WCONTINUED))
+        {
+            sc_ret_errno = EINVAL;
+            sc_ret(1) = (pid_t)-1;
+            break;
+        }
+        if (arg3 & WNOHANG)
+        {
+            lock_scheduler();
+            sc_ret(1) = waitpid_find_child_in_tq(&dead_tasks, arg1, arg2, current_task->pgid);
+            unlock_scheduler();
+            sc_ret_errno = 0;
+            break;
+        }
+        lock_scheduler();
+        current_task->wait_pid = arg1;
+        current_task->pgid_on_waitpid = current_task->pgid;
+        unlock_scheduler();
+        move_running_task_to_thread_queue(&waitpid_tasks, current_task);
+        waitpid_event();
+        switch_task();
+        if (arg4)
+            memset(arg4, 0, sizeof(struct rusage));
+        if (arg2) *arg2 = current_task->wstatus;
+        sc_ret(1) = current_task->waitpid_ret;
+        sc_ret_errno = 0;
+        break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
         // * Should probably apply some form of security (root only operation)
@@ -408,6 +439,6 @@ void c_syscall_handler(syscall_registers_t* registers)
     }
     default:
         LOG(DEBUG, "syscall %" PRIu64 " not implemented", registers->rax);
-        kill_current_task(SIGILL);
+        kill_task(current_task, SIGILL);
     }
 }

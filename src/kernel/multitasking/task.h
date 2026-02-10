@@ -26,7 +26,8 @@ typedef struct thread
 
     uint32_t return_value;
 
-    pid_t wait_pid;
+    // * waitpid shenanigans
+    pid_t wait_pid, waitpid_ret, pgid_on_waitpid;
     uint32_t wstatus;
 
     pid_t forked_pid;
@@ -107,8 +108,6 @@ void multitasking_init();
 void multitasking_start();
 void multitasking_add_idle_task();
 
-thread_t* find_task_by_pid(pid_t pid);
-
 void task_init_file_table(thread_t* task);
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec);
 
@@ -120,7 +119,9 @@ void cleanup_tasks();
 
 void tasks_log();
 
-void kill_current_task(int ret);
+void kill_task(thread_t* task, int ret);
 void task_mask_signal(thread_t* index, int sig);
 void task_set_pending_signal(thread_t* index, int sig);
 void task_queue_signal(thread_t* index, int sig);
+
+void waitpid_event();

@@ -47,7 +47,7 @@ void vfs_init_file_table()
 
 int vfs_allocate_global_file()
 {
-	lock_task_queue();
+	lock_scheduler();
     acquire_mutex(&file_table_lock);
     for (int i = 3; i < MAX_FILE_TABLE_ENTRIES; i++)
     {
@@ -55,18 +55,18 @@ int vfs_allocate_global_file()
         {
             file_table[i].used = 1;
             release_mutex(&file_table_lock);
-			unlock_task_queue();
+			unlock_scheduler();
             return i;
         }
     }
     release_mutex(&file_table_lock);
-	unlock_task_queue();
+	unlock_scheduler();
     return -1;
 }
 
 void vfs_remove_global_file(int fd)
 {
-	lock_task_queue();
+	lock_scheduler();
     acquire_mutex(&file_table_lock);
     
     if (fd >= 3 && fd < MAX_FILE_TABLE_ENTRIES)
@@ -76,12 +76,12 @@ void vfs_remove_global_file(int fd)
             file_table[fd].used = 0;
             
         release_mutex(&file_table_lock);
-		unlock_task_queue();
+		unlock_scheduler();
         return;
     }
     
     release_mutex(&file_table_lock);
-	unlock_task_queue();
+	unlock_scheduler();
 }
 
 ino_t vfs_generate_inode_number()
@@ -776,21 +776,21 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
     case CHR_DIR_READ:
         if (count == 0)
             return 0;
-        lock_task_queue();
+        lock_scheduler();
         if (no_buffered_characters(keyboard_input_buffer))
         {
             task_reading_stdin = current_task->pid;
-            unlock_task_queue();
+            unlock_scheduler();
             switch_task();
         }
         else
-            unlock_task_queue();
-        lock_task_queue();
+            unlock_scheduler();
+        lock_scheduler();
         uint64_t ret = minint(get_buffered_characters(keyboard_input_buffer), count);
         for (uint32_t i = 0; i < count; i++)
             // *** Only ASCII for now ***
             buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&keyboard_input_buffer));
-        unlock_task_queue();
+        unlock_scheduler();
         return ret;
     case CHR_DIR_WRITE:
         return 0;

@@ -29,6 +29,6 @@ void syscall_ioctl(syscall_registers_t* registers, int fd, unsigned long request
         sc_ret_errno = 0;
         break;
     default:
-        kill_current_task(SIGILL);
+        kill_task(current_task, SIGILL);
     }
 }

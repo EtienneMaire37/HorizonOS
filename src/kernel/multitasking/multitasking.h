@@ -2,6 +2,7 @@
 
 #include "task.h"
 #include "../util/hashmap.h"
+#include "queue.h"
 
 extern hashmap_t* futex_hashmap;
 
@@ -26,13 +27,13 @@ extern int task_lock_depth;
 
 extern void iretq_instruction();
 
-static inline void lock_task_queue()
+static inline void lock_scheduler()
 {
     disable_interrupts();
     task_lock_depth++;
 }
 
-static inline void unlock_task_queue()
+static inline void unlock_scheduler()
 {
     disable_interrupts();
     if (--task_lock_depth == 0)
@@ -44,3 +45,7 @@ void multitasking_start();
 void multitasking_add_idle_task(char* name);
 void multitasking_add_task(thread_t* task);
 void multitasking_remove_task(thread_t* task);
+
+thread_t* find_running_task_by_pid(pid_t pid);
+thread_t* find_task_by_pid_in_queue(thread_queue_t* queue, pid_t pid);
+pid_t waitpid_find_child_in_tq(thread_queue_t* queue, pid_t pid, int* wstatus, int pgid_on_call);

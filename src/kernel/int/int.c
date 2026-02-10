@@ -40,7 +40,7 @@ void interrupt_handler(interrupt_registers_t* registers)
             kernel_panic((interrupt_registers_t*)registers);
         }
         else
-            kill_current_task(registers->interrupt_number == 14 ? SIGSEGV : SIGILL);
+            kill_task(current_task, registers->interrupt_number == 14 ? SIGSEGV : SIGILL);
 
         return_from_isr();
     }
