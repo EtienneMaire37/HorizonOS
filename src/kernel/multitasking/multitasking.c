@@ -1,0 +1,155 @@
+#include "multitasking.h"
+#include "idle.h"
+#include "../cpu/memory.h"
+#include "../cpu/units.h"
+
+#include <stdlib.h>
+
+hashmap_t* futex_hashmap = NULL;
+
+mutex_t file_table_lock = MUTEX_INIT;
+uint8_t global_cpu_ticks = 0;
+
+thread_t* running_tasks = NULL;
+uint16_t task_count = 0;
+
+uint64_t multitasking_counter = TASK_SWITCH_DELAY;
+
+thread_t* current_task = NULL;
+bool multitasking_enabled = false;
+volatile bool first_task_switch = true;
+
+pid_t task_reading_stdin = -1;
+utf32_buffer_t keyboard_input_buffer;
+
+int task_lock_depth = 0;
+
+void multitasking_init()
+{
+    task_count = 0;
+    current_task = NULL;
+
+    utf32_buffer_init(&keyboard_input_buffer);
+    task_reading_stdin = -1;
+
+    futex_hashmap = hashmap_create(1 * MB);
+
+    vfs_init_file_table();
+
+    multitasking_add_idle_task("idle");
+}
+
+void multitasking_start()
+{
+    fflush(stdout);
+    multitasking_enabled = true;
+    current_task = idle_task;
+
+    idle_main();
+}
+
+void multitasking_add_idle_task(char* name)
+{
+    if (task_count != 0)
+    {
+        LOG(CRITICAL, "The kernel task must be the first one");
+        abort();
+    }
+
+    thread_t* task = task_create_empty();
+    task_set_name(task, name);
+    task->cr3 = get_cr3();
+
+    multitasking_add_task(task);
+    task_count++;
+}
+
+void multitasking_add_task(thread_t* task)
+{
+    lock_task_queue();
+    
+    if (!running_tasks)
+    {
+        task->prev = task->next = task;
+        running_tasks = task;
+    }
+    else
+    {
+        task->prev = running_tasks->prev;
+        task->next = running_tasks;
+        running_tasks->prev->next = task;
+        running_tasks->prev = task;
+    }
+
+    unlock_task_queue();
+}
+
+void multitasking_remove_task(thread_t* task)
+{
+    lock_task_queue();
+    if (task == running_tasks) abort();
+
+    task->prev->next = task->next;
+    task->next->prev = task->prev;
+    unlock_task_queue();
+}
+
+void end_context_switch();
+
+void full_context_switch(thread_t* next)
+{
+    thread_t* old_task = current_task;
+    current_task = next;
+    TSS.rsp0 = TASK_KERNEL_STACK_TOP_ADDRESS;
+
+    if (old_task->ring != 0)
+        swapgs();
+
+    old_task->fs_base = rdfsbase();
+    old_task->gs_base = rdgsbase();
+    
+    context_switch(old_task, current_task, current_task->ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT,
+    old_task->fpu_state, current_task->fpu_state);
+
+    end_context_switch();
+}
+
+void end_context_switch()
+{
+    wrfsbase(current_task->fs_base);
+    wrgsbase(current_task->gs_base);
+
+    if (current_task->ring != 0)
+        swapgs();
+}
+
+bool task_is_blocked(thread_t* task)
+{
+    lock_task_queue();
+    if (task_reading_stdin == task->pid) return (unlock_task_queue(), true);
+    if (task->forked_pid) return (unlock_task_queue(), true);
+    if (task->wait_pid != -1) return (unlock_task_queue(), true);
+    unlock_task_queue();
+    return false;
+}
+
+thread_t* find_next_task()
+{
+    for (thread_t* task = current_task->next; task != current_task; task = task->next)
+    {
+        if (task == idle_task) continue;
+        if (!task_is_blocked(task)) return task;
+    }
+
+    if (!task_is_blocked(current_task)) return current_task;
+    return idle_task;
+}
+
+bool is_fd_valid(int fd)
+{
+    if (fd < 0 || fd >= OPEN_MAX)
+        return false;
+    if (current_task->file_table[fd] == invalid_fd)
+        return false;
+    return true;
+}
