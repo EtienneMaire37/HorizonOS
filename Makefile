@@ -85,7 +85,7 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 
 # 	qemu-img convert -O vdi horizonos.iso horizonos.vdi
 
-src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv $(MLIBC_STAMP) $(HOSGCC) Makefile
+src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/setkbl src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
 	$(HOSGCC) ./src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
@@ -118,6 +118,11 @@ src/tasks/bin/printenv: src/tasks/src/printenv/* $(MLIBC_STAMP) $(HOSGCC) Makefi
 src/tasks/bin/term: src/tasks/src/term/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
 	$(HOSGCC) ./src/tasks/src/term/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
+
+src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC) Makefile
+	mkdir -p ./src/tasks/bin
+	$(HOSGCC) ./src/tasks/src/setkbl/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
 $(HOSGCC):
