@@ -66,15 +66,20 @@ run:	all
 horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF)
 	mkdir -p ./bin/initrd_contents
 
-	cp src/tasks/bin/ ./bin/initrd_contents/ -r
+	mkdir -p ./bin/initrd_contents/sbin
+	mkdir -p ./bin/initrd_contents/bin
+	mkdir -p ./bin/initrd_contents/boot
+	mv src/tasks/bin/init ./bin/initrd_contents/sbin/init
+	cp src/tasks/bin/* ./bin/initrd_contents/bin/ -r
+	cp ./bin/initrd_contents/sbin/init src/tasks/bin/init
 
-	cp resources/* ./bin/initrd_contents/
-	$(CROSSNM) -n --defined-only -C bin/kernel.elf > ./bin/initrd_contents/symbols.txt
-	git log -n 1 --pretty=format:'%H' > ./bin/initrd_contents/commit.txt
+	cp resources/* ./bin/initrd_contents/boot/
+	$(CROSSNM) -n --defined-only -C bin/kernel.elf > ./bin/initrd_contents/boot/symbols.txt
+	git log -n 1 --pretty=format:'%H' > ./bin/initrd_contents/boot/commit.txt
 
 	mkdir -p ./root
 	
-	cp ./bin/kernel.elf ./bin/initrd_contents/kernel.elf
+	cp ./bin/kernel.elf ./bin/initrd_contents/boot/kernel.elf
 
 	rm -f bin/horizonos.bin
 
@@ -85,9 +90,14 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 
 # 	qemu-img convert -O vdi horizonos.iso horizonos.vdi
 
-src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/term src/tasks/bin/setkbl src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv $(MLIBC_STAMP) $(HOSGCC) Makefile
+src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/sh src/tasks/bin/term src/tasks/bin/setkbl src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
 	$(HOSGCC) ./src/tasks/src/init/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
+
+src/tasks/bin/sh: src/tasks/src/sh/* $(MLIBC_STAMP) $(HOSGCC) Makefile
+	mkdir -p ./src/tasks/bin
+	$(HOSGCC) ./src/tasks/src/sh/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
 src/tasks/bin/echo: src/tasks/src/echo/* $(MLIBC_STAMP) $(HOSGCC) Makefile

@@ -28,17 +28,17 @@ void vfs_init_file_table()
     }
     
     file_table[0].entry_type = ET_FILE;
-    file_table[0].tnode.file = vfs_get_file_tnode("/devices/stdin", NULL);
+    file_table[0].tnode.file = vfs_get_file_tnode("/dev/stdin", NULL);
     file_table[0].position = 0;
     file_table[0].flags = O_RDONLY;
 
     file_table[1].entry_type = ET_FILE;
-    file_table[1].tnode.file = vfs_get_file_tnode("/devices/stdout", NULL);
+    file_table[1].tnode.file = vfs_get_file_tnode("/dev/stdout", NULL);
     file_table[1].position = 0;
     file_table[1].flags = O_WRONLY;
 
     file_table[2].entry_type = ET_FILE;
-    file_table[2].tnode.file = vfs_get_file_tnode("/devices/stderr", NULL);
+    file_table[2].tnode.file = vfs_get_file_tnode("/dev/stderr", NULL);
     file_table[2].position = 0;
     file_table[2].flags = O_WRONLY;
 
@@ -211,13 +211,21 @@ vfs_file_tnode_t* vfs_create_special_file_tnode(const char* name, vfs_folder_tno
     return tnode;
 }
 
-void vfs_mount_device(const char* name, drive_t drive, uid_t uid, gid_t gid)
+void vfs_mount_device(const char* name, const char* path, drive_t drive, uid_t uid, gid_t gid)
 {
-    LOG(DEBUG, "Mounting device %s at /%s", get_drive_type_string(drive.type), name);
-    
-    acquire_mutex(&vfs_root->inode->lock);
+    LOG(DEBUG, "Mounting device \"%s\" (%s) at \"%s\"", name, get_drive_type_string(drive.type), path);
 
-    vfs_folder_tnode_t** current = &vfs_root->inode->folders;
+    vfs_folder_tnode_t* parent = vfs_get_folder_tnode(path, NULL);
+
+    if (!parent)
+    {
+        LOG(ERROR, "vfs_mount_device: Couldn't mount partition: Nonexistent parent folder");
+        return;
+    }
+    
+    acquire_mutex(&parent->inode->lock);
+
+    vfs_folder_tnode_t** current = &parent->inode->folders;
 
     if (!(*current)) 
         goto mount;
@@ -227,7 +235,7 @@ void vfs_mount_device(const char* name, drive_t drive, uid_t uid, gid_t gid)
         if (strcmp(name, (*current)->name) == 0)
         {
             LOG(ERROR, "vfs_mount_device: Couldn't mount partition: Mount point already exists");
-            release_mutex(&vfs_root->inode->lock);
+            release_mutex(&parent->inode->lock);
             return;
         }
 
@@ -235,8 +243,8 @@ void vfs_mount_device(const char* name, drive_t drive, uid_t uid, gid_t gid)
     }
 
 mount: 
-    (*current) = vfs_create_empty_folder_tnode(name, vfs_root, 
-            VFS_NODE_INIT, 
+    (*current) = vfs_create_empty_folder_tnode(name, parent, 
+            VFS_NODE_INIT | VFS_NODE_MOUNTPOINT, 
             drive.type == DT_VIRTUAL ? 0 : vfs_generate_device_id(), 
             S_IFDIR | 
             S_IRUSR | S_IXUSR |
@@ -245,7 +253,7 @@ mount:
             uid, gid,
             drive);
     
-    release_mutex(&vfs_root->inode->lock);
+    release_mutex(&parent->inode->lock);
 
     return;
 }
@@ -377,6 +385,7 @@ void vfs_realpath_from_file_tnode(vfs_file_tnode_t* tnode, char* res)
 
 void vfs_explore(vfs_folder_tnode_t* tnode)
 {
+    // LOG(TRACE, "exploring folder: %s", tnode->name);
     if (!tnode || !tnode->inode)
     {
         LOG(WARNING, "vfs_explore: node == NULL");
@@ -394,10 +403,16 @@ void vfs_explore(vfs_folder_tnode_t* tnode)
     }
     tnode->inode->flags |= VFS_NODE_LOADING;
 
+    vfs_folder_tnode_t* mount_point = tnode;
+    while (!(mount_point->inode->flags & VFS_NODE_MOUNTPOINT))
+        mount_point = mount_point->inode->parent;
+
     switch (tnode->inode->drive.type)
     {
     case DT_INITRD:
-        vfs_initrd_do_explore(tnode);
+        vfs_initrd_do_explore(tnode, mount_point);
+        break;
+    case DT_VIRTUAL:
         break;
     default:
         abort();
@@ -443,6 +458,8 @@ vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t m
 
 vfs_file_tnode_t* vfs_get_file_tnode(const char* path, vfs_folder_tnode_t* pwd)
 {
+    // LOG(DEBUG, "vfs_get_file_tnode(\"%s\", %p)", path, pwd);
+
     if (!path) return NULL;
     size_t path_len = strlen(path);
     if (path_len == 0) return NULL;
@@ -454,6 +471,7 @@ vfs_file_tnode_t* vfs_get_file_tnode(const char* path, vfs_folder_tnode_t* pwd)
     vfs_folder_inode_t* current_folder = current_folder_tnode->inode;
     while (i < path_len)
     {
+        // LOG(TRACE, "current_folder->name = %s", current_folder_tnode->name);
         if (!(current_folder->flags & VFS_NODE_EXPLORED))
             vfs_explore(current_folder_tnode);
 
@@ -490,11 +508,13 @@ vfs_file_tnode_t* vfs_get_file_tnode(const char* path, vfs_folder_tnode_t* pwd)
         vfs_folder_tnode_t* current_child = current_folder->folders;
         while (current_child)
         {
+            // LOG(TRACE, "cname: %s", current_child->name);
             if (file_string_cmp(current_child->name, &path[i]))
             {
                 current_folder_tnode = current_child;
                 current_folder = current_child->inode;
                 i += strlen(current_child->name);
+                // LOG(TRACE, "found folder %s", current_child->name);
                 break;
             }
             current_child = current_child->next;
@@ -514,6 +534,8 @@ vfs_file_inode_t* vfs_get_file_inode(const char* path, vfs_folder_tnode_t* pwd)
 
 vfs_folder_tnode_t* vfs_get_folder_tnode(const char* path, vfs_folder_tnode_t* pwd)
 {
+    // LOG(DEBUG, "vfs_get_folder_tnode(\"%s\", %p)", path, pwd);
+
     if (!path) return NULL;
     if (!pwd) pwd = vfs_root;
 

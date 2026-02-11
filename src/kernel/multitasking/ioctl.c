@@ -29,6 +29,7 @@ void syscall_ioctl(syscall_registers_t* registers, int fd, unsigned long request
         sc_ret_errno = 0;
         break;
     default:
+        LOG(DEBUG, "unknown ioctl request: %#lx, %p", request, arg);
         kill_task(current_task, SIGILL);
     }
 }

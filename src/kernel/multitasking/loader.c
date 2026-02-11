@@ -208,11 +208,14 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
 
     if (strlen(path) == 0) return NULL;
 
+    lock_scheduler();
+
     vfs_file_tnode_t* tnode = vfs_get_file_tnode(path, NULL);
 
     if (!tnode)
     {
         LOG(ERROR, "Couldn't find program \"%s\"", path);
+        unlock_scheduler();
         return NULL;
     }
 
@@ -222,14 +225,27 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     vfs_realpath_from_file_tnode(tnode, simplified_path);
 
     LOG(DEBUG, "Loading file \"%s\"", simplified_path);
-    if (file_string_cmp(simplified_path + 1, "initrd"))
+    vfs_folder_tnode_t* mount_point = tnode->inode->parent;
+    while (!(mount_point->inode->flags & VFS_NODE_MOUNTPOINT))
+        mount_point = mount_point->inode->parent;
+    // !! Horrible way to do things
+    // TODO: Add more general program loading with the vfs read/write syscalls directly
+    if (mount_point->inode->drive.type != DT_INITRD)
     {
-        thread_t* ret = multitasking_add_task_from_initrd(simplified_path, &simplified_path[strlen("/initrd/")], ring, system, data, cwd);
+        LOG(ERROR, "Invalid path");
         free(simplified_path);
-        return ret;
+        unlock_scheduler();
+        return NULL;
     }
+    char* prefix = malloc(PATH_MAX);
+    if (!prefix) abort();
+    vfs_realpath_from_folder_tnode(mount_point, prefix);
+    size_t prefix_length = strlen(prefix);
+
+    thread_t* ret = multitasking_add_task_from_initrd(simplified_path, strcmp(simplified_path, prefix) == 0 ? "" : &simplified_path[(mount_point == vfs_root ? 0 : 1) + prefix_length], ring, system, data, cwd);
     
-    LOG(ERROR, "Invalid path");
     free(simplified_path);
-    return NULL;
+    free(prefix);
+    unlock_scheduler();
+    return ret;
 }

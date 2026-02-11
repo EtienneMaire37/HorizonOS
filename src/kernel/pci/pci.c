@@ -34,7 +34,7 @@ uint8_t pci_configuration_address_space_read_byte(uint8_t bus, uint8_t device, u
 
 void pci_scan_buses()
 {
-    pci_ids = initrd_find_file("pci.ids");
+    pci_ids = initrd_find_file("boot/pci.ids");
 
 #define PRINT_PCI_INFO
     for (uint16_t i = 0; i < 256; i++)

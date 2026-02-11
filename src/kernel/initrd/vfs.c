@@ -42,19 +42,26 @@ bool vfs_initrd_file_in_directory(char* fname, const char* direc)
     return true;
 }
 
-void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode)
+void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_point)
 {
     if (tnode->inode->drive.type != DT_INITRD) 
     {
         LOG(ERROR, "vfs_initrd_do_explore: not an initrd mounted folder!!!");
         return;
     }
-    char contructed_path[PATH_MAX];
-    vfs_realpath_from_folder_tnode(tnode, contructed_path);
-    // LOG(DEBUG, "Exploring \"%s\"", contructed_path);
+    char* constructed_path = malloc(PATH_MAX);
+    if (!constructed_path) return;
+    vfs_realpath_from_folder_tnode(tnode, constructed_path);
+    char* prefix = malloc(PATH_MAX);
+    if (!prefix) abort();
+    vfs_realpath_from_folder_tnode(mount_point, prefix);
+    size_t prefix_length = strlen(prefix);
+    // LOG(DEBUG, "Exploring \"%s\"", constructed_path);
     tnode->inode->files = NULL;
     tnode->inode->folders = NULL;
-    char* path = strcmp(contructed_path, "/initrd") == 0 ? "" : &contructed_path[strlen("/initrd/")];
+    char* path = strcmp(constructed_path, prefix) == 0 ? "" : &constructed_path[(mount_point == vfs_root ? 0 : 1) + prefix_length];
+    // LOG(TRACE, "path: %s | prefix: %s | constructed_path: %s", path, prefix, constructed_path);
+    free(prefix);
     vfs_file_tnode_t** current_file_tnode = &tnode->inode->files;
     vfs_folder_tnode_t** current_folder_tnode = &tnode->inode->folders;
     for (int i = 0; i < initrd_files_count; i++)
@@ -124,6 +131,7 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode)
             }
         }
     }
+    free(constructed_path);
 }
 
 ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)

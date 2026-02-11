@@ -36,6 +36,7 @@ typedef struct
 
 #define VFS_NODE_EXPLORED   1
 #define VFS_NODE_LOADING    2
+#define VFS_NODE_MOUNTPOINT 4
 
 typedef struct vfs_file_inode vfs_file_inode_t;
 
@@ -147,8 +148,10 @@ vfs_folder_tnode_t* vfs_create_empty_folder_tnode(const char* name, vfs_folder_t
     drive_t drive);
 vfs_file_inode_t* vfs_create_special_file_inode(vfs_folder_tnode_t* parent, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t), uid_t uid, gid_t gid);
 vfs_file_tnode_t* vfs_create_special_file_tnode(const char* name, vfs_folder_tnode_t* parent, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t), uid_t uid, gid_t gid);
-void vfs_mount_device(const char* name, drive_t drive, uid_t uid, gid_t gid);
+void vfs_mount_device(const char* name, const char* path, drive_t drive, uid_t uid, gid_t gid);
 void vfs_unload_folder(vfs_folder_tnode_t* tnode);
+
+void vfs_explore(vfs_folder_tnode_t* tnode);
 
 ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
@@ -158,6 +161,7 @@ ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t d
 
 static inline bool vfs_isatty(file_entry_t* entry)
 {
+    if (!entry) return false;
     return entry->entry_type == ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && (entry->tnode.file->inode->io_func == task_chr_stdin || entry->tnode.file->inode->io_func == task_chr_stdout || entry->tnode.file->inode->io_func == task_chr_stderr)) : false;
 }
 

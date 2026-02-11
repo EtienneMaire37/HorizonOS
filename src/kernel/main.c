@@ -166,9 +166,9 @@ void _start()
     release_spinlock(&print_spinlock);
 
     initrd_parse(bootboot.initrd_ptr, bootboot.initrd_size);
-    kernel_symbols_file = initrd_find_file("symbols.txt");
+    kernel_symbols_file = initrd_find_file("boot/symbols.txt");
 
-    tty_font = psf_font_load_from_initrd("ka8x16thin-1.psf");
+    tty_font = psf_font_load_from_initrd("boot/ka8x16thin-1.psf");
 
     if(!tty_font.f)
         abort();
@@ -179,7 +179,7 @@ void _start()
 
     tty_clear_screen(' ');
 
-    commit_file = initrd_find_file("commit.txt");
+    commit_file = initrd_find_file("boot/commit.txt");
 
     LOG(INFO, "commit hash: %s", commit_file->data);
     printf("commit hash: ");
@@ -486,23 +486,25 @@ void _start()
     }
 
     LOG(INFO, "Setting up the VFS...");
-    vfs_root = vfs_create_empty_folder_tnode("root", NULL, VFS_NODE_EXPLORED, 
-        0, 
+    vfs_root = vfs_create_empty_folder_tnode("root", NULL, VFS_NODE_MOUNTPOINT | VFS_NODE_INIT, 
+        0,
         S_IFDIR | 
         S_IRUSR | S_IXUSR |
         S_IRGRP | S_IXGRP |
         S_IROTH | S_IXOTH, 
         0, 0,
-        (drive_t){.type = DT_VIRTUAL});
-    vfs_root->inode->parent = vfs_root;
+        (drive_t){.type = DT_INITRD});
     if (!vfs_root) abort();
-    vfs_mount_device("initrd", (drive_t){.type = DT_INITRD}, 0, 0);
-    vfs_mount_device("devices", (drive_t){.type = DT_VIRTUAL}, 0, 0);
-    vfs_get_folder_tnode("/devices", NULL)->inode->flags |= VFS_NODE_EXPLORED;
+    vfs_root->inode->parent = vfs_root;
+    vfs_explore(vfs_root);
+    vfs_mount_device("mnt", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
+    vfs_mount_device("initrd", "/mnt", (drive_t){.type = DT_INITRD}, 0, 0);
+    vfs_mount_device("dev", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
+    vfs_get_folder_tnode("/dev", NULL)->inode->flags |= VFS_NODE_EXPLORED;
 
-    vfs_add_special("/devices", "stdin", CHR_MODE, task_chr_stdin, 0, 0);
-    vfs_add_special("/devices", "stdout", CHR_MODE, task_chr_stdout, 0, 0);
-    vfs_add_special("/devices", "stderr", CHR_MODE, task_chr_stderr, 0, 0);
+    vfs_add_special("/dev", "stdin", CHR_MODE, task_chr_stdin, 0, 0);
+    vfs_add_special("/dev", "stdout", CHR_MODE, task_chr_stdout, 0, 0);
+    vfs_add_special("/dev", "stderr", CHR_MODE, task_chr_stderr, 0, 0);
     LOG(INFO, "Set up the VFS.");
 
     LOG(INFO, "Scanning PCI buses...");
@@ -552,8 +554,8 @@ void _start()
 
     multitasking_init();
 
-    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/initrd/bin/init", NULL}, (char*[]){"PATH=/initrd/bin", NULL});
-    if (!multitasking_add_task_from_vfs("init", "/initrd/bin/init", 3, true, &data, vfs_root))
+    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/sbin/init", NULL}, (char*[]){"PATH=/sbin:/bin:/usr/bin", NULL});
+    if (!multitasking_add_task_from_vfs("init", "/sbin/init", 3, true, &data, vfs_root))
     {
         LOG(CRITICAL, "init task couldn't start");
         printf("\x1b[31merror\x1b[0m: init task couldn't start\n");

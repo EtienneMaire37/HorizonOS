@@ -245,8 +245,13 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
         case 'p':
         {
             void* p = va_arg(args, void*);
-            print_string("0x");
-            print_hex((uint64_t)p, false, false, leave_blank, precision);
+            if (p == NULL)
+                print_string("(nil)");
+            else
+            {
+                print_string("0x");
+                print_hex((uint64_t)p, false, false, leave_blank, precision);
+            }
             (*i)++;
             break;
         }
