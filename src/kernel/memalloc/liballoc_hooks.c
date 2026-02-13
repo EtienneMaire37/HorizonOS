@@ -1,18 +1,18 @@
 #include "page_frame_allocator.h"
 #include "virtual_memory_allocator.h"
-#include "../multicore/spinlock.h"
+#include "../multitasking/mutex.h"
 
-atomic_flag liballoc_spinlock_state = ATOMIC_FLAG_INIT;
+mutex_t liballoc_mutex = MUTEX_INIT;
 
 int liballoc_lock()
 {
-	acquire_spinlock(&liballoc_spinlock_state);
+	acquire_mutex(&liballoc_mutex);
 	return 0;
 }
 
 int liballoc_unlock()
 {
-	release_spinlock(&liballoc_spinlock_state);
+	release_mutex(&liballoc_mutex);
 	return 0;
 }
 

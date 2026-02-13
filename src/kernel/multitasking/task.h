@@ -6,6 +6,7 @@
 #include "../gdt/gdt.h"
 #include "../cpu/segbase.h"
 #include <signal.h>
+#include <elf.h>
 
 #include "mutex.h"
 
@@ -112,6 +113,7 @@ void task_init_file_table(thread_t* task);
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec);
 
 void task_stack_push(thread_t*, uint64_t);
+void task_stack_push_auxv(thread_t* task, Elf64_auxv_t val);
 void task_stack_push_string(thread_t* task, const char* str);
 void task_stack_push_data(thread_t* task, void* data, size_t bytes);
 

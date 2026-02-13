@@ -109,7 +109,12 @@ void c_syscall_handler(syscall_registers_t* registers)
         break;
     sc_case(SYS_VM_UNMAP, 2, void*, size_t)
         SC_LOG("syscall SYS_VM_UNMAP(%p, %zu)", arg1, arg2);
-        while (true);
+        if ((uint64_t)arg1 & 0xfff)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        free_range((uint64_t*)(get_cr3() + PHYS_MAP_OFFSET), (virtual_address_t)arg1, (arg2 + 0xfff) >> 12);
         break;
     sc_case(SYS_SEEK, 3, int, off_t, int)
         SC_LOG("syscall SYS_SEEK(%d, %" PRId64 ", %d)", arg1, arg2, arg3);
@@ -323,10 +328,13 @@ void c_syscall_handler(syscall_registers_t* registers)
             break;
         }
         char buf_cpy[PATH_MAX];
-        vfs_realpath_from_folder_tnode(current_task->cwd, buf_cpy);
-        for (size_t i = 0; i < arg2 - 1; i++)
-            arg1[i] = buf_cpy[i];
-        arg1[arg2 - 1] = 0;
+        size_t ret = vfs_realpath_from_folder_tnode(current_task->cwd, buf_cpy);
+        if (ret > arg2)
+        {
+            sc_ret_errno = ERANGE;
+            break;
+        }
+        memcpy(arg1, buf_cpy, arg2);
         sc_ret_errno = 0;
         break;
     sc_case(SYS_CHDIR, 1, const char*)

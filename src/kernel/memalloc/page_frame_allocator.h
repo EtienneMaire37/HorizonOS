@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "../cpu/util.h"
 #include "mmap.h"
+#include "../multitasking/mutex.h"
 
 #include <stdatomic.h>
 
@@ -22,7 +23,7 @@ extern uint64_t first_free_page_index_hint;
 
 extern uint64_t memory_allocated, allocatable_memory;
 
-extern atomic_flag pfa_spinlock;
+extern mutex_t pfa_lock;
 
 #ifdef LOG_MEMORY
 #define LOG_MEM_ALLOCATED() { uint32_t percentage = 10000 * memory_allocated / allocatable_memory; LOG(TRACE, "Used memory : %" PRIu64 " / %" PRIu64 " bytes (%u.%u%u %%)", memory_allocated, allocatable_memory, percentage / 100, (percentage / 10) % 10, percentage % 10); }

@@ -109,6 +109,12 @@ void task_stack_push(thread_t* task, uint64_t value)
     task_write_at_address_8b(task, (physical_address_t)task->rsp, value);
 }
 
+void task_stack_push_auxv(thread_t* task, Elf64_auxv_t val)
+{
+    task_stack_push(task, val.a_un.a_val);
+    task_stack_push(task, val.a_type);
+}
+
 void task_stack_push_data(thread_t* task, void* data, size_t bytes)
 {
     task->rsp -= bytes;

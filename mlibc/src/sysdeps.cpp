@@ -5,6 +5,7 @@
 #include <mlibc/all-sysdeps.hpp>
 #include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "syscall.hpp"
 #include "stub.h"

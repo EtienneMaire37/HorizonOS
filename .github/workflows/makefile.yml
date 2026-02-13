@@ -18,17 +18,6 @@ jobs:
         sudo apt update
         sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo nasm xorriso mkbootimg util-linux dosfstools mtools qemu-utils unzip autoconf2.69 zip meson
 
-    - name: Cache cross-compiler
-      uses: actions/cache@v3
-      id: compiler-cache
-      with:
-        path: ./crosstoolchain
-        key: ${{ runner.os }}-compiler-${{ hashFiles('install-cross-toolchain.sh') }}-binutils-2.44-gcc-15.1.0-x86_64
-
-    - name: Install cross-compiler
-      if: steps.compiler-cache.outputs.cache-hit != 'true'
-      run: sh install-cross-toolchain.sh
-
     - name: Build
       run: make all
 

@@ -363,15 +363,17 @@ static size_t vfs_realpath_from_folder_tnode_helper(vfs_folder_tnode_t* tnode, c
     return idx + len + 1;
 }
 
-void vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res)
+size_t vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res)
 {
     if (tnode == vfs_root) 
     {
         res[0] = '/';
         res[1] = 0;
-        return;
+        return 2;
     }
-    res[vfs_realpath_from_folder_tnode_helper(tnode, res, 0)] = 0;
+    size_t ret = vfs_realpath_from_folder_tnode_helper(tnode, res, 0);
+    res[ret++] = 0;
+    return ret;
 }
 
 void vfs_realpath_from_file_tnode(vfs_file_tnode_t* tnode, char* res)

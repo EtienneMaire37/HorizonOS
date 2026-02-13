@@ -1,15 +1,23 @@
 MAKE_DIR:=$(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
+
+export SYSROOT_DIR := ${MAKE_DIR}/root
+export TOOLCHAIN_DIR := ${MAKE_DIR}/hostoolchain
+export PATH := "$(MAKE_DIR)/pkg-config:$(SYSROOT_DIR)/usr/bin:$(SYSROOT_DIR)/usr/include:${PATH}"
+export PKG_CONFIG := x86_64-horizonos-pkg-config
+export PKG_CONFIG_FOR_BUILD := pkg-config
+
 CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -march=x86-64 # v4
 DATE := `date +"%Y-%m-%d"`
-CROSSLD := ./hostoolchain/usr/bin/x86_64-horizonos-ld
-CROSSNM := ./hostoolchain/usr/bin/x86_64-horizonos-nm
-CROSSAR := ./hostoolchain/usr/bin/x86_64-horizonos-ar
-CROSSSTRIP := ./hostoolchain/usr/bin/x86_64-horizonos-strip
-HOSGCC := ./hostoolchain/usr/bin/x86_64-horizonos-gcc
+CROSSLD := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-ld
+CROSSNM := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-nm
+CROSSAR := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-ar
+CROSSSTRIP := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-strip
+HOSGCC := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-gcc
 USER_CFLAGS := 
 MKBOOTIMG := ./bootboot/mkbootimg/mkbootimg
-SYSROOT_DIR := ${MAKE_DIR}/root
-TOOLCHAIN_DIR := ${MAKE_DIR}/hostoolchain
+
+SH_DIR := ${MAKE_DIR}/src/tasks/src/sh
+GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no
 
 KERNEL_SRC := $(shell find src/kernel -name '*.c')
 KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
@@ -20,8 +28,9 @@ ASM_OBJ := $(ASM_SRC:src/kernel/%.asm=bin/%.asm.o)
 KERNEL_ELF := bin/kernel.elf
 
 MLIBC_STAMP := mlibc/.built
+NCURSES_STAMP := ncurses/.built
 
-.PHONY: all run rmbin clean
+.PHONY: all run rmbin clean download_sh download_ncurses
 
 all: horizonos.iso
 
@@ -29,8 +38,15 @@ mlibc: $(MLIBC_STAMP)
 
 $(MLIBC_STAMP): mlibc/src/* $(HOSGCC) Makefile
 	cp -r mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
-	cd mlibc/mlibc && PATH="${SYSROOT_DIR}/usr/bin:${PATH}" DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
+	mkdir -p mlibc/mlibc/build
+	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
 	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
+	touch $@
+
+$(NCURSES_STAMP): $(MLIBC_STAMP) download_ncurses
+	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc CFLAGS="-D__MLIBC_XOPEN" ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec
+	cd ncurses/ncurses-6.6 && CFLAGS="-D__MLIBC_XOPEN" make
+	cd ncurses/ncurses-6.6 && CFLAGS="-D__MLIBC_XOPEN" make DESTDIR=${SYSROOT_DIR} install
 	touch $@
 
 bin/%.o: src/kernel/%.c Makefile
@@ -52,6 +68,7 @@ $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) Makefile
 	-o $@ \
 	$(KERNEL_OBJ) $(ASM_OBJ) \
 	-lgcc
+	$(CROSSSTRIP) $@
 
 run:	all
 	mkdir debug -p
@@ -69,6 +86,11 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 	mkdir -p ./bin/initrd_contents/sbin
 	mkdir -p ./bin/initrd_contents/bin
 	mkdir -p ./bin/initrd_contents/boot
+	mkdir -p ./bin/initrd_contents/usr/lib
+
+	cp ./root/usr/lib/ld.so ./bin/initrd_contents/usr/lib/ld.so
+	cp ./root/usr/lib/libc.so ./bin/initrd_contents/usr/lib/libc.so
+
 	mv src/tasks/bin/init ./bin/initrd_contents/sbin/init
 	cp src/tasks/bin/* ./bin/initrd_contents/bin/ -r
 	cp ./bin/initrd_contents/sbin/init src/tasks/bin/init
@@ -90,53 +112,24 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 
 # 	qemu-img convert -O vdi horizonos.iso horizonos.vdi
 
-src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/sh src/tasks/bin/term src/tasks/bin/setkbl src/tasks/bin/echo src/tasks/bin/ls src/tasks/bin/cat src/tasks/bin/clear src/tasks/bin/printenv $(MLIBC_STAMP) $(HOSGCC) Makefile
+src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/sh src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/init/main.c -o $@ -O3
+	$(HOSGCC) ./src/tasks/src/init/main.c -o $@ -O3 -static
 	$(CROSSSTRIP) $@
 
-src/tasks/bin/sh: src/tasks/src/sh/* $(MLIBC_STAMP) $(HOSGCC) Makefile
-	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/sh/main.c -o $@ -O3
-	$(CROSSSTRIP) $@
-
-src/tasks/bin/echo: src/tasks/src/echo/* $(MLIBC_STAMP) $(HOSGCC) Makefile
-	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/echo/main.c -o $@ -O3
-	$(CROSSSTRIP) $@
-
-src/tasks/bin/ls: src/tasks/src/ls/* $(MLIBC_STAMP) $(HOSGCC) Makefile
-	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/ls/main.c -o $@ -O3
-	$(CROSSSTRIP) $@
-
-src/tasks/bin/cat: src/tasks/src/cat/* $(MLIBC_STAMP) $(HOSGCC) Makefile
-	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/cat/main.c -o $@ -O3
-	$(CROSSSTRIP) $@
-
-src/tasks/bin/clear: src/tasks/src/clear/* $(MLIBC_STAMP) $(HOSGCC) Makefile
-	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/clear/main.c -o $@ -O3
-	$(CROSSSTRIP) $@
-
-src/tasks/bin/printenv: src/tasks/src/printenv/* $(MLIBC_STAMP) $(HOSGCC) Makefile
-	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/printenv/main.c -o $@ -O3
-	$(CROSSSTRIP) $@
-
-src/tasks/bin/term: src/tasks/src/term/* $(MLIBC_STAMP) $(HOSGCC) Makefile
-	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/term/main.c -o $@ -O3
-	$(CROSSSTRIP) $@
+src/tasks/bin/sh: download_sh $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC) Makefile
+	cd src/tasks/src/sh && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc CFLAGS="" ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --enable-static-link --without-bash-malloc --disable-nls --with-curses
+	cd src/tasks/src/sh && CFLAGS="" make
+	cd src/tasks/src/sh && CFLAGS="" make DESTDIR=${SYSROOT_DIR} install
+	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/sh
 
 src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
-	$(HOSGCC) ./src/tasks/src/setkbl/main.c -o $@ -O3
+	$(HOSGCC) ./src/tasks/src/setkbl/main.c -o $@ -O3 -static
 	$(CROSSSTRIP) $@
 
 $(HOSGCC):
-	sh install-hos-toolchain.sh
+	./install-hos-toolchain.sh
 
 $(MKBOOTIMG):
 	git clone https://gitlab.com/bztsrc/bootboot.git bootboot
@@ -145,6 +138,20 @@ $(MKBOOTIMG):
 resources/pci.ids:
 	mkdir -p resources
 	wget https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids -O ./resources/pci.ids
+
+download_sh:
+	rm -rf $(SH_DIR)
+	git clone https://git.savannah.gnu.org/git/bash.git $(SH_DIR)
+	git -C $(SH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
+
+download_ncurses:
+	rm -rf ncurses
+	mkdir -p tmp
+	mkdir -p ncurses
+	cd tmp && wget https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz
+	tar xf "tmp/ncurses-6.6.tar.gz" -C ncurses/
+	rm -rf tmp/
+	cd ncurses/ncurses-6.6 && patch config.sub < ../../diffs/ncurses/ncurses.diff
 
 rmbin:
 	rm -rf ./bin/*
@@ -164,5 +171,6 @@ clean: rmbin
 	rm -rf ./crosstoolchain
 	rm -rf ./hostoolchain
 	rm -rf ./debug
+	rm -rf ./src/tasks/src/sh
 
 -include $(KERNEL_OBJ:.o=.d)

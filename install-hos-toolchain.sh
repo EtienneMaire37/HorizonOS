@@ -1,10 +1,8 @@
-export SYSROOT_DIR="$(pwd)/root"
-export TOOLCHAIN_DIR="$(pwd)/hostoolchain"
-export PATH="${TOOLCHAIN_DIR}/usr/bin:$PATH"
+#!/bin/sh
 
 set -x -e
 
-mkdir -p $SYSROOT_DIR
+mkdir -p ${SYSROOT_DIR}
 
 rm -rf ./mlibc/mlibc
 cd mlibc
@@ -13,9 +11,9 @@ cd mlibc
 git checkout ccc93dd
 git apply -p2 ../../diffs/mlibc/mlibc.diff
 cp -r ../src/* sysdeps/horizonos/
-mkdir -p sysdeps/horizonos/include
-cp -r sysdeps/linux/include/abi-bits sysdeps/horizonos/include/abi-bits
-cp -r sysdeps/linux/include/bits sysdeps/horizonos/include/bits
+mkdir -p sysdeps/horizonos/include/abi-bits sysdeps/horizonos/include/bits
+cp -r sysdeps/linux/include/abi-bits/* sysdeps/horizonos/include/abi-bits
+cp -r sysdeps/linux/include/bits/* sysdeps/horizonos/include/bits
 
 meson \
     setup \
@@ -56,12 +54,18 @@ cd build
 
 make -j$(nproc)
 
-DESTDIR="${TOOLCHAIN_DIR}" make install
+DESTDIR="${TOOLCHAIN_DIR}" make -j$(nproc) install
+
+cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
 
 cd ../../gcc-15.2.0
 
 patch -p1 < ../../diffs/binutils-2.45.1_gcc-15.2.0/gcc.diff
 ./contrib/download_prerequisites
+
+cd libstdc++-v3
+autoconf2.69
+cd ..
 
 cd ..
 
@@ -79,7 +83,7 @@ cd gcc-15.2.0-build
     --enable-host-shared
 
 make -j$(nproc) all-gcc all-target-libgcc
-DESTDIR="${TOOLCHAIN_DIR}" make install-gcc install-target-libgcc
+DESTDIR="${TOOLCHAIN_DIR}" make -j$(nproc) install-gcc install-target-libgcc
 cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
 
 cd ../..
@@ -94,6 +98,16 @@ meson \
     --prefix=/usr \
     -Ddefault_library=static \
     build
+
+DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
+cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
+
+meson \
+    setup \
+    --cross-file=../cross_file \
+    --prefix=/usr \
+    -Ddefault_library=shared \
+    build --reconfigure
 
 DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
 cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}

@@ -1,0 +1,10 @@
+#!/bin/sh
+
+export SYSROOT_DIR="$(pwd)/root"
+
+export PKG_CONFIG_SYSROOT_DIR=$SYSROOT_DIR
+export PKG_CONFIG_LIBDIR=$SYSROOT_DIR/usr/lib/pkgconfig
+
+export PKG_CONFIG_PATH=$PKG_CONFIG_LIBDIR
+
+exec pkg-config "$@"

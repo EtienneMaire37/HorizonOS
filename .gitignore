@@ -4,6 +4,7 @@ horizonos.vdi
 debug/*
 bin/*
 src/tasks/bin/*
+src/tasks/src/sh/*
 src/libc/lib/*
 
 root/
@@ -26,3 +27,4 @@ pci.ids
 data.txt
 
 mlibc/.built
+ncurses/*

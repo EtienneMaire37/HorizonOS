@@ -168,7 +168,7 @@ static inline bool vfs_isatty(file_entry_t* entry)
 vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t),
     uid_t uid, gid_t gid);
 
-void vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* inode, char* res);
+size_t vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res);
 void vfs_realpath_from_file_tnode(vfs_file_tnode_t* tnode, char* res);
 
 bool file_string_cmp(const char* s1, const char* s2);

@@ -2,9 +2,9 @@
 #include "../cpu/units.h"
 #include <string.h>
 #include <stdlib.h>
-#include "../multicore/spinlock.h"
 #include "../paging/paging.h"
 #include "mmap.h"
+#include "page_frame_allocator.h"
 
 uint64_t usable_memory = 0;
 struct mem_block usable_memory_map[MAX_USABLE_MEMORY_BLOCKS];
@@ -19,7 +19,7 @@ uint64_t first_free_page_index_hint = 0;
 
 uint64_t memory_allocated, allocatable_memory;
 
-atomic_flag pfa_spinlock = ATOMIC_FLAG_INIT;
+mutex_t pfa_lock = MUTEX_INIT;
 
 #include "page_frame_allocator.h"
 
@@ -135,7 +135,7 @@ physical_address_t pfa_allocate_physical_page()
     if (memory_allocated + 0x1000 > allocatable_memory * 9 / 10) 
         LOG(WARNING, "pfa_allocate_physical_page: Over 90%% of memory used!");
 
-    acquire_spinlock(&pfa_spinlock);
+    acquire_mutex(&pfa_lock);
 
     for (uint64_t i = first_free_page_index_hint / 8; i < bitmap_size; i += 8) 
     {
@@ -158,7 +158,7 @@ physical_address_t pfa_allocate_physical_page()
                 first_free_page_index_hint = 8 * i + bit;
                 memory_allocated += 0x1000;
                 LOG_MEM_ALLOCATED();
-                release_spinlock(&pfa_spinlock);
+                release_mutex(&pfa_lock);
                 // LOG(TRACE, "Allocated page: %#" PRIx64, addr);
                 return addr;
             }
@@ -167,7 +167,7 @@ physical_address_t pfa_allocate_physical_page()
     }
 
     LOG(CRITICAL, "pfa_allocate_physical_page: Out of memory at end!");
-    release_spinlock(&pfa_spinlock);
+    release_mutex(&pfa_lock);
     return physical_null;
 }
 
@@ -182,7 +182,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
     if (memory_allocated + 0x1000 * pages > allocatable_memory * 9 / 10) 
         LOG(WARNING, "pfa_allocate_physical_contiguous_pages: Over 90%% of memory used!");
 
-    acquire_spinlock(&pfa_spinlock);
+    acquire_mutex(&pfa_lock);
 
     for (uint64_t i = first_free_page_index_hint / 8; i < bitmap_size; i += 8) 
     {
@@ -238,7 +238,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
                 first_free_page_index_hint = 64 / 8 * i + bit;
                 memory_allocated += 0x1000 * pages;
                 LOG_MEM_ALLOCATED();
-                release_spinlock(&pfa_spinlock);
+                release_mutex(&pfa_lock);
                 // LOG(TRACE, "Allocated page: %#" PRIx64, addr);
                 return addr;
             }
@@ -247,7 +247,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
     }
 
     LOG(CRITICAL, "pfa_allocate_physical_contiguous_pages: Out of memory at end!");
-    release_spinlock(&pfa_spinlock);
+    release_mutex(&pfa_lock);
     return physical_null;
 }
 
@@ -280,13 +280,13 @@ void pfa_free_physical_page(physical_address_t address)
     uint64_t byte = page_index / 8;
     uint8_t bit = page_index & 0b111;
     if (byte >= bitmap_size) return;
-    acquire_spinlock(&pfa_spinlock);
+    acquire_mutex(&pfa_lock);
     bitmap[byte] &= ~(1 << bit);
     if (page_index < first_free_page_index_hint)
         first_free_page_index_hint = page_index;
 
     memory_allocated -= 0x1000;
-    release_spinlock(&pfa_spinlock);
+    release_mutex(&pfa_lock);
     // LOG(TRACE, "Freed page: %#" PRIx64, address);
     LOG_MEM_ALLOCATED();
 }
