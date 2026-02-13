@@ -4,7 +4,7 @@ horizonos.vdi
 debug/*
 bin/*
 src/tasks/bin/*
-# src/tasks/src/bash/*
+src/tasks/src/bash/*
 src/libc/lib/*
 
 root/
