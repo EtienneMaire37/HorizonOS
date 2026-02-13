@@ -16,7 +16,7 @@ HOSGCC := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-gcc
 USER_CFLAGS := 
 MKBOOTIMG := ./bootboot/mkbootimg/mkbootimg
 
-SH_DIR := ${MAKE_DIR}/src/tasks/src/sh
+SH_DIR := ${MAKE_DIR}/src/tasks/src/bash
 GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no
 
 KERNEL_SRC := $(shell find src/kernel -name '*.c')
@@ -30,7 +30,9 @@ KERNEL_ELF := bin/kernel.elf
 MLIBC_STAMP := mlibc/.built
 NCURSES_STAMP := ncurses/.built
 
-.PHONY: all run rmbin clean download_sh download_ncurses
+BASH_DL_STAMP := src/tasks/src/bash/.downloaded
+
+.PHONY: all run rmbin clean
 
 all: horizonos.iso
 
@@ -43,10 +45,10 @@ $(MLIBC_STAMP): mlibc/src/* $(HOSGCC) Makefile
 	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
 	touch $@
 
-$(NCURSES_STAMP): $(MLIBC_STAMP) download_ncurses
-	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc CFLAGS="-D__MLIBC_XOPEN" ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec
-	cd ncurses/ncurses-6.6 && CFLAGS="-D__MLIBC_XOPEN" make
-	cd ncurses/ncurses-6.6 && CFLAGS="-D__MLIBC_XOPEN" make DESTDIR=${SYSROOT_DIR} install
+$(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub
+	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec
+	cd ncurses/ncurses-6.6 && make -j$(nproc)
+	cd ncurses/ncurses-6.6 && make DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	touch $@
 
 bin/%.o: src/kernel/%.c Makefile
@@ -112,16 +114,16 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 
 # 	qemu-img convert -O vdi horizonos.iso horizonos.vdi
 
-src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/sh src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC) Makefile
+src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
 	$(HOSGCC) ./src/tasks/src/init/main.c -o $@ -O3 -static
 	$(CROSSSTRIP) $@
 
-src/tasks/bin/sh: download_sh $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC) Makefile
-	cd src/tasks/src/sh && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc CFLAGS="" ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --enable-static-link --without-bash-malloc --disable-nls --with-curses
-	cd src/tasks/src/sh && CFLAGS="" make
-	cd src/tasks/src/sh && CFLAGS="" make DESTDIR=${SYSROOT_DIR} install
-	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/sh
+src/tasks/bin/bash: $(BASH_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC)
+	cd src/tasks/src/bash && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --enable-static-link --without-bash-malloc --disable-nls --with-curses
+	cd src/tasks/src/bash && make -j$(nproc)
+	cd src/tasks/src/bash && make DESTDIR=${SYSROOT_DIR} -j$(nproc) install
+	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/bash
 
 src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin
@@ -139,12 +141,13 @@ resources/pci.ids:
 	mkdir -p resources
 	wget https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids -O ./resources/pci.ids
 
-download_sh:
+$(BASH_DL_STAMP):
 	rm -rf $(SH_DIR)
 	git clone https://git.savannah.gnu.org/git/bash.git $(SH_DIR)
 	git -C $(SH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
+	touch $@
 
-download_ncurses:
+ncurses/ncurses-6.6/config.sub:
 	rm -rf ncurses
 	mkdir -p tmp
 	mkdir -p ncurses
@@ -171,6 +174,6 @@ clean: rmbin
 	rm -rf ./crosstoolchain
 	rm -rf ./hostoolchain
 	rm -rf ./debug
-	rm -rf ./src/tasks/src/sh
+	rm -rf ./src/tasks/src/bash
 
 -include $(KERNEL_OBJ:.o=.d)
