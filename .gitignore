@@ -5,7 +5,6 @@ debug/*
 bin/*
 src/tasks/bin/*
 src/tasks/src/bash/*
-src/libc/lib/*
 
 root/
 
