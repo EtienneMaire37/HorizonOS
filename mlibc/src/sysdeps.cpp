@@ -3,6 +3,7 @@
 #include <bits/ensure.h>
 #include <bits/syscall.h>
 #include <mlibc/all-sysdeps.hpp>
+#include <pwd.h>
 
 #include "syscall.hpp"
 #include "stub.h"
@@ -228,5 +229,105 @@ namespace mlibc
 		int ret = syscall2_2(SYS_DUP, (uint64_t)fd, (uint64_t)flags, &_newfd);
 		*newfd = (int)_newfd;
 		return ret;
+	}
+
+	long sysconf_helper(int number, int* _errno)
+	{
+		/* default return values, if not overriden by sysdep */
+		switch(number) 
+		{
+		case _SC_ARG_MAX:
+			// On linux, it is defined to 2097152 in most cases, so define it to be 2097152
+			return 2097152;
+		case _SC_PAGE_SIZE:
+			return 4096;
+		case _SC_OPEN_MAX:
+			return 256;
+		case _SC_COLL_WEIGHTS_MAX:
+			return COLL_WEIGHTS_MAX;
+		case _SC_TZNAME_MAX:
+			return -1;
+		case _SC_PHYS_PAGES:
+#if __MLIBC_LINUX_OPTION
+			if(mlibc::sys_sysinfo) {
+				struct sysinfo info{};
+				if(mlibc::sys_sysinfo(&info) == 0)
+					return info.totalram * info.mem_unit / mlibc::page_size;
+			}
+#endif
+			return 1024;
+		case _SC_AVPHYS_PAGES:
+#if __MLIBC_LINUX_OPTION
+			if(mlibc::sys_sysinfo) {
+				struct sysinfo info{};
+				if(mlibc::sys_sysinfo(&info) == 0)
+					return info.freeram * info.mem_unit / mlibc::page_size;
+			}
+#endif
+			return 1024;
+		case _SC_NPROCESSORS_ONLN:
+			return 1;
+		case _SC_GETPW_R_SIZE_MAX:
+			return NSS_BUFLEN_PASSWD;
+		case _SC_GETGR_R_SIZE_MAX:
+			return 1024;
+		case _SC_CHILD_MAX:
+			// On linux, it is defined to 25 in most cases, so define it to be 25
+			return 25;
+		case _SC_JOB_CONTROL:
+			// If 1, job control is supported
+			return 1;
+		case _SC_CLK_TCK:
+			// TODO: This should be obsolete?
+			return 1000000;
+		case _SC_NGROUPS_MAX:
+			// On linux, it is defined to 65536 in most cases, so define it to be 65536
+			return 65536;
+		case _SC_RE_DUP_MAX:
+			return RE_DUP_MAX;
+		case _SC_LINE_MAX:
+			// Linux defines it as 2048.
+			return 2048;
+		case _SC_XOPEN_CRYPT:
+			return -1;
+		case _SC_NPROCESSORS_CONF:
+			// TODO: actually return a proper value for _SC_NPROCESSORS_CONF
+			return 1;
+		case _SC_HOST_NAME_MAX:
+			return HOST_NAME_MAX;
+		case _SC_LOGIN_NAME_MAX:
+			return LOGIN_NAME_MAX;
+		case _SC_FSYNC:
+			return _POSIX_FSYNC;
+		case _SC_SAVED_IDS:
+			return _POSIX_SAVED_IDS;
+		case _SC_SYMLOOP_MAX:
+			return 8;
+		case _SC_VERSION:
+			return _POSIX_VERSION;
+		case _SC_2_VERSION:
+			return _POSIX2_VERSION;
+		case _SC_XOPEN_VERSION:
+			return _XOPEN_VERSION;
+		case _SC_MEMLOCK:
+			return _POSIX_MEMLOCK;
+		case _SC_MEMLOCK_RANGE:
+			return _POSIX_MEMLOCK_RANGE;
+		case _SC_MAPPED_FILES:
+			return _POSIX_MAPPED_FILES;
+		case _SC_SHARED_MEMORY_OBJECTS:
+			return _POSIX_SHARED_MEMORY_OBJECTS;
+		default:
+			*_errno = EINVAL;
+			return -1;
+		}
+	}
+
+	// * same code as in posix/generic/unistd.cpp but without the logs
+	int sys_sysconf(int num, long* ret)
+	{
+		int _errno;
+		*ret = sysconf_helper(num, &_errno);
+		return _errno;
 	}
 }

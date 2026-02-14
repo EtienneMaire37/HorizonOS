@@ -173,6 +173,18 @@ void tty_ansi_m_code(uint8_t code)
 		tty_color = FG_WHITE | BG_BLACK;
 		return;
 	}
+
+	if (code == 39)
+	{
+		tty_color = FG_WHITE | (tty_color & 0xf0);
+		return;
+	}
+
+	if (code == 49)
+	{
+		tty_color = FG_BLACK | (tty_color & 0x0f);
+		return;
+	}
 	
 	uint8_t color_mask = tty_ansi_to_vga_mask(code);
 	if (color_mask != 0xff) // * Color code
