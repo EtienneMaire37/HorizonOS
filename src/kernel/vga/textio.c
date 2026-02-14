@@ -182,7 +182,7 @@ void tty_ansi_m_code(uint8_t code)
 
 	if (code == 49)
 	{
-		tty_color = FG_BLACK | (tty_color & 0x0f);
+		tty_color = BG_BLACK | (tty_color & 0x0f);
 		return;
 	}
 	

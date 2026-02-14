@@ -169,7 +169,6 @@ void c_syscall_handler(syscall_registers_t* registers)
         break;
     sc_case(SYS_OPEN, 3, const char*, int, unsigned int)
         SC_LOG("syscall SYS_OPEN(\"%s\", %d, %u)", arg1, arg2, arg3);
-        int fd = vfs_allocate_global_file();
 
         // * Only supported flags for now
         if (arg2 & ~(O_CLOEXEC | O_ACCMODE))
@@ -179,6 +178,10 @@ void c_syscall_handler(syscall_registers_t* registers)
             break;
         }
 
+        // acquire_mutex(&file_table_lock);
+
+        int fd = vfs_allocate_global_file();
+
         file_table[fd].flags = arg2;
         file_table[fd].position = 0;
 
@@ -187,6 +190,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         if (stat_ret != 0)
         {
             vfs_remove_global_file(fd);
+            // release_mutex(&file_table_lock);
             sc_ret_errno = stat_ret;
             sc_ret(1) = (uint64_t)(-1);
             break;
@@ -195,6 +199,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         if (!(st.st_mode & S_IRUSR) && (file_table[fd].flags & O_ACCMODE) != O_WRONLY) // * Assume we're the owner of every file
         {
             vfs_remove_global_file(fd);
+            // release_mutex(&file_table_lock);
             sc_ret_errno = EACCES;
             sc_ret(1) = (uint64_t)(-1);
             break;
@@ -214,14 +219,16 @@ void c_syscall_handler(syscall_registers_t* registers)
         if (ret == -1)
         {
             vfs_remove_global_file(fd);
+            // release_mutex(&file_table_lock);
 
-            sc_ret_errno = ENOMEM;
+            sc_ret_errno = EMFILE;
             sc_ret(1) = (uint64_t)(-1);
         }
         else
         {
             current_task->file_table[ret] = fd;
-            sc_ret_errno = EACCES;
+            // release_mutex(&file_table_lock);
+            sc_ret_errno = 0;
             sc_ret(1) = (uint64_t)ret;
         }
         break;
