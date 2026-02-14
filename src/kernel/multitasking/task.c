@@ -34,6 +34,9 @@ thread_t* task_create_empty()
     task->ppid = -1;
     task->pgid = task->pid;
 
+    task->ruid = task->euid = task->suid = 0;
+    task->rgid = task->egid = task->sgid = 0;
+
     task->system_task = true;
 
     task->fpu_state = fpu_state_create();
@@ -273,6 +276,17 @@ thread_t* find_task_by_pid_in_queue(thread_queue_t* queue, pid_t pid)
             return thread;
         it = it->next;
     } while (it != *queue);
+    return NULL;
+}
+
+thread_t* find_task_by_pid_anywhere(pid_t pid)
+{
+    if (thread_t* thread = find_running_task_by_pid(pid); thread)
+        return thread;
+    if (thread_t* thread = find_task_by_pid_in_queue(&waitpid_tasks, pid); thread)
+        return thread;
+    if (thread_t* thread = find_task_by_pid_in_queue(&forked_tasks, pid); thread)
+        return thread;
     return NULL;
 }
 

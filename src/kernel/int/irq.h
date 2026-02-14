@@ -3,7 +3,7 @@
 #include "../ps2/ps2.h"
 #include "int.h"
 #include "../pic/apic.h"
-#include "../time/time.h"
+#include "../time/ktime.h"
 #include "../vga/textio.h"
 #include "../multitasking/multitasking.h"
 

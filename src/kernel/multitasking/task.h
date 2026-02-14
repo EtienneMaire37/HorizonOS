@@ -26,6 +26,9 @@ typedef struct thread
     struct sigaction sig_act_array[NUM_SIGNALS];
 
     uint32_t return_value;
+    
+    uid_t ruid, euid, suid;
+    gid_t rgid, egid, sgid;
 
     // * waitpid shenanigans
     pid_t wait_pid, waitpid_ret, pgid_on_waitpid;

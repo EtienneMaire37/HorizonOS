@@ -10,6 +10,9 @@
 #include "multitasking.h"
 #include "sigset.h"
 #include <sys/resource.h>
+#include <time.h>
+#include "../time/ktime.h"
+#include <fcntl.h>
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -171,7 +174,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         // * Only supported flags for now
         if (arg2 & ~(O_CLOEXEC | O_ACCMODE))
         {
-            sc_ret_errno = EINVAL;
+            sc_ret_errno = ENOSYS;
             sc_ret(1) = (uint64_t)(-1);
             break;
         }
@@ -463,9 +466,181 @@ void c_syscall_handler(syscall_registers_t* registers)
         unlock_scheduler();
         sc_ret_errno = 0;
         break;
+    sc_case(SYS_GETRESUID, 3, uid_t*, uid_t*, uid_t*)
+        SC_LOG("syscall SYS_GETRESUID(%p, %p, %p)", arg1, arg2, arg3);
+        if (!arg1 || !arg2 || !arg3)
+        {
+            sc_ret_errno = EFAULT;
+            break;
+        }
+        lock_scheduler();
+        *arg1 = current_task->ruid;
+        *arg2 = current_task->euid;
+        *arg3 = current_task->suid;
+        unlock_scheduler();
+        sc_ret_errno = 0;
+        break;
+    sc_case(SYS_GETRESGID, 3, uid_t*, uid_t*, uid_t*)
+        SC_LOG("syscall SYS_GETRESGID(%p, %p, %p)", arg1, arg2, arg3);
+        if (!arg1 || !arg2 || !arg3)
+        {
+            sc_ret_errno = EFAULT;
+            break;
+        }
+        lock_scheduler();
+        *arg1 = current_task->rgid;
+        *arg2 = current_task->egid;
+        *arg3 = current_task->sgid;
+        unlock_scheduler();
+        sc_ret_errno = 0;
+        break;
+    sc_case(SYS_CLOCK_GET, 3, int, time_t*, long*)
+        SC_LOG("syscall SYS_CLOCK_GET(%d, %p, %p)", arg1, arg2, arg3);
+        if (!arg2 || !arg3)
+        {
+            sc_ret_errno = EFAULT;
+            break;
+        }
+        switch (arg1)
+        {
+        case CLOCK_REALTIME:
+            *arg2 = ktime(NULL);
+            *arg3 = system_thousands * 1000000;
+            sc_ret_errno = 0;
+            break;
+        default:
+            sc_ret_errno = EINVAL;
+        }
+        break;
+    sc_case(SYS_GETPID, 0)
+        lock_scheduler();
+        sc_ret(0) = (uint64_t)current_task->pid;
+        unlock_scheduler();
+        break;
+    sc_case(SYS_GETPPID, 0)
+        lock_scheduler();
+        sc_ret(0) = (uint64_t)current_task->ppid;
+        unlock_scheduler();
+        break;
+    sc_case(SYS_GETHOSTNAME, 2, char*, size_t)
+        if (!arg1)
+        {
+            sc_ret_errno = EFAULT;
+            break;
+        }
+        const char* str = "horizonos-pc";
+        const size_t len = strlen(str) + 1;
+        if (arg2 <= 0)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        if (arg2 > len)
+        {
+            sc_ret_errno = ENAMETOOLONG;
+            break;
+        }
+        memcpy(arg1, str, len);
+        sc_ret_errno = 0;
+        break;
+    sc_case(SYS_FSTATAT, 4, int, const char*, int, struct stat*)
+        // TODO: Implement symbolic links
+        if (arg3 & ~(AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW))
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        if (!arg4 || !arg2)
+        {
+            sc_ret_errno = EFAULT;
+            break;
+        }
+        bool relative_path = *arg2 != '/';
+        lock_scheduler();
+        if (relative_path && !is_fd_valid(arg1))
+        {
+            unlock_scheduler();
+            sc_ret_errno = EBADF;
+            break;
+        }
+        vfs_folder_tnode_t* cwd = NULL;
+        if (relative_path)
+        {
+            file_entry_t* entry = &file_table[current_task->file_table[arg1]];
+            if (entry->entry_type != ET_FOLDER)
+            {
+                sc_ret_errno = ENOTDIR;
+                unlock_scheduler();
+                break;
+            }
+            if (entry->entry_type == ET_FOLDER)
+            {
+                cwd = arg1 == AT_FDCWD ? current_task->cwd : entry->tnode.file->inode->parent;
+                if (*arg2 == 0) // * empty path
+                {
+                    if (arg3 & AT_EMPTY_PATH)
+                    {
+                        *arg4 = entry->tnode.folder->inode->st;
+                        sc_ret_errno = 0;
+                        unlock_scheduler();
+                        break;
+                    }
+                    else
+                    {
+                        sc_ret_errno = ENOENT;
+                        unlock_scheduler();
+                        break;
+                    }
+                }
+                else
+                    goto fstatat_get_st;
+            }
+            else
+            {
+                sc_ret_errno = ENOTDIR;
+                unlock_scheduler();
+                break;
+            }
+            sc_ret_errno = ENOSYS;
+            break;
+        }
+        else
+        {
+        fstatat_get_st:
+            vfs_folder_tnode_t* foldertnode = vfs_get_folder_tnode(arg2, cwd);
+            if (!foldertnode)
+            {
+                vfs_file_tnode_t* filetnode = vfs_get_file_tnode(arg2, cwd);
+                if (!filetnode)
+                {
+                    sc_ret_errno = ENOENT;
+                    unlock_scheduler();
+                    break;
+                }
+                *arg4 = filetnode->inode->st;
+            }
+            else
+                *arg4 = foldertnode->inode->st;
+            
+            sc_ret_errno = 0;
+            unlock_scheduler();
+            break;
+        }
+    sc_case(SYS_GETPGID, 1, pid_t)
+        lock_scheduler();
+        thread_t* process = find_task_by_pid_anywhere(arg1);
+        if (!process)
+        {
+            unlock_scheduler();
+            sc_ret_errno = ESRCH;
+            break;
+        }
+        sc_ret(1) = (uint64_t)process->pgid;
+        sc_ret_errno = 0;
+        unlock_scheduler();
+        break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
-        // * Should probably apply some form of security (root only operation)
         if (arg1 >= 1 && arg1 <= NUM_KB_LAYOUTS)
         {
             current_keyboard_layout = keyboard_layouts[arg1 - 1];

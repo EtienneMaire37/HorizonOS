@@ -104,9 +104,9 @@ namespace mlibc
 		return syscall2_1(SYS_VM_UNMAP, (uint64_t)addr, (uint64_t)size);
 	}
 
-	int sys_clock_get(int, time_t*, long*) 
+	int sys_clock_get(int clock, time_t* secs, long* nanos)
 	{
-		STUB("sys_clock_get (test)");
+		return syscall3_1(SYS_CLOCK_GET, (uint64_t)clock, (uint64_t)secs, (uint64_t)nanos);
 	}
 
 	int sys_ioctl(int fd, unsigned long request, void* arg, int* result)
@@ -172,12 +172,48 @@ namespace mlibc
 		return syscall3_1(SYS_TTYNAME, (uint64_t)fd, (uint64_t)buf, (uint64_t)size);
 	}
 
-	int sys_getresuid(uid_t *ruid, uid_t *euid, uid_t *suid)
+	int sys_getresuid(uid_t* ruid, uid_t* euid, uid_t* suid)
 	{
-		STUB("sys_getresuid");
+		return syscall3_1(SYS_GETRESUID, (uint64_t)ruid, (uint64_t)euid, (uint64_t)suid);
 	}
-	int sys_getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
+	int sys_getresgid(gid_t* rgid, gid_t* egid, gid_t* sgid)
 	{
-		STUB("sys_getresgid");
+		return syscall3_1(SYS_GETRESGID, (uint64_t)rgid, (uint64_t)egid, (uint64_t)sgid);
+	}
+
+	pid_t sys_getpid()
+	{
+		return (pid_t)syscall0_1(SYS_GETPID);
+	}
+	pid_t sys_getppid()
+	{
+		return (pid_t)syscall0_1(SYS_GETPPID);
+	}
+
+	int sys_gethostname(char* buffer, size_t bufsize)
+	{
+		return syscall2_1(SYS_GETHOSTNAME, (uint64_t)buffer, (uint64_t)bufsize);
+	}
+
+	int sys_stat(fsfd_target fsfdt, int fd, const char* path, int flags, struct stat* statbuf)
+	{
+		if (fsfdt == fsfd_target::none)
+			return EINVAL;
+		else if (fsfdt == fsfd_target::path)
+			fd = AT_FDCWD;
+		else if (fsfdt == fsfd_target::fd)
+			flags |= AT_EMPTY_PATH;
+		else 
+			return ENOSYS;
+
+		return syscall4_1(SYS_FSTATAT, (uint64_t)fd, (uint64_t)path, (uint64_t)flags, (uint64_t)statbuf);
+	}
+
+	int sys_getpgid(pid_t pid, pid_t* pgid)
+	{
+		uint64_t _pgid;
+		int ret = syscall1_2(SYS_GETPGID, (uint64_t)pid, &_pgid);
+		*pgid = (pid_t)_pgid;
+		return ret;
 	}
 }

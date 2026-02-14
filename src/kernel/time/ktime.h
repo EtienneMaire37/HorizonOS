@@ -2,15 +2,16 @@
 
 #include "time.h"
 #include "gdn.h"
+#include <time.h>
 
-time_t ktime(time_t* t)
+static inline time_t ktime(time_t* t)
 {
     time_t now = time_to_unix(system_year, system_month, system_day, system_hours, system_minutes, system_seconds);
     if (t) *t = now;
     return now;
 }
 
-bool is_leap_year(int64_t year)
+static inline bool is_leap_year(int64_t year)
 {
     if ((year % 400) == 0)
         return true;
@@ -19,7 +20,7 @@ bool is_leap_year(int64_t year)
     return year % 4 == 0;
 }
 
-uint8_t get_num_days_in_month(int64_t month, int64_t year)
+static inline uint8_t get_num_days_in_month(int64_t month, int64_t year)
 {
     month = imod(month, 12);
     if (month == 1) // February
@@ -29,7 +30,7 @@ uint8_t get_num_days_in_month(int64_t month, int64_t year)
     return 30 + ((month & 1) == 1);
 }
 
-void resolve_time()
+static inline void resolve_time()
 {
     while (system_thousands < 0 || system_thousands >= 1000)
     {

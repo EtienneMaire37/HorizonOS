@@ -6,7 +6,7 @@ export PATH := "$(MAKE_DIR)/pkg-config:$(SYSROOT_DIR)/usr/bin:$(SYSROOT_DIR)/usr
 export PKG_CONFIG := x86_64-horizonos-pkg-config
 export PKG_CONFIG_FOR_BUILD := pkg-config
 
-CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -march=x86-64 # v4
+CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -D_GNU_SOURCE -march=x86-64 # v4
 DATE := `date +"%Y-%m-%d"`
 CROSSLD := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-ld
 CROSSNM := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-nm

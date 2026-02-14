@@ -33,5 +33,3 @@ static inline void ksleep(precise_time_t time)
     while (global_timer < start_timer + time)
         hlt();
 }
-
-void resolve_time();
