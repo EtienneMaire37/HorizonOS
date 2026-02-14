@@ -436,7 +436,32 @@ void c_syscall_handler(syscall_registers_t* registers)
         break;
     sc_case(SYS_TTYNAME, 3, int, char*, size_t)
         SC_LOG("syscall SYS_TTYNAME(%d, %p, %zu)", arg1, arg2, arg3);
-        while (true);
+        lock_scheduler();
+        if (!is_fd_valid(arg1))
+        {
+            sc_ret_errno = EBADF;
+            unlock_scheduler();
+            break;
+        }
+        file_entry_t* entry = &file_table[current_task->file_table[arg1]];
+        if (!vfs_isatty(entry))
+        {
+            sc_ret_errno = ENOTTY;
+            unlock_scheduler();
+            break;
+        }
+        vfs_file_tnode_t* tnode = entry->tnode.file;
+        char path[PATH_MAX];
+        ssize_t rp_ret = vfs_realpath_from_file_tnode(tnode, path);
+        if (rp_ret == -1 || rp_ret > arg3)
+        {
+            sc_ret_errno = ERANGE;
+            unlock_scheduler();
+            break;
+        }
+        memcpy(arg2, path, rp_ret);
+        unlock_scheduler();
+        sc_ret_errno = 0;
         break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);

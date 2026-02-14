@@ -41,8 +41,25 @@ mlibc: $(MLIBC_STAMP)
 $(MLIBC_STAMP): mlibc/src/* $(HOSGCC) Makefile
 	cp -r mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
 	mkdir -p mlibc/mlibc/build
+	cd mlibc/mlibc && meson \
+		setup \
+		--cross-file=../cross_file \
+		--prefix=/usr \
+		-Ddefault_library=static \
+		build --reconfigure
+
 	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
-	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
+	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
+
+	cd mlibc/mlibc && meson \
+		setup \
+		--cross-file=../cross_file \
+		--prefix=/usr \
+		-Ddefault_library=shared \
+		build --reconfigure
+
+	cd mlibc/mlibc &&  DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
+	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
 	touch $@
 
 $(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub

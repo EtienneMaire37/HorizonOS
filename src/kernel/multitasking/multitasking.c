@@ -133,12 +133,14 @@ bool task_is_blocked(thread_t* task)
 thread_t* find_next_task()
 {
     thread_t* start = current_task->next;
-    for (thread_t* task = start; task != start->prev; task = task->next)
+    thread_t* task;
+    for (task = start; task != start->prev; task = task->next)
     {
         if (task == idle_task) continue;
         if (!task_is_blocked(task)) return task;
     }
 
+    if (!task_is_blocked(task)) return task;
     return idle_task;
 }
 

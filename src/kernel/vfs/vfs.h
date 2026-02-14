@@ -121,7 +121,7 @@ typedef struct file_entry
     } tnode;
 } file_entry_t;
 
-#define MAX_FILE_TABLE_ENTRIES  256
+#define MAX_FILE_TABLE_ENTRIES  1024
 
 #define CHR_DIR_READ    1
 #define CHR_DIR_WRITE   2
@@ -156,20 +156,21 @@ void vfs_explore(vfs_folder_tnode_t* tnode);
 ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 ssize_t task_chr_stderr(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
+ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 
 ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 
 static inline bool vfs_isatty(file_entry_t* entry)
 {
     if (!entry) return false;
-    return entry->entry_type == ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && (entry->tnode.file->inode->io_func == task_chr_stdin || entry->tnode.file->inode->io_func == task_chr_stdout || entry->tnode.file->inode->io_func == task_chr_stderr)) : false;
+    return entry->entry_type == ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && (entry->tnode.file->inode->io_func == task_chr_stdin || entry->tnode.file->inode->io_func == task_chr_stdout || entry->tnode.file->inode->io_func == task_chr_stderr || entry->tnode.file->inode->io_func == task_chr_tty)) : false;
 }
 
 vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t),
     uid_t uid, gid_t gid);
 
-size_t vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res);
-void vfs_realpath_from_file_tnode(vfs_file_tnode_t* tnode, char* res);
+ssize_t vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res);
+ssize_t vfs_realpath_from_file_tnode(vfs_file_tnode_t* tnode, char* res);
 
 bool file_string_cmp(const char* s1, const char* s2);
 

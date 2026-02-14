@@ -28,17 +28,17 @@ void vfs_init_file_table()
     }
     
     file_table[0].entry_type = ET_FILE;
-    file_table[0].tnode.file = vfs_get_file_tnode("/dev/stdin", NULL);
+    file_table[0].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[0].position = 0;
     file_table[0].flags = O_RDONLY;
 
     file_table[1].entry_type = ET_FILE;
-    file_table[1].tnode.file = vfs_get_file_tnode("/dev/stdout", NULL);
+    file_table[1].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[1].position = 0;
     file_table[1].flags = O_WRONLY;
 
     file_table[2].entry_type = ET_FILE;
-    file_table[2].tnode.file = vfs_get_file_tnode("/dev/stderr", NULL);
+    file_table[2].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[2].position = 0;
     file_table[2].flags = O_WRONLY;
 
@@ -363,7 +363,7 @@ static size_t vfs_realpath_from_folder_tnode_helper(vfs_folder_tnode_t* tnode, c
     return idx + len + 1;
 }
 
-size_t vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res)
+ssize_t vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res)
 {
     if (tnode == vfs_root) 
     {
@@ -372,17 +372,21 @@ size_t vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res)
         return 2;
     }
     size_t ret = vfs_realpath_from_folder_tnode_helper(tnode, res, 0);
+    if (ret >= PATH_MAX) return -1;
     res[ret++] = 0;
     return ret;
 }
 
-void vfs_realpath_from_file_tnode(vfs_file_tnode_t* tnode, char* res)
+ssize_t vfs_realpath_from_file_tnode(vfs_file_tnode_t* tnode, char* res)
 {
     size_t ret = vfs_realpath_from_folder_tnode_helper(tnode->inode->parent, res, 0);
-    res[ret] = '/';
     size_t len = strlen(tnode->name);
+    if (ret >= PATH_MAX - len - 2 || ret == -1)
+        return -1;
+    res[ret] = '/';
     memcpy(&res[ret + 1], tnode->name, len);
     res[ret + len + 1] = 0;
+    return ret + len + 2;
 }
 
 void vfs_explore(vfs_folder_tnode_t* tnode)
@@ -839,4 +843,17 @@ ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t
 ssize_t task_chr_stderr(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
 {
     return task_chr_stdout(entry, buf, count, direction);
+}
+
+ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
+{
+    switch (direction)
+    {
+    case CHR_DIR_READ:
+        return task_chr_stdin(entry, buf, count, direction);
+    case CHR_DIR_WRITE:
+        return task_chr_stdout(entry, buf, count, direction);
+    default:
+        return 0;
+    }
 }

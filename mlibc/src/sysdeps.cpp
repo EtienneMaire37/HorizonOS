@@ -3,9 +3,6 @@
 #include <bits/ensure.h>
 #include <bits/syscall.h>
 #include <mlibc/all-sysdeps.hpp>
-#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
 
 #include "syscall.hpp"
 #include "stub.h"
@@ -109,7 +106,7 @@ namespace mlibc
 
 	int sys_clock_get(int, time_t*, long*) 
 	{
-		STUB("sys_clock_get");
+		STUB("sys_clock_get (test)");
 	}
 
 	int sys_ioctl(int fd, unsigned long request, void* arg, int* result)
@@ -173,5 +170,14 @@ namespace mlibc
 	int sys_ttyname(int fd, char* buf, size_t size)
 	{
 		return syscall3_1(SYS_TTYNAME, (uint64_t)fd, (uint64_t)buf, (uint64_t)size);
+	}
+
+	int sys_getresuid(uid_t *ruid, uid_t *euid, uid_t *suid)
+	{
+		STUB("sys_getresuid");
+	}
+	int sys_getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
+	{
+		STUB("sys_getresgid");
 	}
 }
