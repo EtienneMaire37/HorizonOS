@@ -24,8 +24,8 @@ static inline __attribute__((always_inline)) int imod(int a, int b)
 static inline __attribute__((always_inline)) int hex_char_to_int(char c)
 {
     if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a';
-    if (c >= 'A' && c <= 'F') return c - 'A';
+    if (c >= 'a' && c <= 'f') return 10 + c - 'a';
+    if (c >= 'A' && c <= 'F') return 10 + c - 'A';
     return 0;
 }
 static inline __attribute__((always_inline)) uint16_t bcd_to_binary(uint16_t bcd)

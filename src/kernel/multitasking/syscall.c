@@ -434,6 +434,10 @@ void c_syscall_handler(syscall_registers_t* registers)
         sc_ret(1) = current_task->waitpid_ret;
         sc_ret_errno = 0;
         break;
+    sc_case(SYS_TTYNAME, 3, int, char*, size_t)
+        SC_LOG("syscall SYS_TTYNAME(%d, %p, %zu)", arg1, arg2, arg3);
+        while (true);
+        break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
         // * Should probably apply some form of security (root only operation)

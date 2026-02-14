@@ -84,7 +84,7 @@ void print_kernel_symbol_name(uintptr_t rip, uintptr_t rbp)
             if (line_offset < 16)
             {
                 uint64_t val = hex_char_to_int(ch);
-                current_symbol_address &= ~((uint64_t)0xf << ((15 - line_offset) * 4));
+                current_symbol_address &= ~(0xfULL << ((15 - line_offset) * 4));
                 current_symbol_address |= val << ((15 - line_offset) * 4);
             }
             if (line_offset == 17)

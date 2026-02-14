@@ -22,6 +22,7 @@
 #define SYS_SIGACTION   17
 #define SYS_SIGPROCMASK	18
 #define SYS_WAIT4       19
+#define SYS_TTYNAME     20
 
 #define SYS_HOS_SET_KB_LAYOUT   100
 

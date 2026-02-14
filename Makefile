@@ -70,7 +70,7 @@ $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) Makefile
 	-o $@ \
 	$(KERNEL_OBJ) $(ASM_OBJ) \
 	-lgcc
-	$(CROSSSTRIP) $@
+# 	$(CROSSSTRIP) $@
 
 run:	all
 	mkdir debug -p
@@ -98,7 +98,7 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 	cp ./bin/initrd_contents/sbin/init src/tasks/bin/init
 
 	cp resources/* ./bin/initrd_contents/boot/
-	$(CROSSNM) -n --defined-only -C bin/kernel.elf > ./bin/initrd_contents/boot/symbols.txt
+	$(CROSSNM) -n --defined-only -C bin/initrd_contents/boot/kernel.elf > ./bin/initrd_contents/boot/symbols.txt
 	git log -n 1 --pretty=format:'%H' > ./bin/initrd_contents/boot/commit.txt
 
 	mkdir -p ./root

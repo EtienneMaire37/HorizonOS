@@ -23,6 +23,7 @@ namespace mlibc
 	{ 
 		ssize_t unused;
 		sys_write(2, msg, strlen(msg), &unused);
+		sys_write(2, "\n", 1, &unused);
 	}
 
 	int sys_isatty(int fd)
@@ -167,5 +168,10 @@ namespace mlibc
 	int sys_sigaction(int signum, const struct sigaction* __restrict act, struct sigaction* __restrict oldact)
 	{
 		return syscall3_1(SYS_SIGACTION, (uint64_t)signum, (uint64_t)act, (uint64_t)oldact);
+	}
+
+	int sys_ttyname(int fd, char* buf, size_t size)
+	{
+		return syscall3_1(SYS_TTYNAME, (uint64_t)fd, (uint64_t)buf, (uint64_t)size);
 	}
 }

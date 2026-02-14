@@ -41,8 +41,8 @@ void multitasking_init()
 void multitasking_start()
 {
     fflush(stdout);
-    multitasking_enabled = true;
     current_task = idle_task;
+    multitasking_enabled = true;
 
     idle_main();
 }

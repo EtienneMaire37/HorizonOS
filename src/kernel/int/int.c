@@ -25,7 +25,9 @@ void interrupt_handler(interrupt_registers_t* registers)
     }
     if (registers->interrupt_number < 32)       // * Fault
     {
-        LOG(WARNING, multitasking_enabled ? "[task \"%s\" (pid %u)]: " : "", current_task->name, current_task->pid);
+        if (multitasking_enabled)
+            LOG(WARNING, "[task \"%s\" (pid %u)]: ", current_task->name, current_task->pid);
+        
         CONTINUE_LOG(WARNING, "Fault : Exception number : %" PRIu64 " ; Error : %s ; Error code = %#" PRIx64 " ; cr2 = %#" PRIx64 " ; cr3 = %#" PRIx64 " ; rip = %#" PRIx64, 
             registers->interrupt_number, get_error_message(registers->interrupt_number, registers->error_code), 
             registers->error_code, registers->cr2, registers->cr3, registers->rip);
@@ -33,15 +35,19 @@ void interrupt_handler(interrupt_registers_t* registers)
         LOG(WARNING, "CS: %#.16" PRIx64 " DS: %#.16" PRIx64 " SS: %#.16" PRIx64, registers->cs, registers->ds, registers->ss);
         log_segbase();
 
-        if (current_task->system_task || task_count == 1 || !multitasking_enabled || registers->interrupt_number == 8 || registers->interrupt_number == 18)
-        // System task or last task or multitasking not enabled or Double Fault or Machine Check
+        if (multitasking_enabled)
         {
-            disable_interrupts();
-            kernel_panic((interrupt_registers_t*)registers);
+            if (current_task->system_task || task_count == 1 || !multitasking_enabled || registers->interrupt_number == 8 || registers->interrupt_number == 18)
+            // System task or last task or multitasking not enabled or Double Fault or Machine Check
+            {
+                disable_interrupts();
+                kernel_panic((interrupt_registers_t*)registers);
+            }
+            else
+                kill_task(current_task, registers->interrupt_number == 14 ? SIGSEGV : SIGILL);
         }
         else
-            kill_task(current_task, registers->interrupt_number == 14 ? SIGSEGV : SIGILL);
-
+            kernel_panic((interrupt_registers_t*)registers);
         return_from_isr();
     }
 
