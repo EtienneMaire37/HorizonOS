@@ -106,6 +106,10 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 	mkdir -p ./bin/initrd_contents/bin
 	mkdir -p ./bin/initrd_contents/boot
 	mkdir -p ./bin/initrd_contents/usr/lib
+	mkdir -p ./bin/initrd_contents/etc
+	mkdir -p ./bin/initrd_contents/root
+
+	echo "root:x:0:0:root:/root:/bin/bash" > ./bin/initrd_contents/etc/passwd
 
 	cp ./root/usr/lib/ld.so ./bin/initrd_contents/usr/lib/ld.so
 	cp ./root/usr/lib/libc.so ./bin/initrd_contents/usr/lib/libc.so

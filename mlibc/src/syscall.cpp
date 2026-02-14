@@ -40,6 +40,15 @@ uint64_t syscall2_1(uint64_t calln,
     return ret;
 }
 
+uint64_t syscall2_2(uint64_t calln, 
+    uint64_t a1, uint64_t a2,
+    uint64_t* r1)
+{
+    uint64_t ret;
+    asm volatile ("syscall" : "=a"(ret), "=b"(*r1) : "a"(calln), "b"(a1), "d"(a2) : "memory", "r11", "rcx");
+    return ret;
+}
+
 uint64_t syscall3_1(uint64_t calln, 
     uint64_t a1, uint64_t a2, uint64_t a3)
 {

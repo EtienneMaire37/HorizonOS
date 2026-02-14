@@ -237,8 +237,10 @@ void c_syscall_handler(syscall_registers_t* registers)
         current_task->file_table[arg1] = invalid_fd;
         break;
     sc_case(SYS_IOCTL, 3, int, unsigned long, void*)
-        SC_LOG("syscall SYS_IOCTL(%d, %lu, %p)", arg1, arg2, arg3);
+        SC_LOG("syscall SYS_IOCTL(%d, %#lx, %p)", arg1, arg2, arg3);
+        lock_scheduler();
         syscall_ioctl(registers, arg1, arg2, arg3);
+        unlock_scheduler();
         break;
     sc_case(SYS_EXECVE, 3, const char*, char**, char**)
         SC_LOG("syscall SYS_EXECVE(\"%s\", %p, %p)", arg1, arg2, arg3);
@@ -638,6 +640,39 @@ void c_syscall_handler(syscall_registers_t* registers)
         sc_ret(1) = (uint64_t)process->pgid;
         sc_ret_errno = 0;
         unlock_scheduler();
+        break;
+    sc_case(SYS_SETPGID, 2, pid_t, pid_t)
+        lock_scheduler();
+        thread_t* process = find_task_by_pid_anywhere(arg1);
+        if (!process)
+        {
+            unlock_scheduler();
+            sc_ret_errno = ESRCH;
+            break;
+        }
+        process->pgid = arg2;
+        sc_ret_errno = 0;
+        unlock_scheduler();
+        break;
+    sc_case(SYS_DUP, 2, int, int)
+        lock_scheduler();
+        if (!is_fd_valid(arg1))
+        {
+            unlock_scheduler();
+            sc_ret_errno = EBADF;
+            break;
+        }
+        int newfd = vfs_allocate_thread_file(current_task);
+        if (newfd == -1)
+        {
+            unlock_scheduler();
+            sc_ret_errno = EMFILE;
+            break;
+        }
+        current_task->file_table[newfd] = current_task->file_table[arg1];
+        unlock_scheduler();
+        sc_ret_errno = 0;
+        sc_ret(1) = newfd;
         break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);

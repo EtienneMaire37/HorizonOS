@@ -216,4 +216,17 @@ namespace mlibc
 		*pgid = (pid_t)_pgid;
 		return ret;
 	}
+
+	int sys_setpgid(pid_t pid, pid_t pgid)
+	{
+		return syscall2_1(SYS_SETPGID, (uint64_t)pid, (uint64_t)pgid);
+	}
+
+	int sys_dup(int fd, int flags, int* newfd)
+	{
+		uint64_t _newfd;
+		int ret = syscall2_2(SYS_DUP, (uint64_t)fd, (uint64_t)flags, &_newfd);
+		*newfd = (int)_newfd;
+		return ret;
+	}
 }

@@ -8,7 +8,8 @@ void syscall_ioctl(syscall_registers_t* registers, int fd, unsigned long request
     switch (request)
     {
     case TIOCSPGRP:
-        pid_t pgrp = (pid_t)registers->rcx;
+    {
+        pid_t pgrp = *(pid_t*)arg;
         if (!is_fd_valid(fd))
         {
             sc_ret_errno = EBADF;
@@ -28,6 +29,24 @@ void syscall_ioctl(syscall_registers_t* registers, int fd, unsigned long request
         tty_foreground_pgrp = pgrp;
         sc_ret_errno = 0;
         break;
+    }
+    case TIOCGPGRP:
+    {
+        if (!is_fd_valid(fd))
+        {
+            sc_ret_errno = EBADF;
+            break;
+        }
+        file_entry_t* entry = &file_table[current_task->file_table[fd]];
+        if (!vfs_isatty(entry))
+        {
+            sc_ret_errno = ENOTTY;
+            break;
+        }
+        *(pid_t*)arg = tty_foreground_pgrp;
+        sc_ret_errno = 0;
+        break;
+    }
     default:
         LOG(DEBUG, "unknown ioctl request: %#lx, %p", request, arg);
         kill_task(current_task, SIGILL);

@@ -31,6 +31,8 @@
 #define SYS_GETHOSTNAME 26
 #define SYS_FSTATAT     27
 #define SYS_GETPGID     28
+#define SYS_SETPGID     29
+#define SYS_DUP         30
 
 #define SYS_HOS_SET_KB_LAYOUT   100
 
@@ -42,6 +44,9 @@ uint64_t syscall1_2(uint64_t calln,
     uint64_t a1, uint64_t* r1);
 uint64_t syscall2_1(uint64_t calln, 
     uint64_t a1, uint64_t a2);
+uint64_t syscall2_2(uint64_t calln, 
+    uint64_t a1, uint64_t a2,
+    uint64_t* r1);
 uint64_t syscall3_1(uint64_t calln, 
     uint64_t a1, uint64_t a2, uint64_t a3);
 uint64_t syscall3_2(uint64_t calln, 
