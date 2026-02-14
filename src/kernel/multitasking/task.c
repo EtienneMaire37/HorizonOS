@@ -15,10 +15,10 @@ const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
 void task_init_file_table(thread_t* task)
 {
     for (int i = 0; i < OPEN_MAX; i++)
-        task->file_table[i] = invalid_fd;
-    task->file_table[0] = 0;    // * STDIN_FILENO
-    task->file_table[1] = 1;    // * STDOUT_FILENO
-    task->file_table[2] = 2;    // * STDERR_FILENO
+        task->file_table[i].index = invalid_fd;
+    task->file_table[0] = (file_table_index_t){.index = 0, .flags = 0};    // * STDIN_FILENO
+    task->file_table[1] = (file_table_index_t){.index = 1, .flags = 0};    // * STDOUT_FILENO
+    task->file_table[2] = (file_table_index_t){.index = 2, .flags = 0};    // * STDERR_FILENO
 }
 
 thread_t* task_create_empty()
@@ -57,8 +57,8 @@ void task_destroy(thread_t* task)
     LOG(TRACE, "Destroying task \"%s\" (pid = %d, ring = %u)", task->name, task->pid, task->ring);
     for (int i = 0; i < OPEN_MAX; i++)
     {
-    	if (task->file_table[i] != invalid_fd)
-            vfs_remove_global_file(task->file_table[i]);
+    	if (task->file_table[i].index != invalid_fd)
+            vfs_remove_global_file(task->file_table[i].index);
     }
     fpu_state_destroy(&task->fpu_state);
     // !!! NEEDS TO BE IN LAST TO ALLOW FOR THE NEEDED VIRTUAL ADDRESS TO PHYSICAL CONVERSIONS NEEDED BY FUTEXES
@@ -298,13 +298,13 @@ void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
     acquire_mutex(&to->file_table_mutex);
     for (int i = 3; i < OPEN_MAX; i++)
     {
-        if (from->file_table[i] == invalid_fd || (cloexec && (file_table[from->file_table[i]].flags & O_CLOEXEC)))
-            to->file_table[i] = invalid_fd;
+        if (from->file_table[i].index == invalid_fd || (cloexec && (from->file_table[i].flags & FD_CLOEXEC)))
+            to->file_table[i].index = invalid_fd;
         else
         {
             to->file_table[i] = from->file_table[i];
-            if (to->file_table[i] != invalid_fd)
-                file_table[to->file_table[i]].used++;
+            if (to->file_table[i].index != invalid_fd)
+                file_table[to->file_table[i].index].used++;
         }
     }
     release_mutex(&to->file_table_mutex);

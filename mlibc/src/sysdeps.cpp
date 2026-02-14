@@ -330,4 +330,13 @@ namespace mlibc
 		*ret = sysconf_helper(num, &_errno);
 		return _errno;
 	}
+
+	int sys_fcntl(int fd, int request, va_list args, int* result)
+	{
+		uint64_t arg = va_arg(args, uint64_t);
+		uint64_t _result;
+		int ret = syscall3_2(SYS_FCNTL, (uint64_t)fd, (uint64_t)request, arg, &_result);
+		*result = (int)_result;
+		return ret;
+	}
 }

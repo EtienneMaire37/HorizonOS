@@ -5,8 +5,13 @@
 #include "../initrd/initrd.h"
 #include <sys/stat.h>
 
-typedef int16_t file_table_index_t;
-static const file_table_index_t invalid_fd = -1;
+typedef struct 
+{
+    int flags;
+    int index;
+} file_table_index_t;
+
+static const int invalid_fd = -1;
 
 typedef enum drive_type
 {

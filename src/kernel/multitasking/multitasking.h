@@ -39,6 +39,11 @@ static inline void unlock_scheduler()
         enable_interrupts();
 }
 
+static inline file_entry_t* get_global_file_entry(int fd)
+{
+    return &file_table[current_task->file_table[fd].index];
+}
+
 void multitasking_init();
 void multitasking_start();
 void multitasking_add_idle_task(char* name);

@@ -75,7 +75,7 @@ static inline int vfs_allocate_thread_file(thread_t* task)
     acquire_mutex(&task->file_table_mutex);
     for (int i = 3; i < OPEN_MAX; i++)
     {
-        if (task->file_table[i] == invalid_fd)
+        if (task->file_table[i].index == invalid_fd)
             return (release_mutex(&task->file_table_mutex), i);
     }
     release_mutex(&task->file_table_mutex);

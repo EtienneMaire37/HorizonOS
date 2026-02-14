@@ -148,7 +148,9 @@ bool is_fd_valid(int fd)
 {
     if (fd < 0 || fd >= OPEN_MAX)
         return false;
-    if (current_task->file_table[fd] == invalid_fd)
+    if (current_task->file_table[fd].index == invalid_fd)
+        return false;
+    if (current_task->file_table[fd].index < 0 || current_task->file_table[fd].index >= MAX_FILE_TABLE_ENTRIES)
         return false;
     return true;
 }

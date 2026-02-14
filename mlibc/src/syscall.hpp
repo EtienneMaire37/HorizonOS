@@ -33,6 +33,7 @@
 #define SYS_GETPGID     28
 #define SYS_SETPGID     29
 #define SYS_DUP         30
+#define SYS_FCNTL       31
 
 #define SYS_HOS_SET_KB_LAYOUT   100
 

@@ -59,7 +59,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret_errno = EBADF;
             break;
         }
-        file_entry_t* entry = &file_table[current_task->file_table[arg1]];
+        file_entry_t* entry = get_global_file_entry(arg1);
         if (vfs_isatty(entry))
             sc_ret_errno = 0;
         else
@@ -133,7 +133,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret(1) = (uint64_t)((off_t)-1);
             break;
         }
-        file_entry_t* entry = &file_table[current_task->file_table[arg1]];
+        file_entry_t* entry = get_global_file_entry(arg1);
         if (entry->entry_type != ET_FILE)
         {
             sc_ret_errno = 0;
@@ -226,7 +226,8 @@ void c_syscall_handler(syscall_registers_t* registers)
         }
         else
         {
-            current_task->file_table[ret] = fd;
+            current_task->file_table[ret].index = fd;
+            current_task->file_table[ret].flags = (arg2 & O_CLOEXEC) ? FD_CLOEXEC : 0;
             // release_mutex(&file_table_lock);
             sc_ret_errno = 0;
             sc_ret(1) = (uint64_t)ret;
@@ -240,8 +241,8 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret(1) = (uint64_t)(-1);
             break;
         }
-        vfs_remove_global_file(current_task->file_table[arg1]);
-        current_task->file_table[arg1] = invalid_fd;
+        vfs_remove_global_file(current_task->file_table[arg1].index);
+        current_task->file_table[arg1].index = invalid_fd;
         break;
     sc_case(SYS_IOCTL, 3, int, unsigned long, void*)
         SC_LOG("syscall SYS_IOCTL(%d, %#lx, %p)", arg1, arg2, arg3);
@@ -304,7 +305,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret_errno = EBADF;
             break;
         }
-        if (!vfs_isatty(&file_table[current_task->file_table[arg1]]))
+        if (!vfs_isatty(get_global_file_entry(arg1)))
         {
             sc_ret_errno = ENOTTY;
             break;
@@ -324,7 +325,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret_errno = EBADF;
             break;
         }
-        if (!vfs_isatty(&file_table[current_task->file_table[arg1]]))
+        if (!vfs_isatty(get_global_file_entry(arg1)))
         {
             sc_ret_errno = ENOTTY;
             break;
@@ -455,7 +456,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             unlock_scheduler();
             break;
         }
-        file_entry_t* entry = &file_table[current_task->file_table[arg1]];
+        file_entry_t* entry = get_global_file_entry(arg1);
         if (!vfs_isatty(entry))
         {
             sc_ret_errno = ENOTTY;
@@ -522,16 +523,19 @@ void c_syscall_handler(syscall_registers_t* registers)
         }
         break;
     sc_case(SYS_GETPID, 0)
+        SC_LOG("syscall SYS_GETPID()");
         lock_scheduler();
         sc_ret(0) = (uint64_t)current_task->pid;
         unlock_scheduler();
         break;
     sc_case(SYS_GETPPID, 0)
+        SC_LOG("syscall SYS_GETPPID()");
         lock_scheduler();
         sc_ret(0) = (uint64_t)current_task->ppid;
         unlock_scheduler();
         break;
     sc_case(SYS_GETHOSTNAME, 2, char*, size_t)
+        SC_LOG("syscall SYS_GETHOSTNAME(%p, %zu)", arg1, arg2);
         if (!arg1)
         {
             sc_ret_errno = EFAULT;
@@ -553,6 +557,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         sc_ret_errno = 0;
         break;
     sc_case(SYS_FSTATAT, 4, int, const char*, int, struct stat*)
+        SC_LOG("syscall SYS_FSTATAT(%d, \"%s\", %d, %p)", arg1, arg2, arg3, arg4);
         // TODO: Implement symbolic links
         if (arg3 & ~(AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW))
         {
@@ -575,7 +580,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         vfs_folder_tnode_t* cwd = NULL;
         if (relative_path)
         {
-            file_entry_t* entry = &file_table[current_task->file_table[arg1]];
+            file_entry_t* entry = get_global_file_entry(arg1);
             if (entry->entry_type != ET_FOLDER)
             {
                 sc_ret_errno = ENOTDIR;
@@ -636,6 +641,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             break;
         }
     sc_case(SYS_GETPGID, 1, pid_t)
+        SC_LOG("syscall SYS_GETPGID(%d)", arg1);
         lock_scheduler();
         thread_t* process = find_task_by_pid_anywhere(arg1);
         if (!process)
@@ -649,6 +655,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         unlock_scheduler();
         break;
     sc_case(SYS_SETPGID, 2, pid_t, pid_t)
+        SC_LOG("syscall SYS_SETPGID(%d, %d)", arg1, arg2);
         lock_scheduler();
         thread_t* process = find_task_by_pid_anywhere(arg1);
         if (!process)
@@ -662,6 +669,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         unlock_scheduler();
         break;
     sc_case(SYS_DUP, 2, int, int)
+        SC_LOG("syscall SYS_DUP(%d, %d)", arg1, arg2);
         lock_scheduler();
         if (!is_fd_valid(arg1))
         {
@@ -676,10 +684,31 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret_errno = EMFILE;
             break;
         }
+        // * copies flags (ie FD_CLOEXEC) too
         current_task->file_table[newfd] = current_task->file_table[arg1];
         unlock_scheduler();
         sc_ret_errno = 0;
         sc_ret(1) = newfd;
+        break;
+    sc_case(SYS_FCNTL, 3, int, int, uint64_t)
+        SC_LOG("syscall SYS_FCNTL(%d, %d, %" PRId64 ")", arg1, arg2, arg3);
+        switch (arg2)
+        {
+        case F_GETFD:
+            acquire_mutex(&current_task->file_table_mutex);
+            if (!is_fd_valid(arg1))
+            {
+                sc_ret_errno = EBADF;
+                break;
+            }
+            sc_ret_errno = 0;
+            sc_ret(1) = current_task->file_table[arg1].flags;
+            release_mutex(&current_task->file_table_mutex);
+            break;
+        default:
+            while (true);
+            sc_ret_errno = ENOSYS;
+        }
         break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
