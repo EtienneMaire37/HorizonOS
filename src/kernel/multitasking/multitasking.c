@@ -2,10 +2,13 @@
 #include "idle.h"
 #include "../cpu/memory.h"
 #include "../cpu/units.h"
+#include "signal.h"
 
 #include <stdlib.h>
 
 hashmap_t* futex_hashmap = NULL;
+hashmap_t* pid_to_task_hashmap = NULL;
+hashmap_t* pgid_to_tq_hashmap = NULL;
 
 mutex_t file_table_lock = MUTEX_INIT;
 uint8_t global_cpu_ticks = 0;
@@ -22,6 +25,7 @@ pid_t task_reading_stdin = -1;
 utf32_buffer_t keyboard_input_buffer;
 
 int task_lock_depth = 0;
+bool queued_ts = false;
 
 void multitasking_init()
 {
@@ -32,6 +36,8 @@ void multitasking_init()
     task_reading_stdin = -1;
 
     futex_hashmap = hashmap_create(1 * MB);
+    pid_to_task_hashmap = hashmap_create(1 * MB);
+    pgid_to_tq_hashmap = hashmap_create(1 * MB);
 
     vfs_init_file_table();
 
@@ -80,13 +86,19 @@ void multitasking_add_task(thread_t* task)
         running_tasks->prev = task;
     }
 
+    task->queue = running_tasks;
+
     unlock_scheduler();
 }
 
 void multitasking_remove_task(thread_t* task)
 {
     lock_scheduler();
-    if (task == running_tasks) abort();
+    if (task == running_tasks)
+    {
+        LOG(DEBUG, "multitasking_remove_task: Tried to remove idle task");
+        abort();
+    }
 
     task->prev->next = task->next;
     task->next->prev = task->prev;
@@ -204,4 +216,58 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
     } while (it != *tq);
     unlock_scheduler();
     return 0;
+}
+
+void task_send_signal_to_pgrp(int sig, pid_t pgrp)
+{
+    lock_scheduler();
+    thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, pgrp);
+    if (!tq || !*tq)
+    {
+        unlock_scheduler();
+        return;
+    }
+    thread_queue_item_t* it = *tq;
+    int i = 0;
+    do
+    {
+        thread_t* cur = it->data;
+        it = it->next;
+        task_send_signal(cur, sig);
+    } while (*tq && it != *tq);
+    unlock_scheduler();
+}
+void task_send_signal(thread_t* thread, int sig)
+{
+    if (thread == idle_task)
+        return;
+    if (sig < 0 || sig >= NUM_SIGNALS)
+    {
+        LOG(WARNING, "task_send_signal: Invalid signal number %d", sig);
+        return;
+    }
+
+    struct sigaction* act = &thread->sig_act_array[sig];
+
+    if (((act->sa_flags & SA_SIGINFO) && act->sa_sigaction == NULL) ||
+        (!(act->sa_flags & SA_SIGINFO) && act->sa_handler == NULL))
+        goto dfl;
+
+    abort();
+    
+dfl:
+    int dfl_action = sig_default_action(sig);
+    switch (dfl_action)
+    {
+    case SIGDEF_IGN:
+        break;
+    case SIGDEF_STOP:
+    case SIGDEF_CONT:
+        abort();
+        break;
+    case SIGDEF_TERM:
+    case SIGDEF_CORE:
+    default:
+        kill_task(thread, sig);
+    }
 }

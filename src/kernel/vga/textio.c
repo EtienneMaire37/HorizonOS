@@ -103,6 +103,11 @@ void tty_set_color(uint8_t fg_color, uint8_t bg_color)
 	tty_color = (fg_color & 0x0f) | (bg_color & 0xf0);
 }
 
+void tty_set_window_size(int sx, int sy)
+{
+	LOG(DEBUG, "tty_set_window_size(%d, %d)", sx, sy);
+}
+
 uint32_t tty_get_character_width()
 {
 	return (framebuffer.width - 2 * tty_padding) / TTY_RES_X;

@@ -32,6 +32,7 @@ void move_running_task_to_thread_queue(thread_queue_t* queue, thread_t* task)
     lock_scheduler();
     multitasking_remove_task(task);
     thread_queue_push_back(queue, task);
+    task->queue = queue;
     unlock_scheduler();
 }
 
@@ -40,6 +41,7 @@ void move_task_to_running_queue(thread_queue_t* queue, thread_queue_item_t* item
     lock_scheduler();
     multitasking_add_task(item->data);
     thread_queue_remove(queue, item);
+    ((thread_t*)item->data)->queue = running_tasks;
     unlock_scheduler();
 }
 
@@ -49,5 +51,6 @@ void move_task_from_to_thread_queue(thread_queue_t* queue1, thread_queue_t* queu
     thread_t* task = item->data;
     thread_queue_remove(queue1, item);
     thread_queue_push_back(queue2, task);
+    task->queue = queue2;
     unlock_scheduler();
 }

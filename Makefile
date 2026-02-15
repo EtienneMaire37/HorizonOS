@@ -58,12 +58,12 @@ $(MLIBC_STAMP): mlibc/src/* $(HOSGCC) Makefile
 		-Ddefault_library=shared \
 		build --reconfigure
 
-	cd mlibc/mlibc &&  DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
+	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
 	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
 	touch $@
 
 $(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub
-	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec
+	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec --with-libtool-opts=-static
 	cd ncurses/ncurses-6.6 && make -j$(nproc)
 	cd ncurses/ncurses-6.6 && make DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	touch $@
@@ -118,14 +118,14 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 	cp src/tasks/bin/* ./bin/initrd_contents/bin/ -r
 	cp ./bin/initrd_contents/sbin/init src/tasks/bin/init
 
+	cp ./bin/kernel.elf ./bin/initrd_contents/boot/kernel.elf
+
 	cp resources/* ./bin/initrd_contents/boot/
 	$(CROSSNM) -n --defined-only -C bin/initrd_contents/boot/kernel.elf > ./bin/initrd_contents/boot/symbols.txt
 	git log -n 1 --pretty=format:'%H' > ./bin/initrd_contents/boot/commit.txt
 
 	mkdir -p ./root
 	
-	cp ./bin/kernel.elf ./bin/initrd_contents/boot/kernel.elf
-
 	rm -f bin/horizonos.bin
 
 # 	PATH="/usr/sbin:${PATH}" $(DIR2FAT32) bin/horizonos.bin 2048 ./root

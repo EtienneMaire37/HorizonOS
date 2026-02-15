@@ -60,6 +60,7 @@ typedef struct __attribute__((packed))
 
 #define SC_RET0         registers->rax
 #define SC_RET1         registers->rbx
+#define SC_RET2         registers->rdx
 
 #define sc_ret(n)       SC_RET##n
 #define sc_ret_errno    sc_ret(0)

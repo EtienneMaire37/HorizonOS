@@ -152,7 +152,11 @@ utf32_char_t ps2_scancode_to_unicode(ps2_full_scancode_t scancode, uint8_t port)
 
 void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_switch)   // port is 1-2
 {
-    if (!task_switch) abort();
+    if (!task_switch) 
+    {
+        LOG(DEBUG, "ps2_handle_keyboard_scancode: task_switch is NULL");
+        abort();
+    }
 
     if (port == 1)
     {
@@ -242,24 +246,13 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                     case VK_C:
                         if (tty_ts.c_lflag & ISIG)
                         {
-                            bool intr = false;
-                            lock_scheduler();
-                            for (thread_t* cur = running_tasks->next; cur != running_tasks; cur = cur->next)
+                            if (!multitasking_is_pgrp_empty(tty_foreground_pgrp))
                             {
-                                if (cur->pgid == tty_foreground_pgrp)
-                                {                                    
-                                    if (cur->pid == current_task->pid)
-                                        *task_switch = true;
-                                    kill_task(cur, SIGINT);
-                                    if (!intr)
-                                    {
-                                        printf("^C");
-                                        fflush(stdout);
-                                    }
-                                    intr = true;
-                                }
+                                printf("^C");
+                                fflush(stdout);
+                                task_send_signal_to_pgrp(SIGINT, tty_foreground_pgrp);
                             }
-                            unlock_scheduler();
+                            return;
                         }
                         break;
                     default:

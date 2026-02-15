@@ -148,7 +148,7 @@ void _start()
             physical_address_width = eax & 0xff;
         }
         else
-            abort();
+            physical_address_width = 64;
 
         LOG(INFO, "Physical address is %u bits long", physical_address_width);
 
@@ -171,7 +171,10 @@ void _start()
     tty_font = psf_font_load_from_initrd("boot/ka8x16thin-1.psf");
 
     if(!tty_font.f)
+    {
+        LOG(DEBUG, "Couldn't find psf font in initrd");
         abort();
+    }
 
     tty_color = (FG_WHITE | BG_BLACK);
 
@@ -201,7 +204,6 @@ void _start()
         tty_set_color(FG_LIGHTRED, BG_BLACK);
         printf("Modern FPU not supported...\n");
         tty_set_color(FG_WHITE, BG_BLACK);
-        // abort();
     }
 
     if (pat_enabled)
@@ -311,7 +313,6 @@ void _start()
             tty_set_color(FG_LIGHTRED, BG_BLACK);
             printf("Modern FPU not supported...\n");
             tty_set_color(FG_WHITE, BG_BLACK);
-            // abort();
         }
     }
 
@@ -494,7 +495,11 @@ void _start()
         S_IROTH | S_IXOTH, 
         0, 0,
         (drive_t){.type = DT_INITRD});
-    if (!vfs_root) abort();
+    if (!vfs_root) 
+    {
+        LOG(DEBUG, "Couldn't create VFS root");
+        abort();
+    }
     vfs_root->inode->parent = vfs_root;
     vfs_explore(vfs_root);
     vfs_mount_device("mnt", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);

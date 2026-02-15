@@ -421,6 +421,7 @@ void vfs_explore(vfs_folder_tnode_t* tnode)
     case DT_VIRTUAL:
         break;
     default:
+        LOG(DEBUG, "Corrupted mountpoint");
         abort();
     }
 

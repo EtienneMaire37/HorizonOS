@@ -53,7 +53,11 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
     if (!constructed_path) return;
     vfs_realpath_from_folder_tnode(tnode, constructed_path);
     char* prefix = malloc(PATH_MAX);
-    if (!prefix) abort();
+    if (!prefix) 
+    {
+        LOG(DEBUG, "vfs_initrd_do_explore: Out of memory");
+        abort();
+    }
     vfs_realpath_from_folder_tnode(mount_point, prefix);
     size_t prefix_length = strlen(prefix);
     // LOG(DEBUG, "Exploring \"%s\"", constructed_path);

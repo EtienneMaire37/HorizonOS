@@ -499,14 +499,6 @@ void handle_irq_1(bool* task_switch)
 
     uint8_t data = inb(PS2_DATA);
 
-    // LOG(DEBUG, "(%#x", data);
-
-    // if (!ps2_device_1_interrupt)
-    // {
-    //     LOG(CRITICAL, "Kernel failed to poll PS/2 return value");
-    //     abort();
-    // }
-
     if (!ps2_device_1_connected) 
         return;
     
@@ -523,14 +515,6 @@ void handle_irq_12(bool* task_switch)
         return;
 
     uint8_t data = inb(PS2_DATA);
-
-    // LOG(DEBUG, ")%#x", data);
-
-    // if (!ps2_device_2_interrupt)
-    // {
-    //     LOG(CRITICAL, "Kernel failed to poll PS/2 return value");
-    //     abort();
-    // }
 
     if (!ps2_device_2_connected) 
         return;

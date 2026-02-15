@@ -8,7 +8,7 @@ void futex_wait(uint64_t paddr, int expected)
 {
 	lock_scheduler();
 	if (*(int*)(paddr + PHYS_MAP_BASE) != expected) goto end;
-	thread_queue_t* fqueue = (thread_queue_t*)hashmap_get_item(futex_hashmap, paddr);
+	thread_queue_t* fqueue = hashmap_get_item(futex_hashmap, paddr);
 	if (!fqueue)
 	{
 		fqueue = (thread_queue_t*)malloc(sizeof(thread_queue_t));

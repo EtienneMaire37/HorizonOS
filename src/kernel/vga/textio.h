@@ -30,6 +30,7 @@ extern bool tty_reading_escape_sequence, tty_reading_control_sequence;
 
 void tty_clear_screen(char c);
 void tty_set_color(uint8_t fg_color, uint8_t bg_color);
+void tty_set_window_size(int sx, int sy);
 void tty_outc(char c);
 void tty_render_cursor(uint32_t cursor);
 void tty_render_character(uint32_t cursor, char c, uint8_t color);

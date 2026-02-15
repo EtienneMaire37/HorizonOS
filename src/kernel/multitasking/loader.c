@@ -213,7 +213,11 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uint8_t ring, bool system, const startup_data_struct_t* data, vfs_folder_tnode_t* cwd)
 {
     if (!name) return false;
-    if (!data) abort();
+    if (!data) 
+    {
+        LOG(DEBUG, "multitasking_add_task_from_vfs: data is NULL");
+        abort();
+    }
 
     if (strlen(path) == 0) return NULL;
 
@@ -229,7 +233,11 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     }
 
     char* simplified_path = malloc(PATH_MAX);
-    if (!simplified_path) abort();
+    if (!simplified_path) 
+    {
+        LOG(DEBUG, "multitasking_add_task_from_vfs: Out of memory");
+        abort();
+    }
     
     vfs_realpath_from_file_tnode(tnode, simplified_path);
 
@@ -247,7 +255,11 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
         return NULL;
     }
     char* prefix = malloc(PATH_MAX);
-    if (!prefix) abort();
+    if (!prefix) 
+    {
+        LOG(DEBUG, "multitasking_add_task_from_vfs: Out of memory");
+        abort();
+    }
     vfs_realpath_from_folder_tnode(mount_point, prefix);
     size_t prefix_length = strlen(prefix);
 

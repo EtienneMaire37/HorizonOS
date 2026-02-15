@@ -4,6 +4,7 @@
 #include <bits/syscall.h>
 #include <mlibc/all-sysdeps.hpp>
 #include <pwd.h>
+#include <termios.h>
 
 #include "syscall.hpp"
 #include "stub.h"
@@ -225,12 +226,20 @@ namespace mlibc
 
 	int sys_dup(int fd, int flags, int* newfd)
 	{
+		// * do the same as in the linux sysdeps.cpp
+		__ensure(!flags);
 		uint64_t _newfd;
-		int ret = syscall2_2(SYS_DUP, (uint64_t)fd, (uint64_t)flags, &_newfd);
+		int ret = syscall1_2(SYS_DUP, (uint64_t)fd, &_newfd);
 		*newfd = (int)_newfd;
 		return ret;
 	}
 
+	int sys_dup2(int fd, int flags, int newfd)
+	{
+		return syscall3_1(SYS_DUP3, (uint64_t)fd, (uint64_t)flags, (uint64_t)newfd);
+	}
+
+	// * same code as in posix/generic/unistd.cpp but without the logs
 	long sysconf_helper(int number, int* _errno)
 	{
 		/* default return values, if not overriden by sysdep */
@@ -323,7 +332,6 @@ namespace mlibc
 		}
 	}
 
-	// * same code as in posix/generic/unistd.cpp but without the logs
 	int sys_sysconf(int num, long* ret)
 	{
 		int _errno;
@@ -338,5 +346,17 @@ namespace mlibc
 		int ret = syscall3_2(SYS_FCNTL, (uint64_t)fd, (uint64_t)request, arg, &_result);
 		*result = (int)_result;
 		return ret;
+	}
+
+	int sys_tcgetwinsize(int fd, struct winsize* winsz)
+	{
+		int ret;
+		return sys_ioctl(fd, TIOCGWINSZ, winsz, &ret);
+	}
+
+	int sys_tcsetwinsize(int fd, const struct winsize* winsz)
+	{
+		int ret;
+		return sys_ioctl(fd, TIOCSWINSZ, (struct winsize*)winsz, &ret);
 	}
 }

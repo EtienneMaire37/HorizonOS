@@ -28,3 +28,4 @@ static inline void load_cr4(uint64_t cr4)
 
 extern uint64_t get_rflags();
 extern void set_eflags(uint64_t value);
+extern uint64_t get_rbp();

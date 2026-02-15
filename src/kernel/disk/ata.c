@@ -192,7 +192,6 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
     }
 
     // * Create block special files
-    if (IDE_MAX >= 10) abort();
     for (uint8_t i = 0; i < 2; i++)
     {
         for (uint8_t j = 0; j < 2; j++)

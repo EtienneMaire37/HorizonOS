@@ -4,7 +4,7 @@
 #include "../util/hashmap.h"
 #include "queue.h"
 
-extern hashmap_t* futex_hashmap;
+extern hashmap_t *futex_hashmap, *pid_to_task_hashmap, *pgid_to_tq_hashmap;
 
 extern mutex_t file_table_lock;
 extern uint8_t global_cpu_ticks;
@@ -22,7 +22,7 @@ extern pid_t task_reading_stdin;
 extern utf32_buffer_t keyboard_input_buffer;
 
 extern int task_lock_depth;
-
+extern bool queued_ts;
 
 extern void iretq_instruction();
 
@@ -36,12 +36,37 @@ static inline void unlock_scheduler()
 {
     disable_interrupts();
     if (--task_lock_depth == 0)
+    {
         enable_interrupts();
+        if (queued_ts)
+        {
+            queued_ts = false;
+            switch_task();
+        }
+    }
 }
 
 static inline file_entry_t* get_global_file_entry(int fd)
 {
     return &file_table[current_task->file_table[fd].index];
+}
+
+static inline void vfs_close(int fd)
+{
+    lock_scheduler();
+    if (is_fd_valid(fd))
+    {
+        vfs_remove_global_file(current_task->file_table[fd].index);
+        current_task->file_table[fd].index = invalid_fd;
+    }
+    unlock_scheduler();
+}
+
+static inline bool multitasking_is_pgrp_empty(pid_t pgid)
+{
+    thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, pgid);
+    if (!tq) return true;
+    return *tq == NULL;
 }
 
 void multitasking_init();
@@ -53,5 +78,8 @@ void multitasking_remove_task(thread_t* task);
 thread_t* find_running_task_by_pid(pid_t pid);
 thread_t* find_task_by_pid_in_queue(thread_queue_t* queue, pid_t pid);
 thread_t* find_task_by_pid_anywhere(pid_t pid);
+
+void task_send_signal_to_pgrp(int sig, pid_t pgrp);
+void task_send_signal(thread_t* thread, int sig);
 
 pid_t waitpid_find_child_in_tq(thread_queue_t* queue, pid_t pid, int* wstatus, int pgid_on_call);

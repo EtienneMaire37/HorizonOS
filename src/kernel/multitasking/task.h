@@ -36,6 +36,8 @@ typedef struct thread
 
     pid_t forked_pid;
 
+    void* queue;
+
     uint8_t ring;
     pid_t pid, ppid, pgid;
     bool system_task;    // * Allow causing kernel panics
@@ -51,7 +53,7 @@ typedef struct thread
 
     // * We still have to keep them here to fix the case 
     // * where the current process is blocked before context switching
-    thread_t *prev, *next; 
+    thread_t *prev, *next;
 } thread_t;
 
 extern const uint64_t task_rsp_offset;
@@ -91,6 +93,7 @@ thread_t* find_next_task();
 bool is_fd_valid(int fd);
 
 pid_t task_generate_pid();
+void task_set_pgid(thread_t* task, pid_t pgid);
 
 void multitasking_add_task(thread_t* task);
 void multitasking_remove_task(thread_t* task);

@@ -241,8 +241,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret(1) = (uint64_t)(-1);
             break;
         }
-        vfs_remove_global_file(current_task->file_table[arg1].index);
-        current_task->file_table[arg1].index = invalid_fd;
+        vfs_close(arg1);
         break;
     sc_case(SYS_IOCTL, 3, int, unsigned long, void*)
         SC_LOG("syscall SYS_IOCTL(%d, %#lx, %p)", arg1, arg2, arg3);
@@ -282,7 +281,7 @@ void c_syscall_handler(syscall_registers_t* registers)
 
             new_task->pid = old_pid;
             new_task->ppid = current_task->ppid;
-            new_task->pgid = current_task->pgid;
+            task_set_pgid(new_task, current_task->pgid);
 
             task_copy_file_table(current_task, new_task, true);
 
@@ -664,12 +663,12 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret_errno = ESRCH;
             break;
         }
-        process->pgid = arg2;
+        task_set_pgid(process, arg2);
         sc_ret_errno = 0;
         unlock_scheduler();
         break;
-    sc_case(SYS_DUP, 2, int, int)
-        SC_LOG("syscall SYS_DUP(%d, %d)", arg1, arg2);
+    sc_case(SYS_DUP, 1, int)
+        SC_LOG("syscall SYS_DUP(%d)", arg1);
         lock_scheduler();
         if (!is_fd_valid(arg1))
         {
@@ -684,18 +683,52 @@ void c_syscall_handler(syscall_registers_t* registers)
             sc_ret_errno = EMFILE;
             break;
         }
-        // * copies flags (ie FD_CLOEXEC) too
-        current_task->file_table[newfd] = current_task->file_table[arg1];
+        current_task->file_table[newfd].index = current_task->file_table[arg1].index;
+        current_task->file_table[newfd].flags = 0;
+        file_table[current_task->file_table[newfd].index].used++;
         unlock_scheduler();
         sc_ret_errno = 0;
         sc_ret(1) = newfd;
         break;
+    sc_case(SYS_DUP3, 3, int, int, int)
+        SC_LOG("syscall SYS_DUP3(%d, %d, %d)", arg1, arg2, arg3);
+        if (arg1 == arg3)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        if (arg2 & ~O_CLOEXEC)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        lock_scheduler();
+        if (!is_fd_valid(arg1))
+        {
+            unlock_scheduler();
+            sc_ret_errno = EBADF;
+            break;
+        }
+        if (arg3 <= -1)
+        {
+            unlock_scheduler();
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        if (is_fd_valid(arg3))
+            vfs_close(arg3);
+        current_task->file_table[arg3].index = current_task->file_table[arg1].index;
+        current_task->file_table[arg3].flags = (arg2 & O_CLOEXEC) ? FD_CLOEXEC : 0;
+        file_table[current_task->file_table[arg3].index].used++;
+        unlock_scheduler();
+        sc_ret_errno = 0;
+        break;
     sc_case(SYS_FCNTL, 3, int, int, uint64_t)
         SC_LOG("syscall SYS_FCNTL(%d, %d, %" PRId64 ")", arg1, arg2, arg3);
+        lock_scheduler();
         switch (arg2)
         {
         case F_GETFD:
-            acquire_mutex(&current_task->file_table_mutex);
             if (!is_fd_valid(arg1))
             {
                 sc_ret_errno = EBADF;
@@ -703,12 +736,32 @@ void c_syscall_handler(syscall_registers_t* registers)
             }
             sc_ret_errno = 0;
             sc_ret(1) = current_task->file_table[arg1].flags;
-            release_mutex(&current_task->file_table_mutex);
+            break;
+        case F_SETFD:
+            if (!is_fd_valid(arg1))
+            {
+                sc_ret_errno = EBADF;
+                break;
+            }
+            sc_ret_errno = 0;
+            current_task->file_table[arg1].flags = arg3;
+            break;
+        case F_GETFL:
+            if (!is_fd_valid(arg1))
+            {
+                sc_ret_errno = EBADF;
+                break;
+            }
+            sc_ret_errno = 0;
+            sc_ret(1) = file_table[current_task->file_table[arg1].index].flags;
             break;
         default:
-            while (true);
+            LOG(DEBUG, "Unknown fcntl request");
+            unlock_scheduler();
+            task_send_signal(current_task, SIGILL);
             sc_ret_errno = ENOSYS;
         }
+        unlock_scheduler();
         break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
@@ -723,6 +776,7 @@ void c_syscall_handler(syscall_registers_t* registers)
     }
     default:
         LOG(DEBUG, "syscall %" PRIu64 " not implemented", registers->rax);
-        kill_task(current_task, SIGILL);
+        task_send_signal(current_task, SIGILL);
+        sc_ret_errno = ENOSYS;
     }
 }

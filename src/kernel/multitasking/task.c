@@ -32,7 +32,8 @@ thread_t* task_create_empty()
 
     task->pid = task_generate_pid();
     task->ppid = -1;
-    task->pgid = task->pid;
+    task->pgid = -1;
+    task_set_pgid(task, task->pid);
 
     task->ruid = task->euid = task->suid = 0;
     task->rgid = task->egid = task->sgid = 0;
@@ -47,14 +48,71 @@ thread_t* task_create_empty()
 
     task->cwd = vfs_root;
 
+    task->queue = NULL;
+
     task_init_file_table(task);
+
+    hashmap_set_item(pid_to_task_hashmap, task->pid, task);
 
     return task;
 }
 
+void task_set_pgid(thread_t* task, pid_t pgid)
+{
+    lock_scheduler();
+    if (task->pgid != -1)
+    {
+        thread_queue_t* old_tq = hashmap_get_item(pgid_to_tq_hashmap, task->pgid);
+        if (!old_tq) goto move_to_new_tq;
+        thread_queue_item_t* it = *old_tq;
+        if (!it) goto move_to_new_tq;
+        do
+        {
+            thread_t* cur = it->data;
+            if (cur == task)
+            {
+                ll_remove(old_tq, it);
+                goto move_to_new_tq;
+            }
+            it = it->next;
+        } while (it != *old_tq);
+    }
+move_to_new_tq:
+    task->pgid = pgid;
+    thread_queue_t* new_tq = hashmap_get_item(pgid_to_tq_hashmap, task->pgid);
+    if (!new_tq)
+    {
+        new_tq = malloc(sizeof(thread_queue_t));
+        *new_tq = TQ_INIT;
+        hashmap_set_item(pgid_to_tq_hashmap, task->pgid, new_tq);
+    }
+    ll_push_back(new_tq, task);
+    unlock_scheduler();
+}
+
 void task_destroy(thread_t* task)
 {
+    lock_scheduler();
     LOG(TRACE, "Destroying task \"%s\" (pid = %d, ring = %u)", task->name, task->pid, task->ring);
+    
+    hashmap_remove_item(pid_to_task_hashmap, task->pid);
+
+    thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, task->pgid);
+    if (!tq || !*tq)
+        goto destroy;
+    thread_queue_item_t* it = *tq;
+    do
+    {
+        thread_t* cur = it->data;
+        if (cur == task)
+        {
+            ll_remove(tq, it);
+            break;
+        }
+        it = it->next;
+    } while (*tq && it != *tq);
+
+destroy:
     for (int i = 0; i < OPEN_MAX; i++)
     {
     	if (task->file_table[i].index != invalid_fd)
@@ -64,6 +122,7 @@ void task_destroy(thread_t* task)
     // !!! NEEDS TO BE IN LAST TO ALLOW FOR THE NEEDED VIRTUAL ADDRESS TO PHYSICAL CONVERSIONS NEEDED BY FUTEXES
     task_free_vas((physical_address_t)task->cr3);
 	LOG(TRACE, "Done.");
+    unlock_scheduler();
 }
 
 void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg)
@@ -237,7 +296,10 @@ uint64_t task_read_at_address_8b(thread_t* task, uint64_t address)
 void switch_task()
 {
     if (task_count == 0)
+    {
+        LOG(DEBUG, "No processes left");
         abort();
+    }
 
     // ! Should never log anything here
 
@@ -281,13 +343,7 @@ thread_t* find_task_by_pid_in_queue(thread_queue_t* queue, pid_t pid)
 
 thread_t* find_task_by_pid_anywhere(pid_t pid)
 {
-    if (thread_t* thread = find_running_task_by_pid(pid); thread)
-        return thread;
-    if (thread_t* thread = find_task_by_pid_in_queue(&waitpid_tasks, pid); thread)
-        return thread;
-    if (thread_t* thread = find_task_by_pid_in_queue(&forked_tasks, pid); thread)
-        return thread;
-    return NULL;
+    return hashmap_get_item(pid_to_task_hashmap, pid);
 }
 
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
@@ -475,13 +531,19 @@ pid_t task_generate_pid()
 
 void kill_task(thread_t* task, int ret)
 {
+    LOG(TRACE, "kill_task({.name = \"%s\", .pid = %d, .ppid = %d, .pgid = %d}, %d)", 
+        task->name, task->pid, task->ppid, task->pgid, ret);
     lock_scheduler();
     task->return_value = ret;
-    move_running_task_to_thread_queue(&dead_tasks, task);
+    if (task->queue == running_tasks)
+        move_running_task_to_thread_queue(&dead_tasks, task);
+    else
+        move_task_from_to_thread_queue(task->queue, &dead_tasks, ll_find_item_by_data(task->queue, task));
     waitpid_event();
+
+    if (task_lock_depth > 0 && task == current_task)
+        queued_ts = true;
     unlock_scheduler();
-    if (task == current_task)
-        switch_task();
 }
 
 void task_mask_signal(thread_t* task, int sig)

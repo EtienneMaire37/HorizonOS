@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../multitasking/task.h"
+#include "../multitasking/multitasking.h"
 #include "../cpu/memory.h"
 #include "../debug/out.h"
 #include "../cpu/util.h"
@@ -22,7 +22,7 @@ extern initrd_file_t* commit_file;
 
 #define is_a_valid_function(symbol_type) ((symbol_type) == 'T' || (symbol_type) == 'R' || (symbol_type) == 't' || (symbol_type) == 'r')  
 
-void print_kernel_symbol_name(uintptr_t rip, uintptr_t rbp)
+static inline void print_kernel_symbol_name(uintptr_t rip, uintptr_t rbp, bool ttyout)
 {
     initrd_file_t* file = kernel_symbols_file;
     if (file == NULL) return;
@@ -40,15 +40,19 @@ void print_kernel_symbol_name(uintptr_t rip, uintptr_t rbp)
         {
             if (last_symbol_address <= rip && symbol_address > rip && is_a_valid_function(found_symbol_type))
             {
-                putchar(file == kernel_symbols_file ? '[' : '(');
+                if (ttyout)
+                    putchar(file == kernel_symbols_file ? '[' : '(');
                 CONTINUE_LOG(INFO, file == kernel_symbols_file ? "[" : "(");
                 
-                if (found_symbol_type == 'T' || found_symbol_type == 't')
-                    tty_set_color(FG_LIGHTCYAN, BG_BLACK);
-                else if (found_symbol_type == 'R' || found_symbol_type == 'r')
-                    tty_set_color(FG_LIGHTMAGENTA, BG_BLACK);
-                else
-                    tty_set_color(FG_LIGHTGRAY, BG_BLACK);
+                if (ttyout)
+                {
+                    if (found_symbol_type == 'T' || found_symbol_type == 't')
+                        tty_set_color(FG_LIGHTCYAN, BG_BLACK);
+                    else if (found_symbol_type == 'R' || found_symbol_type == 'r')
+                        tty_set_color(FG_LIGHTMAGENTA, BG_BLACK);
+                    else
+                        tty_set_color(FG_LIGHTGRAY, BG_BLACK);
+                }
 
                 uint8_t light_tty_color = tty_color;
                 bool subfunction = false;
@@ -57,19 +61,25 @@ void print_kernel_symbol_name(uintptr_t rip, uintptr_t rbp)
                 {
                     if (last_symbol_buffer[i] == '.')
                     {
-                        tty_set_color(FG_LIGHTGRAY, BG_BLACK);
+                        if (ttyout)
+                            tty_set_color(FG_LIGHTGRAY, BG_BLACK);
                         subfunction = true;
                     }
-                    putchar(last_symbol_buffer[i]);
+                    if (ttyout)
+                        putchar(last_symbol_buffer[i]);
                     CONTINUE_LOG(INFO, "%c", last_symbol_buffer[i]);
                     if (subfunction)
                     {
-                        tty_set_color(light_tty_color & 0x07, light_tty_color & 0x70);
+                        if (ttyout)
+                            tty_set_color(light_tty_color & 0x07, light_tty_color & 0x70);
                         subfunction = false;
                     }
                 }
-                tty_set_color(FG_WHITE, BG_BLACK);
-                putchar(file == kernel_symbols_file ? ']' : ')');
+                if (ttyout)
+                {
+                    tty_set_color(FG_WHITE, BG_BLACK);
+                    putchar(file == kernel_symbols_file ? ']' : ')');
+                }
                 CONTINUE_LOG(INFO, file == kernel_symbols_file ? "]" : ")");
                 return;
             }
@@ -110,7 +120,76 @@ void print_kernel_symbol_name(uintptr_t rip, uintptr_t rbp)
     }
 }
 
-void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
+static inline void print_stack_trace(uint64_t rip, uint64_t rbp_val, bool ttyout)
+{
+    if (ttyout)
+        printf("Stack trace : \n");
+    LOG(INFO, "Stack trace : ");
+
+    typedef struct __attribute__((packed)) call_frame
+    {
+        uintptr_t rbp;
+        uintptr_t rip;
+    } call_frame_t;
+
+    call_frame_t* rbp = (call_frame_t*)rbp_val;
+    // asm volatile ("mov eax, rbp" : "=a"(rbp));
+
+    // ~ Log the last function (the one the exception happened in)
+    if (ttyout)
+    {
+        printf("rip : 0x");
+        tty_set_color(FG_YELLOW, BG_BLACK);
+        printf("%" PRIx64, rip);
+        tty_set_color(FG_WHITE, BG_BLACK);
+        putchar(' ');
+    }
+
+    LOG(INFO, "rip : %#" PRIx64 " ", rip);
+    print_kernel_symbol_name(rip, (uintptr_t)rbp, ttyout);
+    if (ttyout)
+        putchar('\n');
+
+    // while (rbp != NULL && rbp->rip != 0 && i <= max_stack_frames && is_address_canonical((uintptr_t)rbp) && is_address_canonical((uintptr_t)rbp->rip) && (uintptr_t)rbp != 0 && (uintptr_t)rbp->rip != 0 && 
+    // (((!multitasking_enabled || (multitasking_enabled && first_task_switch)) &&
+    //         (((uintptr_t)rbp > 0xffffffffffffffff - 1024 * bootboot.numcores) && ((uintptr_t)rbp <= 0xffffffffffffffff))) || 
+    //     (((uintptr_t)rbp < TASK_STACK_TOP_ADDRESS) && ((uintptr_t)rbp >= TASK_STACK_BOTTOM_ADDRESS))))
+
+    const int max_stack_frames = 12;
+
+    for (int i = 0; i <= max_stack_frames; i++)
+    {
+        if (rbp == NULL)
+            break;
+        // * &rbp->rip == NULL
+        if ((uint64_t)rbp == 0xfffffffffffffff8)
+            break;
+        if (rbp->rip == 0)
+            break;
+        if (i == max_stack_frames)
+        {
+            if (ttyout)
+            {
+                tty_set_color(FG_RED, BG_BLACK);
+                printf("...");
+                tty_set_color(FG_WHITE, BG_BLACK);
+            }
+            LOG(INFO, "...");
+        }
+        else
+        {
+            if (ttyout)
+                printf("rip : %#" PRIx64 " | rbp : %#" PRIx64 " ", rbp->rip, (uint64_t)rbp);
+            LOG(INFO, "rip : %#" PRIx64 " | rbp : %#" PRIx64 " ", rbp->rip, (uint64_t)rbp);
+            print_kernel_symbol_name(rbp->rip - 1, (uintptr_t)rbp, ttyout);
+            if (ttyout)
+                putchar('\n');
+            rbp = (call_frame_t*)rbp->rbp;
+        }
+    }
+}
+
+static inline void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
 {
     disable_interrupts();
 
@@ -201,61 +280,7 @@ void __attribute__((noreturn)) kernel_panic(interrupt_registers_t* registers)
     printf("R12=%#.16" PRIx64 " R13=%#.16" PRIx64 " R14=%#.16" PRIx64 " R15=%#.16" PRIx64 "\n", registers->r12, registers->r13, registers->r14, registers->r15);
     printf("RDI=%#.16" PRIx64 " RSI=%#.16" PRIx64 "\n\n", registers->rdi, registers->rsi);
 
-    printf("Stack trace : \n");
-    LOG(INFO, "Stack trace : ");
-
-    typedef struct __attribute__((packed)) call_frame
-    {
-        uintptr_t rbp;
-        uintptr_t rip;
-    } call_frame_t;
-
-    call_frame_t* rbp = (call_frame_t*)registers->rbp;
-    // asm volatile ("mov eax, rbp" : "=a"(rbp));
-
-    // ~ Log the last function (the one the exception happened in)
-    printf("rip : 0x");
-    tty_set_color(FG_YELLOW, BG_BLACK);
-    printf("%" PRIx64, registers->rip);
-    tty_set_color(FG_WHITE, BG_BLACK);
-    putchar(' ');
-
-    LOG(INFO, "rip : %#" PRIx64 " ", registers->rip);
-    print_kernel_symbol_name(registers->rip, (uintptr_t)rbp);
-    putchar('\n');
-
-    // while (rbp != NULL && rbp->rip != 0 && i <= max_stack_frames && is_address_canonical((uintptr_t)rbp) && is_address_canonical((uintptr_t)rbp->rip) && (uintptr_t)rbp != 0 && (uintptr_t)rbp->rip != 0 && 
-    // (((!multitasking_enabled || (multitasking_enabled && first_task_switch)) &&
-    //         (((uintptr_t)rbp > 0xffffffffffffffff - 1024 * bootboot.numcores) && ((uintptr_t)rbp <= 0xffffffffffffffff))) || 
-    //     (((uintptr_t)rbp < TASK_STACK_TOP_ADDRESS) && ((uintptr_t)rbp >= TASK_STACK_BOTTOM_ADDRESS))))
-
-    const int max_stack_frames = 12;
-
-    for (int i = 0; i <= max_stack_frames; i++)
-    {
-        if (rbp == NULL)
-            break;
-        // * &rbp->rip == NULL
-        if ((uint64_t)rbp == 0xfffffffffffffff8)
-            break;
-        if (rbp->rip == 0)
-            break;
-        if (i == max_stack_frames)
-        {
-            tty_set_color(FG_RED, BG_BLACK);
-            printf("...");
-            tty_set_color(FG_WHITE, BG_BLACK);
-            LOG(INFO, "...");
-        }
-        else
-        {
-            printf("rip : %#" PRIx64 " | rbp : %#" PRIx64 " ", rbp->rip, (uint64_t)rbp);
-            LOG(INFO, "rip : %#" PRIx64 " | rbp : %#" PRIx64 " ", rbp->rip, (uint64_t)rbp);
-            print_kernel_symbol_name(rbp->rip - 1, (uintptr_t)rbp);
-            putchar('\n');
-            rbp = (call_frame_t*)rbp->rbp;
-        }
-    }
+    print_stack_trace(registers->rip, registers->rbp, true);
 
     putchar('\n');
 

@@ -1,7 +1,8 @@
 #include "ioctl.h"
-#include "termios.h"
 #include "task.h"
 #include "multitasking.h"
+
+#include <termios.h>
 
 void syscall_ioctl(syscall_registers_t* registers, int fd, unsigned long request, void* arg)
 {
@@ -47,8 +48,57 @@ void syscall_ioctl(syscall_registers_t* registers, int fd, unsigned long request
         sc_ret_errno = 0;
         break;
     }
+    case TIOCGWINSZ:
+    {
+        if (!arg)
+        {
+            sc_ret_errno = EFAULT;
+            break;
+        }
+        if (!is_fd_valid(fd))
+        {
+            sc_ret_errno = EBADF;
+            break;
+        }
+        file_entry_t* entry = get_global_file_entry(fd);
+        if (!vfs_isatty(entry))
+        {
+            sc_ret_errno = ENOTTY;
+            break;
+        }
+        struct winsize* ws = arg;
+        ws->ws_col = TTY_RES_X;
+        ws->ws_row = TTY_RES_Y;
+        sc_ret_errno = 0;
+        break;
+    }
+    case TIOCSWINSZ:
+    {
+        if (!arg)
+        {
+            sc_ret_errno = EFAULT;
+            break;
+        }
+        if (!is_fd_valid(fd))
+        {
+            sc_ret_errno = EBADF;
+            break;
+        }
+        file_entry_t* entry = get_global_file_entry(fd);
+        if (!vfs_isatty(entry))
+        {
+            sc_ret_errno = ENOTTY;
+            break;
+        }
+        struct winsize* ws = arg;
+        tty_set_window_size(ws->ws_col, ws->ws_row);
+        sc_ret_errno = 0;
+        task_send_signal_to_pgrp(SIGWINCH, tty_foreground_pgrp);
+        break;
+    }
     default:
         LOG(DEBUG, "unknown ioctl request: %#lx, %p", request, arg);
-        kill_task(current_task, SIGILL);
+        task_send_signal(current_task, SIGILL);
+        sc_ret_errno = ENOSYS;
     }
 }
