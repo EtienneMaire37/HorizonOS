@@ -5,6 +5,7 @@ thread_queue_t dead_tasks = TQ_INIT;
 thread_queue_t reapable_tasks = TQ_INIT;
 thread_queue_t waitpid_tasks = TQ_INIT;
 thread_queue_t forked_tasks = TQ_INIT;
+thread_queue_t stopped_tasks = TQ_INIT;
 
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data)
 {
@@ -41,7 +42,7 @@ void move_task_to_running_queue(thread_queue_t* queue, thread_queue_item_t* item
     lock_scheduler();
     multitasking_add_task(item->data);
     thread_queue_remove(queue, item);
-    ((thread_t*)item->data)->queue = running_tasks;
+    ((thread_t*)item->data)->queue = &running_tasks;
     unlock_scheduler();
 }
 
@@ -52,5 +53,25 @@ void move_task_from_to_thread_queue(thread_queue_t* queue1, thread_queue_t* queu
     thread_queue_remove(queue1, item);
     thread_queue_push_back(queue2, task);
     task->queue = queue2;
+    unlock_scheduler();
+}
+
+void move_task_to_queue(void* queue, thread_t* task)
+{
+    lock_scheduler();
+    if (task->queue == queue)
+    {
+        unlock_scheduler();
+        return;
+    }
+    if (task->queue == &running_tasks)
+        move_running_task_to_thread_queue(queue, task);
+    else
+    {
+        if (queue == &running_tasks)
+            move_task_to_running_queue(task->queue, ll_find_item_by_data(task->queue, task));
+        else
+            move_task_from_to_thread_queue(task->queue, queue, ll_find_item_by_data(task->queue, task));
+    }
     unlock_scheduler();
 }

@@ -26,7 +26,7 @@ thread_t* task_create_empty()
     thread_t* task = (thread_t*)malloc(sizeof(thread_t));
     if (!task) return NULL;
 
-    memset(task->name, 0, THREAD_NAME_MAX);
+    memset(task, 0, sizeof(task));
 
     task->file_table_mutex = MUTEX_INIT;
 
@@ -301,6 +301,12 @@ void switch_task()
         abort();
     }
 
+    if (task_lock_depth > 0)
+    {
+        queued_ts = true;
+        return;
+    }
+
     // ! Should never log anything here
 
     lock_scheduler();
@@ -447,7 +453,7 @@ void cleanup_tasks()
     unlock_scheduler();
 }
 
-void waitpid_event()
+void waitpid_check_dead()
 {
     lock_scheduler();
     thread_queue_item_t* cur_dead_task = dead_tasks;
@@ -535,14 +541,19 @@ void kill_task(thread_t* task, int ret)
         task->name, task->pid, task->ppid, task->pgid, ret);
     lock_scheduler();
     task->return_value = ret;
-    if (task->queue == running_tasks)
-        move_running_task_to_thread_queue(&dead_tasks, task);
-    else
-        move_task_from_to_thread_queue(task->queue, &dead_tasks, ll_find_item_by_data(task->queue, task));
-    waitpid_event();
+    
+    thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, task->ppid);
+    if (parent)
+    {
+        parent->waitpid_ret = task->pid;
+        parent->wstatus = ret;
+        move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+        return;
+    }
 
-    if (task_lock_depth > 0 && task == current_task)
-        queued_ts = true;
+    if (task == current_task)
+        switch_task();
+
     unlock_scheduler();
 }
 
@@ -556,15 +567,4 @@ void task_set_pending_signal(thread_t* task, int sig)
 {
     int idx = sig / sizeof(unsigned long);
     task->sig_pending.__sig[idx] |= (1ULL << (sig - idx * sizeof(unsigned long)));
-}
-
-void task_queue_signal(thread_t* task, int sig)
-{
-    if (sig >= 32)
-    {
-        LOG(ERROR, "RT signals are not implemented yet!!");
-        while (true);
-    }
-
-    task_set_pending_signal(task, sig);
 }

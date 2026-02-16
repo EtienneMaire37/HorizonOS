@@ -32,6 +32,7 @@ typedef struct thread
 
     // * waitpid shenanigans
     pid_t wait_pid, waitpid_ret, pgid_on_waitpid;
+    int waitpid_flags;
     uint32_t wstatus;
 
     pid_t forked_pid;
@@ -132,4 +133,4 @@ void task_mask_signal(thread_t* index, int sig);
 void task_set_pending_signal(thread_t* index, int sig);
 void task_queue_signal(thread_t* index, int sig);
 
-void waitpid_event();
+void waitpid_check_dead();

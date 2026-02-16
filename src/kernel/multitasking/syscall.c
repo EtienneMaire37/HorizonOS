@@ -13,6 +13,7 @@
 #include <time.h>
 #include "../time/ktime.h"
 #include <fcntl.h>
+#include <assert.h>
 
 void c_syscall_handler(syscall_registers_t* registers)
 {
@@ -288,6 +289,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             move_running_task_to_thread_queue(&reapable_tasks, current_task);
 
             unlock_scheduler();
+            assert(task_lock_depth == 0);
             switch_task();
             break;
         }
@@ -373,6 +375,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         pid_t forked_pid = current_task->forked_pid;
         move_running_task_to_thread_queue(&forked_tasks, current_task);
         unlock_scheduler();
+        assert(task_lock_depth == 0);
         switch_task();
         if (current_task->pid == forked_pid)
             sc_ret(1) = 0;
@@ -418,11 +421,14 @@ void c_syscall_handler(syscall_registers_t* registers)
     	break;
     sc_case(SYS_WAIT4, 4, pid_t, int*, int, struct rusage*)
         SC_LOG("syscall SYS_WAIT4(%d, %p, %d, %p)", arg1, arg2, arg3, arg4);
-        // * Don't support it for now
-        if (arg3 & (WUNTRACED | WCONTINUED))
+        if (arg3 & WNOWAIT)
+        {
+            sc_ret_errno = 0;
+            break;
+        }
+        if (arg3 & ~(WNOHANG | WUNTRACED | WCONTINUED))
         {
             sc_ret_errno = EINVAL;
-            sc_ret(1) = (pid_t)-1;
             break;
         }
         if (arg3 & WNOHANG)
@@ -436,9 +442,11 @@ void c_syscall_handler(syscall_registers_t* registers)
         lock_scheduler();
         current_task->wait_pid = arg1;
         current_task->pgid_on_waitpid = current_task->pgid;
+        current_task->waitpid_flags = arg3;
         unlock_scheduler();
         move_running_task_to_thread_queue(&waitpid_tasks, current_task);
-        waitpid_event();
+        waitpid_check_dead();
+        assert(task_lock_depth == 0);
         switch_task();
         if (arg4)
             memset(arg4, 0, sizeof(struct rusage));

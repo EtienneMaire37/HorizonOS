@@ -806,6 +806,12 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
         if (count == 0)
             return 0;
         lock_scheduler();
+        if (current_task->pgid != tty_foreground_pgrp)
+        {
+            task_send_signal(current_task, SIGTTIN);
+            unlock_scheduler();
+            return 0;
+        }
         if (no_buffered_characters(keyboard_input_buffer))
         {
             task_reading_stdin = current_task->pid;
@@ -834,6 +840,14 @@ ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t
     case CHR_DIR_READ:
         return 0;
     case CHR_DIR_WRITE:
+        lock_scheduler();
+        if (current_task->pgid != tty_foreground_pgrp)
+        {
+            task_send_signal(current_task, SIGTTOU);
+            unlock_scheduler();
+            return 0;
+        }
+        unlock_scheduler();
         for (uint32_t i = 0; i < count; i++)
             tty_outc(buf[i]);
         return count;

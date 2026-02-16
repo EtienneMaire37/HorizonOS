@@ -86,7 +86,7 @@ void multitasking_add_task(thread_t* task)
         running_tasks->prev = task;
     }
 
-    task->queue = running_tasks;
+    task->queue = &running_tasks;
 
     unlock_scheduler();
 }
@@ -218,6 +218,45 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
     return 0;
 }
 
+static inline void task_stop(thread_t* thread, int sig)
+{
+    LOG(TRACE, "Stopping task \"%s\"", thread->name);
+    move_task_to_queue(&stopped_tasks, thread);
+
+    if (thread == current_task)
+        switch_task();
+
+    thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, thread->ppid);
+    if (!parent)
+        return;
+
+    if (parent->waitpid_flags & WUNTRACED)
+    {
+        parent->waitpid_ret = thread->pid;
+        parent->wstatus = ((sig & 0xff) << 8) | 0x7f;
+        move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+        return;
+    }
+}
+static inline void task_continue(thread_t* thread)
+{
+    LOG(TRACE, "Resuming task \"%s\"", thread->name);
+    if (thread->queue == &stopped_tasks)
+        move_task_to_queue(&running_tasks, thread);
+    
+    thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, thread->ppid);
+    if (!parent)
+        return;
+
+    if (parent->waitpid_flags & WCONTINUED)
+    {
+        parent->waitpid_ret = thread->pid;
+        parent->wstatus = 0xffff;
+        move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+        return;
+    }
+}
+
 void task_send_signal_to_pgrp(int sig, pid_t pgrp)
 {
     lock_scheduler();
@@ -239,22 +278,50 @@ void task_send_signal_to_pgrp(int sig, pid_t pgrp)
 }
 void task_send_signal(thread_t* thread, int sig)
 {
+    lock_scheduler();
     if (thread == idle_task)
+    {
+        unlock_scheduler();
         return;
+    }
     if (sig < 0 || sig >= NUM_SIGNALS)
     {
         LOG(WARNING, "task_send_signal: Invalid signal number %d", sig);
+        unlock_scheduler();
         return;
     }
 
     struct sigaction* act = &thread->sig_act_array[sig];
-
-    if (((act->sa_flags & SA_SIGINFO) && act->sa_sigaction == NULL) ||
-        (!(act->sa_flags & SA_SIGINFO) && act->sa_handler == NULL))
-        goto dfl;
-
-    abort();
     
+    if (act->sa_flags & SA_SIGINFO)
+    {
+        switch ((uint64_t)act->sa_sigaction)
+        {
+        case (uint64_t)SIG_DFL:
+            goto dfl;
+        case (uint64_t)SIG_IGN:
+            unlock_scheduler();
+            return;
+        default:
+            LOG(DEBUG, "act->sa_sigaction = %p", act->sa_sigaction);
+            abort();
+        }
+    }
+    else
+    {
+        switch ((uint64_t)act->sa_handler)
+        {
+        case (uint64_t)SIG_DFL:
+            goto dfl;
+        case (uint64_t)SIG_IGN:
+            unlock_scheduler();
+            return;
+        default:
+            LOG(DEBUG, "act->sa_handler = %p", act->sa_handler);
+            abort();
+        }
+    }
+
 dfl:
     int dfl_action = sig_default_action(sig);
     switch (dfl_action)
@@ -262,12 +329,15 @@ dfl:
     case SIGDEF_IGN:
         break;
     case SIGDEF_STOP:
+        task_stop(thread, sig);
+        break;
     case SIGDEF_CONT:
-        abort();
+        task_continue(thread);
         break;
     case SIGDEF_TERM:
     case SIGDEF_CORE:
     default:
         kill_task(thread, sig);
     }
+    unlock_scheduler();
 }
