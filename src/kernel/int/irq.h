@@ -9,7 +9,7 @@
 
 void handle_apic_irq(interrupt_registers_t* registers)
 {
-    bool ts = false;
+    bool ts = false, sigint = false;
     switch (registers->interrupt_number)
     {
     case APIC_TIMER_INT:
@@ -51,7 +51,7 @@ void handle_apic_irq(interrupt_registers_t* registers)
         }
         if (multitasking_enabled)
         {
-            if (multitasking_counter <= TASK_SWITCH_DELAY)
+            if (multitasking_counter <= 0)
             {
                 multitasking_counter = TASK_SWITCH_DELAY;
 
@@ -63,11 +63,11 @@ void handle_apic_irq(interrupt_registers_t* registers)
     }
 
     case APIC_PS2_1_INT:
-        handle_irq_1(&ts);
+        handle_irq_1(&ts, &sigint);
         break;
 
     case APIC_PS2_2_INT:
-        handle_irq_12(&ts);
+        handle_irq_12(&ts, &sigint);
         break;
 
     default:    // * Spurious interrupt
@@ -75,6 +75,9 @@ void handle_apic_irq(interrupt_registers_t* registers)
     }
 
     lapic_send_eoi();
+
+    if (sigint)
+        task_send_signal_to_pgrp(SIGINT, tty_foreground_pgrp);
 
     if (ts)
         switch_task();

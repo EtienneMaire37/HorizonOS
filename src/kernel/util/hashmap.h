@@ -30,7 +30,7 @@ static void hashmap_log(hashmap_t* hmp)
 			do
 			{
 				hashmap_item_t* item = (hashmap_item_t*)it->data;
-				LOG(DEBUG, "%#" PRIx64 ": %p", item->key, item->value);
+				LOG(DEBUG, "\t%#" PRIx64 ": %p,", item->key, item->value);
 				it = it->next;
 			} while (it != hmp->data[i]);
 		}

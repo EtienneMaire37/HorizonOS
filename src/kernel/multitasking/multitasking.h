@@ -4,7 +4,10 @@
 #include "../util/hashmap.h"
 #include "queue.h"
 
-extern hashmap_t *futex_hashmap, *pid_to_task_hashmap, *pgid_to_tq_hashmap;
+extern hashmap_t *futex_tq_hashmap, 
+                 *pid_to_task_hashmap, 
+                 *pgid_to_tq_hashmap, 
+                 *pid_to_children_tq_hashmap;
 
 extern mutex_t file_table_lock;
 extern uint8_t global_cpu_ticks;
@@ -37,12 +40,13 @@ static inline void unlock_scheduler()
     disable_interrupts();
     if (--task_lock_depth == 0)
     {
-        enable_interrupts();
         if (queued_ts)
         {
             queued_ts = false;
+            enable_interrupts();
             switch_task();
         }
+        enable_interrupts();
     }
 }
 
@@ -67,6 +71,22 @@ static inline bool multitasking_is_pgrp_empty(pid_t pgid)
     thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, pgid);
     if (!tq) return true;
     return *tq == NULL;
+}
+
+static inline void log_tq(thread_queue_t* tq)
+{
+    LOG(DEBUG, "{");
+    if (tq && *tq)
+    {
+        thread_queue_item_t* it = *tq;
+        do
+        {
+            thread_t* cur = it->data;
+            LOG(DEBUG, "\t\"%s\" (pid = %d)%s", cur->name, cur->pid, it->next == *tq ? "" : ",");
+            it = it->next;
+        } while (it != *tq);
+    }
+    LOG(DEBUG, "}");
 }
 
 void multitasking_init();

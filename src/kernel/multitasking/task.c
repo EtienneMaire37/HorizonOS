@@ -8,6 +8,7 @@
 #include <string.h>
 #include "queue.h"
 #include "multitasking.h"
+#include "hashmap.h"
 
 const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
 const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
@@ -61,65 +62,31 @@ void task_set_pgid(thread_t* task, pid_t pgid)
 {
     lock_scheduler();
     if (task->pgid != -1)
-    {
-        thread_queue_t* old_tq = hashmap_get_item(pgid_to_tq_hashmap, task->pgid);
-        if (!old_tq) goto move_to_new_tq;
-        thread_queue_item_t* it = *old_tq;
-        if (!it) goto move_to_new_tq;
-        do
-        {
-            thread_t* cur = it->data;
-            if (cur == task)
-            {
-                ll_remove(old_tq, it);
-                goto move_to_new_tq;
-            }
-            it = it->next;
-        } while (it != *old_tq);
-    }
-move_to_new_tq:
+        tq_hashmap_remove(pgid_to_tq_hashmap, task->pgid, task);
     task->pgid = pgid;
-    thread_queue_t* new_tq = hashmap_get_item(pgid_to_tq_hashmap, task->pgid);
-    if (!new_tq)
-    {
-        new_tq = malloc(sizeof(thread_queue_t));
-        *new_tq = TQ_INIT;
-        hashmap_set_item(pgid_to_tq_hashmap, task->pgid, new_tq);
-    }
-    ll_push_back(new_tq, task);
+    tq_hashmap_push_back(pgid_to_tq_hashmap, task->pgid, task);
     unlock_scheduler();
 }
 
 void task_destroy(thread_t* task)
 {
     lock_scheduler();
-    LOG(TRACE, "Destroying task \"%s\" (pid = %d, ring = %u)", task->name, task->pid, task->ring);
+    LOG(TRACE, "Destroying task %p: \"%s\" (pid = %d, ring = %u) (%d tasks left)", 
+        task, task->name, task->pid, task->ring, task_count - 1);
     
     hashmap_remove_item(pid_to_task_hashmap, task->pid);
+    tq_hashmap_remove(pgid_to_tq_hashmap, task->pgid, task);
 
-    thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, task->pgid);
-    if (!tq || !*tq)
-        goto destroy;
-    thread_queue_item_t* it = *tq;
-    do
-    {
-        thread_t* cur = it->data;
-        if (cur == task)
-        {
-            ll_remove(tq, it);
-            break;
-        }
-        it = it->next;
-    } while (*tq && it != *tq);
+    thread_t* parent = find_task_by_pid_anywhere(task->ppid);
+    if (parent)
+        tq_hashmap_remove(pid_to_children_tq_hashmap, parent->pid, task);
 
-destroy:
     for (int i = 0; i < OPEN_MAX; i++)
     {
     	if (task->file_table[i].index != invalid_fd)
             vfs_remove_global_file(task->file_table[i].index);
     }
     fpu_state_destroy(&task->fpu_state);
-    // !!! NEEDS TO BE IN LAST TO ALLOW FOR THE NEEDED VIRTUAL ADDRESS TO PHYSICAL CONVERSIONS NEEDED BY FUTEXES
     task_free_vas((physical_address_t)task->cr3);
 	LOG(TRACE, "Done.");
     unlock_scheduler();
@@ -336,14 +303,21 @@ thread_t* find_running_task_by_pid(pid_t pid)
 thread_t* find_task_by_pid_in_queue(thread_queue_t* queue, pid_t pid)
 {
     if (pid < 0) return NULL;
+    lock_scheduler();
+    if (!queue) return (unlock_scheduler(), NULL);
+    if (!*queue) return (unlock_scheduler(), NULL);
     thread_queue_item_t* it = *queue;
     do
     {
         thread_t* thread = (thread_t*)it->data;
         if (thread->pid == pid)
+        {
+            unlock_scheduler();
             return thread;
+        }
         it = it->next;
     } while (it != *queue);
+    unlock_scheduler();
     return NULL;
 }
 
@@ -380,16 +354,19 @@ void duplicate_task(thread_t* task)
     if (!task)
         return;
 
-    thread_t* new_task = (thread_t*)malloc(sizeof(thread_t));
-    if (!new_task) return;
-
     lock_scheduler();
+
+    thread_t* new_task = (thread_t*)malloc(sizeof(thread_t));
+    if (!new_task) 
+    {
+        unlock_scheduler();
+        return;
+    }
 
     *new_task = *task;
 
-    memcpy(new_task->name, task->name, THREAD_NAME_MAX);
-    new_task->ring = task->ring;
     new_task->pid = task->forked_pid;
+    new_task->forked_pid = 0;
     new_task->system_task = task->system_task;
 
     new_task->cr3 = task_create_empty_vas(new_task->ring == 0 ? PG_SUPERVISOR : PG_USER);
@@ -399,12 +376,19 @@ void duplicate_task(thread_t* task)
 
     task_copy_file_table(task, new_task, false);
 
-    new_task->forked_pid = 0;
-
     new_task->ppid = task->pid;
     new_task->wait_pid = -1;
 
     task_vas_copy((uint64_t*)(task->cr3 + PHYS_MAP_BASE), (uint64_t*)(new_task->cr3 + PHYS_MAP_BASE), 0, TASK_STACK_TOP_ADDRESS >> 12);
+
+    new_task->pgid = -1;
+    task_set_pgid(new_task, task->pgid);
+    hashmap_set_item(pid_to_task_hashmap, new_task->pid, new_task);
+
+    tq_hashmap_push_back(pid_to_children_tq_hashmap, task->pid, new_task);
+
+    // LOG(DEBUG, "Pid to children tq hashmap after fork:");
+    // tq_hashmap_log(pid_to_children_tq_hashmap);
 
     multitasking_add_task(new_task);
     task_count++;
@@ -423,8 +407,11 @@ void cleanup_tasks()
         {
             thread_t* task_to_fork = cur_forked_task->data;
             cur_forked_task = cur_forked_task->next;
-            duplicate_task(task_to_fork);
-            move_task_to_running_queue(&forked_tasks, cur_forked_task);
+            if (task_to_fork != current_task)
+            {
+                move_task_to_running_queue(&forked_tasks, cur_forked_task);
+                duplicate_task(task_to_fork);
+            }
         }
         while (forked_tasks && cur_forked_task != forked_tasks);
     }
@@ -434,10 +421,10 @@ void cleanup_tasks()
         thread_queue_item_t* cur_reapable_task = reapable_tasks;
         do
         {
-        	if (cur_reapable_task->data != current_task)
+            thread_t* task_to_kill = cur_reapable_task->data;
+            if (cur_reapable_task->data != current_task)
             {
                 thread_queue_item_t* removed_item = cur_reapable_task;
-                thread_t* task_to_kill = cur_reapable_task->data;
                 cur_reapable_task = cur_reapable_task->next;
                 task_destroy(task_to_kill);
                 free(task_to_kill);
@@ -447,7 +434,7 @@ void cleanup_tasks()
             else
                 cur_reapable_task = cur_reapable_task->next;
         }
-        while (reapable_tasks != NULL && reapable_tasks != TQ_INIT && cur_reapable_task != reapable_tasks);
+        while (reapable_tasks != NULL && cur_reapable_task->prev != cur_reapable_task);
     }
 
     unlock_scheduler();
@@ -518,14 +505,19 @@ void tasks_log()
     thread_t* task = running_tasks;
     do
     {
-        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s%s", task->next == running_tasks ? "└" : "├",
+        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s", task->next == running_tasks ? "└" : "├",
             task->name, task->pid, task->ppid, task->pgid, task->stored_cpu_ticks / 10, task->stored_cpu_ticks % 10,
-            task_is_blocked(task) ? " (blocked)" : "", 
             task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)");
 
         task = task->next;
     }
     while (task != running_tasks);
+    LOG(DEBUG, "pid to thread hashmap:");
+    hashmap_log(pid_to_task_hashmap);
+    LOG(DEBUG, "pgid to thread queue hashmap:");
+    tq_hashmap_log(pgid_to_tq_hashmap);
+    LOG(DEBUG, "pid to children hashmap:");
+    tq_hashmap_log(pid_to_children_tq_hashmap);
     unlock_scheduler();
 }
 
@@ -537,19 +529,34 @@ pid_t task_generate_pid()
 
 void kill_task(thread_t* task, int ret)
 {
-    LOG(TRACE, "kill_task({.name = \"%s\", .pid = %d, .ppid = %d, .pgid = %d}, %d)", 
-        task->name, task->pid, task->ppid, task->pgid, ret);
     lock_scheduler();
+    LOG(TRACE, "kill_task(%p: {.name = \"%s\", .pid = %d, .ppid = %d, .pgid = %d}, %d)", 
+        task, task->name, task->pid, task->ppid, task->pgid, ret);
     task->return_value = ret;
-    
-    thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, task->ppid);
-    if (parent)
+
+    thread_t* global_parent = find_task_by_pid_anywhere(task->ppid);
+
+    if (!global_parent || global_parent->queue == &reapable_tasks || global_parent->queue == &dead_tasks)
+        move_task_to_queue(&reapable_tasks, task);
+    else
     {
-        parent->waitpid_ret = task->pid;
-        parent->wstatus = ret;
-        move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
-        return;
+        move_task_to_queue(&dead_tasks, task);
+        
+        thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, task->ppid);
+        if (parent)
+        {
+            parent->waitpid_ret = task->pid;
+            parent->wstatus = ret;
+            move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+            move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, ll_find_item_by_data(&dead_tasks, task));
+        }
     }
+
+    thread_queue_t* children = hashmap_get_item(pid_to_children_tq_hashmap, task->pid);
+    ll_destroy(children);
+
+    if (global_parent)
+        tq_hashmap_remove(pid_to_children_tq_hashmap, global_parent->pid, task);
 
     if (task == current_task)
         switch_task();

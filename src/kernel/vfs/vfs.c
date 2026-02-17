@@ -840,14 +840,6 @@ ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t
     case CHR_DIR_READ:
         return 0;
     case CHR_DIR_WRITE:
-        lock_scheduler();
-        if (current_task->pgid != tty_foreground_pgrp)
-        {
-            task_send_signal(current_task, SIGTTOU);
-            unlock_scheduler();
-            return 0;
-        }
-        unlock_scheduler();
         for (uint32_t i = 0; i < count; i++)
             tty_outc(buf[i]);
         return count;

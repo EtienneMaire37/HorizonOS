@@ -99,7 +99,11 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     if (task_reading_stdin != -1)
     {            
         thread_t* task = find_running_task_by_pid(task_reading_stdin);
-        if (!task) return;
+        if (!task) 
+        {
+            unlock_scheduler();
+            return;
+        }
         if (character == '\b')
         {
             if (raw)

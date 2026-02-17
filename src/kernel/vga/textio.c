@@ -1,6 +1,7 @@
 #include "../files/psf.h"
 #include <termios.h>
 #include "constants.h"
+#include "../multitasking/multitasking.h"
 
 uint16_t tty_data[TTY_RES_X * TTY_RES_Y] = {0};
 
@@ -236,9 +237,12 @@ void tty_outc(char c)
 	if (c == 0)
 		return;
 
+	lock_scheduler();
+
 	if (tty_cursor >= TTY_RES_X * TTY_RES_Y)
 	{
 		tty_cursor++;
+		unlock_scheduler();
 		return;
 	}
 
@@ -247,6 +251,7 @@ void tty_outc(char c)
 		tty_reading_escape_sequence = true;
 		tty_escape_sequence_index = 0;
 		tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
+		unlock_scheduler();
 		return;
 	}
 
@@ -256,11 +261,13 @@ void tty_outc(char c)
 		{
 			tty_reading_control_sequence = true;
 			tty_reading_escape_sequence = false;
+			unlock_scheduler();
 			return;
 		}
 		tty_reading_escape_sequence = false;
 		tty_outc('^');
 		tty_outc(c);
+		unlock_scheduler();
 		return;
 	}
 
@@ -270,6 +277,7 @@ void tty_outc(char c)
 		{
 			tty_control_sequence_buffer[tty_escape_sequence_index] *= 10;
 			tty_control_sequence_buffer[tty_escape_sequence_index] += c - '0';
+			unlock_scheduler();
 			return;
 		}
 		switch (c)
@@ -318,6 +326,7 @@ void tty_outc(char c)
 			tty_escape_sequence_index = 0;
 			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
 		}
+		unlock_scheduler();
 		return;
 	}
 
@@ -395,4 +404,6 @@ void tty_outc(char c)
 
 		framebuffer_fill_rect(&framebuffer, 0, tty_get_character_pos_y((TTY_RES_Y - rows_to_scroll) * TTY_RES_X), framebuffer.width, tty_get_character_height(), 0, 0, 0, 0);
 	}
+
+	unlock_scheduler();
 }

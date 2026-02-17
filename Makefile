@@ -95,7 +95,7 @@ run:	all
 	-accel kvm 											\
 	-cpu host											\
 	-debugcon file:debug/latest.log						\
-	-m 64                                        		\
+	-m 256                                        		\
 	-drive file=horizonos.iso,index=0,media=disk,format=raw \
 	-smp 8
 

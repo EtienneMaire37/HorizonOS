@@ -10,6 +10,8 @@
 #include "../multitasking/multitasking.h"
 #include "../vga/textio.h"
 #include "../multitasking/queue.h"
+#include "../int/kernel_panic.h"
+#include "../cpu/registers.h"
 
 uint8_t ps2_keyboard_state[256] = 
 {
@@ -150,13 +152,10 @@ utf32_char_t ps2_scancode_to_unicode(ps2_full_scancode_t scancode, uint8_t port)
     return base_char;
 }
 
-void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_switch)   // port is 1-2
+void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_switch, bool* send_sigint)   // port is 1-2
 {
-    if (!task_switch) 
-    {
-        LOG(DEBUG, "ps2_handle_keyboard_scancode: task_switch is NULL");
+    if (!task_switch || !send_sigint) 
         abort();
-    }
 
     if (port == 1)
     {
@@ -231,9 +230,12 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                     case VK_P:
                         tasks_log();
                         break;
+                    case VK_T:
+                        print_stack_trace((uint64_t)ps2_handle_keyboard_scancode, get_rbp(), false);
+                        break;
                     case VK_F:
                     	LOG(DEBUG, "Futex hashmap:");
-                    	hashmap_log(futex_hashmap);
+                    	hashmap_log(futex_tq_hashmap);
 						break;
                     default:
                         goto key;
@@ -246,12 +248,14 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                     case VK_C:
                         if (tty_ts.c_lflag & ISIG)
                         {
+                            lock_scheduler();
                             if (!multitasking_is_pgrp_empty(tty_foreground_pgrp))
                             {
                                 printf("^C");
                                 fflush(stdout);
-                                task_send_signal_to_pgrp(SIGINT, tty_foreground_pgrp);
+                                *send_sigint = true;
                             }
+                            unlock_scheduler();
                             return;
                         }
                         break;

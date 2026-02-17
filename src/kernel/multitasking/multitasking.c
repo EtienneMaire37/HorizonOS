@@ -6,9 +6,10 @@
 
 #include <stdlib.h>
 
-hashmap_t* futex_hashmap = NULL;
+hashmap_t* futex_tq_hashmap = NULL;
 hashmap_t* pid_to_task_hashmap = NULL;
 hashmap_t* pgid_to_tq_hashmap = NULL;
+hashmap_t* pid_to_children_tq_hashmap = NULL;
 
 mutex_t file_table_lock = MUTEX_INIT;
 uint8_t global_cpu_ticks = 0;
@@ -35,9 +36,10 @@ void multitasking_init()
     utf32_buffer_init(&keyboard_input_buffer);
     task_reading_stdin = -1;
 
-    futex_hashmap = hashmap_create(1 * MB);
+    futex_tq_hashmap = hashmap_create(1 * MB);
     pid_to_task_hashmap = hashmap_create(1 * MB);
     pgid_to_tq_hashmap = hashmap_create(1 * MB);
+    pid_to_children_tq_hashmap = hashmap_create(1 * MB);
 
     vfs_init_file_table();
 
@@ -185,6 +187,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
             {
                 move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
                 if (wstatus) *wstatus = thread->return_value;
+                unlock_scheduler();
                 return thread->pid;
             }
         }
@@ -194,6 +197,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
             {
                 move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
                 if (wstatus) *wstatus = thread->return_value;
+                unlock_scheduler();
                 return thread->pid;
             }
         }
@@ -201,6 +205,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
         {
             move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
             if (wstatus) *wstatus = thread->return_value;
+            unlock_scheduler();
             return thread->pid;
         }
         else // * pid < -1
@@ -209,6 +214,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
             {
                 move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
                 if (wstatus) *wstatus = thread->return_value;
+                unlock_scheduler();
                 return thread->pid;
             }
         }

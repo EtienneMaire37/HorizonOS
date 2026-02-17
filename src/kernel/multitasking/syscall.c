@@ -52,7 +52,8 @@ void c_syscall_handler(syscall_registers_t* registers)
         break;
     sc_case(SYS_EXIT, 1, int)
         SC_LOG("syscall SYS_EXIT(%d)", arg1);
-        kill_task(current_task, ((uint16_t)arg1 & 0x7f) << 8);        
+        kill_task(current_task, ((uint16_t)arg1 & 0x7f) << 8);
+        abort();
     sc_case(SYS_ISATTY, 1, int)
         SC_LOG("syscall SYS_ISATTY(%d)", arg1);
         if (!is_fd_valid(arg1))
@@ -443,6 +444,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         current_task->wait_pid = arg1;
         current_task->pgid_on_waitpid = current_task->pgid;
         current_task->waitpid_flags = arg3;
+        current_task->waitpid_ret = -1;
         unlock_scheduler();
         move_running_task_to_thread_queue(&waitpid_tasks, current_task);
         waitpid_check_dead();
@@ -452,7 +454,7 @@ void c_syscall_handler(syscall_registers_t* registers)
             memset(arg4, 0, sizeof(struct rusage));
         if (arg2) *arg2 = current_task->wstatus;
         sc_ret(1) = current_task->waitpid_ret;
-        sc_ret_errno = 0;
+        sc_ret_errno = current_task->waitpid_ret == -1 ? EINTR : 0;
         break;
     sc_case(SYS_TTYNAME, 3, int, char*, size_t)
         SC_LOG("syscall SYS_TTYNAME(%d, %p, %zu)", arg1, arg2, arg3);
@@ -647,9 +649,22 @@ void c_syscall_handler(syscall_registers_t* registers)
             unlock_scheduler();
             break;
         }
+        break;
     sc_case(SYS_GETPGID, 1, pid_t)
         SC_LOG("syscall SYS_GETPGID(%d)", arg1);
+        if (arg1 < 0)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
         lock_scheduler();
+        if (arg1 == 0)
+        {
+            sc_ret_errno = 0;
+            sc_ret(1) = current_task->pgid;
+            unlock_scheduler();
+            break;
+        }
         thread_t* process = find_task_by_pid_anywhere(arg1);
         if (!process)
         {
@@ -765,7 +780,6 @@ void c_syscall_handler(syscall_registers_t* registers)
             break;
         default:
             LOG(DEBUG, "Unknown fcntl request");
-            unlock_scheduler();
             task_send_signal(current_task, SIGILL);
             sc_ret_errno = ENOSYS;
         }
