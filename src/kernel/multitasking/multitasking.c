@@ -265,6 +265,7 @@ static inline void task_continue(thread_t* thread)
 
 void task_send_signal_to_pgrp(int sig, pid_t pgrp)
 {
+    LOG(DEBUG, "Sending signal %d to pgrp %d", sig, pgrp);
     lock_scheduler();
     thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, pgrp);
     if (!tq || !*tq)
@@ -297,6 +298,8 @@ void task_send_signal(thread_t* thread, int sig)
         return;
     }
 
+    LOG(DEBUG, "pid %d receiving signal %d", thread->pid, sig);
+
     struct sigaction* act = &thread->sig_act_array[sig];
     
     if (act->sa_flags & SA_SIGINFO)
@@ -306,8 +309,7 @@ void task_send_signal(thread_t* thread, int sig)
         case (uint64_t)SIG_DFL:
             goto dfl;
         case (uint64_t)SIG_IGN:
-            unlock_scheduler();
-            return;
+            goto ign;
         default:
             LOG(DEBUG, "act->sa_sigaction = %p", act->sa_sigaction);
             abort();
@@ -320,8 +322,7 @@ void task_send_signal(thread_t* thread, int sig)
         case (uint64_t)SIG_DFL:
             goto dfl;
         case (uint64_t)SIG_IGN:
-            unlock_scheduler();
-            return;
+            goto ign;
         default:
             LOG(DEBUG, "act->sa_handler = %p", act->sa_handler);
             abort();
@@ -330,6 +331,13 @@ void task_send_signal(thread_t* thread, int sig)
 
 dfl:
     int dfl_action = sig_default_action(sig);
+    LOG(DEBUG, "Signal action defaulted to %s", 
+        dfl_action == SIGDEF_IGN ? "\"ignore\"" :
+       (dfl_action == SIGDEF_STOP ? "\"stop\"" :
+       (dfl_action == SIGDEF_CONT ? "\"continue\"" :
+       (dfl_action == SIGDEF_TERM ? "\"kill\"" :
+       (dfl_action == SIGDEF_CORE ? "\"core dump\"" :
+        "\"invalid action\"")))));
     switch (dfl_action)
     {
     case SIGDEF_IGN:
@@ -346,4 +354,10 @@ dfl:
         kill_task(thread, sig);
     }
     unlock_scheduler();
+    return;
+
+ign:
+    LOG(DEBUG, "Signal was ignored by the process.");
+    unlock_scheduler();
+    return;
 }

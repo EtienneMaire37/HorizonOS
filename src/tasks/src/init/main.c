@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv)
 {
-	tcsetpgrp(STDIN_FILENO, (pid_t)0x7fffffff);
+	tcsetpgrp(STDIN_FILENO, getpgrp());
 
     execvp("bash", (char*[]){"bash", (char*)NULL});
 
