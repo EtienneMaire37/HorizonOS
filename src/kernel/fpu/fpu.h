@@ -3,6 +3,31 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "../util/defs.h"
+
+#define XSAVES      0
+#define XSAVEOPT    1
+#define XSAVEC      2
+#define XSAVE       3
+#define FXSAVE      4
+#define NO_FPU      6
+
+static inline char* fpu_get_save_instruction_name(int inst)
+{
+    switch (inst)
+    {
+    def_case(XSAVES)
+    def_case(XSAVEOPT)
+    def_case(XSAVEC)
+    def_case(XSAVE)
+    def_case(FXSAVE)
+    default:
+        return "INVALID";
+    }
+}
+
+extern int xsave_instruction;
+
 extern uint16_t fpu_test;
 
 extern bool has_fpu;

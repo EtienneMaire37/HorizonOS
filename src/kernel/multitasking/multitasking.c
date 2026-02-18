@@ -3,6 +3,7 @@
 #include "../cpu/memory.h"
 #include "../cpu/units.h"
 #include "signal.h"
+#include "../fpu/fpu.h"
 
 #include <stdlib.h>
 
@@ -120,15 +121,18 @@ void full_context_switch(thread_t* next)
 
     old_task->fs_base = rdfsbase();
     old_task->gs_base = rdgsbase();
+
+    fpu_save_state(old_task->fpu_state);
     
-    context_switch(old_task, current_task, current_task->ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT,
-    old_task->fpu_state, current_task->fpu_state);
+    context_switch(old_task, current_task, current_task->ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT);
 
     end_context_switch();
 }
 
 void end_context_switch()
 {
+    fpu_restore_state(current_task->fpu_state);
+
     wrfsbase(current_task->fs_base);
     wrgsbase(current_task->gs_base);
 

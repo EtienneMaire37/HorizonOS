@@ -109,7 +109,9 @@ void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, u
 
     task_stack_push(task, 0);           // rax
     task_stack_push(task, 0);           // rbx
+    task_stack_push(task, 0);           // rcx
     task_stack_push(task, code_seg);    // rdx
+    task_stack_push(task, 0);           // r8
     task_stack_push(task, 0);           // r9
     task_stack_push(task, 0);           // r10
     task_stack_push(task, 0);           // r11

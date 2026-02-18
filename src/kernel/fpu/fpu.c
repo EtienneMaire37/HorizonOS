@@ -2,6 +2,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "fpu.h"
+
+int xsave_instruction = NO_FPU;
 
 uint16_t fpu_test;
 
@@ -25,7 +28,6 @@ void fpu_init_defaults()
     LOG(DEBUG, "XSAVE area is %u bytes long (%u page%s)", xsave_area_size, xsave_area_pages, xsave_area_pages == 1 ? "" : "s");
 
     fpu_default_state = pfa_allocate_contiguous_pages(xsave_area_pages);
-    assert(((uintptr_t)fpu_default_state & 0xfff) == 0);
     memset((uint8_t*)fpu_default_state, 0, xsave_area_size);
     fpu_init();
     fpu_save_state(fpu_default_state);
@@ -41,12 +43,50 @@ void fpu_init()
 
 void fpu_save_state(uint8_t* s)
 {
-    asm volatile("xsaves [rdi]" :: "a"(STATE_COMPONENT_BITMAP & 0xffffffff), "D"(s), "d"(STATE_COMPONENT_BITMAP >> 32) : "memory");
+    switch (xsave_instruction)
+    {
+    case XSAVES:
+        asm volatile("xsaves [rdi]" :: "a"(fpu_state_component_bitmap & 0xffffffff), "D"(s), "d"(fpu_state_component_bitmap >> 32) : "memory");
+        break;
+    case XSAVEOPT:
+        asm volatile("xsaveopt [rdi]" :: "a"(fpu_state_component_bitmap & 0xffffffff), "D"(s), "d"(fpu_state_component_bitmap >> 32) : "memory");
+        break;
+    case XSAVEC:
+        asm volatile("xsavec [rdi]" :: "a"(fpu_state_component_bitmap & 0xffffffff), "D"(s), "d"(fpu_state_component_bitmap >> 32) : "memory");
+        break;
+    case XSAVE:
+        asm volatile("xsave [rdi]" :: "a"(fpu_state_component_bitmap & 0xffffffff), "D"(s), "d"(fpu_state_component_bitmap >> 32) : "memory");
+        break;
+    case FXSAVE:
+        asm volatile("fxsave [rdi]" :: "D"(s) : "memory");
+        break;
+    default:
+        abort();
+    }
 }
 
 void fpu_restore_state(uint8_t* s)
 {
-    asm volatile("xrstors [rdi]" :: "a"(STATE_COMPONENT_BITMAP & 0xffffffff), "D" (s), "d"(STATE_COMPONENT_BITMAP >> 32) : "memory");
+    switch (xsave_instruction)
+    {
+    case XSAVES:
+        asm volatile("xrstors [rdi]" :: "a"(fpu_state_component_bitmap & 0xffffffff), "D"(s), "d"(fpu_state_component_bitmap >> 32) : "memory");
+        break;
+    case XSAVEOPT:
+        asm volatile("xrstor [rdi]" :: "a"(fpu_state_component_bitmap & 0xffffffff), "D"(s), "d"(fpu_state_component_bitmap >> 32) : "memory");
+        break;
+    case XSAVEC:
+        asm volatile("xrstor [rdi]" :: "a"(fpu_state_component_bitmap & 0xffffffff), "D"(s), "d"(fpu_state_component_bitmap >> 32) : "memory");
+        break;
+    case XSAVE:
+        asm volatile("xrstor [rdi]" :: "a"(fpu_state_component_bitmap & 0xffffffff), "D"(s), "d"(fpu_state_component_bitmap >> 32) : "memory");
+        break;
+    case FXSAVE:
+        asm volatile("fxrstor [rdi]" :: "D"(s) : "memory");
+        break;
+    default:
+        abort();
+    }
 }
 
 void fpu_state_init(uint8_t* s)

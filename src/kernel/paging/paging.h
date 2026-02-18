@@ -11,6 +11,18 @@
 #define PHYS_MAP_OFFSET     0xffff800000000000
 extern uint64_t PHYS_MAP_BASE;
 
+#define PG_SHIFT        12ULL
+#define PG_SIZE         (1ULL << PG_SHIFT)
+#define IDX_BITS        9ULL
+#define IDX_ENTRIES     (1ULL << IDX_BITS)
+#define IDX_MASK        (IDX_ENTRIES - 1ULL)
+#define CANON_MASK      0x0000FFFFFFFFFFFFULL
+
+#define PAGES_PT        1ULL
+#define PAGES_PD        (IDX_ENTRIES * PAGES_PT)    /* 512 pages = 2 MiB */
+#define PAGES_PDP       (IDX_ENTRIES * PAGES_PD)    /* 512*512 pages = 1 GiB */
+#define PAGES_PML4      (IDX_ENTRIES * PAGES_PDP)
+
 #define PG_SUPERVISOR   0
 #define PG_USER         1
 
@@ -46,7 +58,7 @@ static inline uint64_t get_physical_address_mask()
 {
     if (physical_address_width == 0)
         abort();
-    return physical_address_width == 64 ? 0xffffffffffffffff : ((uint64_t)1 << (physical_address_width + 1)) - 1;
+    return physical_address_width >= 64 ? 0xffffffffffffffff : (1ULL << physical_address_width) - 1;
 }
 
 static inline void init_pat()
@@ -60,8 +72,7 @@ static inline void init_pat()
         return;
 
     // * WC if PAT is set or UC, default else
-    wrmsr(IA32_PAT_MSR, 
-
+    wrmsr(IA32_PAT_MSR,
          CACHE_WB | 
         (CACHE_WT << 8) | 
         (CACHE_UC << 16) | 

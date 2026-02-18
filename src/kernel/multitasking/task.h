@@ -86,7 +86,7 @@ static inline int vfs_allocate_thread_file(thread_t* task)
 }
 
 // !!! Assumes task queue is locked
-extern void context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds, uint8_t* old_fpu_state, uint8_t* next_fpu_state);
+extern void context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds);
 void full_context_switch(thread_t* next);
 void end_context_switch();
 bool task_is_blocked(thread_t* task);

@@ -197,14 +197,6 @@ void _start()
     printf("%" PRIu64 " ", allocatable_memory);
     tty_set_color(FG_WHITE, BG_BLACK);
     printf("bytes of allocatable memory\n");
-    
-    if (cpuid_highest_function_parameter < 0x0d)
-    {
-        LOG(CRITICAL, "Modern FPU not supported...");
-        tty_set_color(FG_LIGHTRED, BG_BLACK);
-        printf("Modern FPU not supported...\n");
-        tty_set_color(FG_WHITE, BG_BLACK);
-    }
 
     if (pat_enabled)
     {
@@ -222,6 +214,7 @@ void _start()
 
     {
         global_cr3 = (uint64_t*)pfa_allocate_physical_page();
+        memset(global_cr3, 0, 4096);
         uint64_t* bootboot_cr3 = (uint64_t*)get_cr3();
 
         LOG(DEBUG, "bootboot_cr3: %#" PRIx64 "", (uint64_t)bootboot_cr3);
@@ -296,28 +289,78 @@ void _start()
     printf("Paging setup done\n");
     LOG(INFO, "Set up paging");
 
-    if (cpuid_highest_function_parameter >= 1)
+    if (cpuid_highest_function_parameter >= 0x0d)
     {
-        uint32_t eax, ebx, ecx = 0, edx; // same as above
+        LOG(INFO, "Detecting FPU");
+        uint32_t eax = 0, ebx, ecx = 0, edx;
+
         cpuid(1, eax, ebx, ecx, edx);
-        if (((ecx >> 26) & 1) && ((ecx >> 28) & 1)) // * AVX and XSAVE supported
+        xsave_supported = (ecx & (1 << 26)) != 0;
+
+        if (xsave_supported)
         {
-            LOG(INFO, "Enabling AVX");
-            enable_avx();
-            LOG(DEBUG, "Setting up FPU support");
-            fpu_init_defaults();
+            eax = 0;
+            cpuid_with_ecx(0x0d, 1, eax, ebx, ecx, edx);
+
+            xsave_instruction = 
+                ((eax & (1 << 3)) ? XSAVES : 
+                ((eax & (1 << 0)) ? XSAVEOPT : 
+                ((eax & (1 << 1)) ? XSAVEC : XSAVE)));
         }
         else
-        {
-            LOG(CRITICAL, "Modern FPU not supported...");
-            tty_set_color(FG_LIGHTRED, BG_BLACK);
-            printf("Modern FPU not supported...\n");
-            tty_set_color(FG_WHITE, BG_BLACK);
-        }
+            xsave_instruction = FXSAVE;
+
+        LOG(INFO, "Enabling FPU");
+        enable_fpu();
+        LOG(DEBUG, "Setting up FPU support");
+        fpu_init_defaults();
+    }
+    else
+    {
+        LOG(WARNING, "CPUID doesn't support FPU checking");
+        tty_set_color(FG_LIGHTRED, BG_BLACK);
+        printf("CPUID doesn't support FPU checking: Defaulting to using FXSAVE\n");
+        tty_set_color(FG_WHITE, BG_BLACK);
+
+        xsave_supported = false;
+        fpu_state_component_bitmap = 0;
+        xsave_instruction = FXSAVE;
+        xsave_area_size = 512;
+        xsave_area_pages = 1;
+
+        fpu_default_state = pfa_allocate_contiguous_pages(xsave_area_pages);
+        memset((uint8_t*)fpu_default_state, 0, xsave_area_size);
+        fpu_init();
+        fpu_save_state(fpu_default_state);
     }
 
-    LOG(INFO, "XSAVE area is %u bytes", xsave_area_size);
-    printf("XSAVE area is %u bytes\n", xsave_area_size);
+    LOG(INFO, "Using the %s FPU family of instructions", fpu_get_save_instruction_name(xsave_instruction));
+    printf("Using the %s FPU family of instructions\n", fpu_get_save_instruction_name(xsave_instruction));
+
+    if (xsave_supported)
+    {
+        LOG(INFO, "XSAVE area is %u bytes", xsave_area_size);
+        printf("XSAVE area is %u bytes\n", xsave_area_size);
+    }
+
+    if (cpuid_highest_function_parameter >= 7)
+    {
+        uint32_t eax, ebx = 0, ecx, edx;
+        cpuid_with_ecx(7, 0, eax, ebx, ecx, edx);
+        if (ebx & 1)    // * fsgsbase
+        {
+            uint64_t cr4 = get_cr4();
+            cr4 |= (1 << 16);   // * FSGSBASE
+            load_cr4(cr4);
+            fsgsbase = true;
+
+            LOG(DEBUG, "FSGSBASE is set");
+        }
+        else
+            LOG(DEBUG, "FSGSBASE is not set");
+    }
+    else
+        LOG(DEBUG, "FSGSBASE is not set");
 
     printf("LAPIC base: %p\n", lapic);
 

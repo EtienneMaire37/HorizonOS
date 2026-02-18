@@ -103,6 +103,9 @@ void remap_range(uint64_t* pml4,
     uint64_t pages,
     uint8_t privilege, uint8_t read_write, uint8_t cache_type)
 {
+    // LOG(DEBUG, "remap_range(%p, %#" PRIx64 ", %#" PRIx64 ", %" PRIu64 ", %d, %d, %d)",
+    //     pml4, start_virtual_address, start_physical_address, pages, privilege, read_write, cache_type);
+
     if (!pml4)
     {
         LOG(ERROR, "remap_range: NULL virtual address space");
@@ -163,6 +166,9 @@ void allocate_range(uint64_t* pml4,
     uint64_t pages,
     uint8_t privilege, uint8_t read_write, uint8_t cache_type)
 {
+    // LOG(DEBUG, "allocate_range(%p, %#" PRIx64 ", %" PRId64 ", %d, %d, %d)", 
+    //     pml4, start_virtual_address, pages, privilege, read_write, cache_type);
+
     if (!pml4)
     {
         LOG(ERROR, "allocate_range: NULL virtual address space");
