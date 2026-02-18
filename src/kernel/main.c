@@ -289,50 +289,48 @@ void _start()
     printf("Paging setup done\n");
     LOG(INFO, "Set up paging");
 
-    if (cpuid_highest_function_parameter >= 0x0d)
+    if (cpuid_highest_function_parameter >= 1)
     {
-        LOG(INFO, "Detecting FPU");
         uint32_t eax = 0, ebx, ecx = 0, edx;
 
         cpuid(1, eax, ebx, ecx, edx);
         xsave_supported = (ecx & (1 << 26)) != 0;
+    }
+    else
+        xsave_supported = false;
 
-        if (xsave_supported)
+    if (xsave_supported)
+    {
+        LOG(INFO, "Detecting FPU");
+
+        if (cpuid_highest_function_parameter >= 0x0d)
         {
-            eax = 0;
+            uint32_t eax = 0, ebx, ecx = 0, edx;
             cpuid_with_ecx(0x0d, 1, eax, ebx, ecx, edx);
 
             xsave_instruction = 
-                ((eax & (1 << 3)) ? XSAVES : 
+                // ((eax & (1 << 3)) ? XSAVES : 
                 ((eax & (1 << 0)) ? XSAVEOPT : 
-                ((eax & (1 << 1)) ? XSAVEC : XSAVE)));
+                ((eax & (1 << 1)) ? XSAVEC : XSAVE));
         }
         else
-            xsave_instruction = FXSAVE;
-
-        LOG(INFO, "Enabling FPU");
-        enable_fpu();
-        LOG(DEBUG, "Setting up FPU support");
-        fpu_init_defaults();
+            xsave_instruction = XSAVE;
     }
     else
     {
-        LOG(WARNING, "CPUID doesn't support FPU checking");
+        LOG(WARNING, "XSAVE isn't supported: Defaulting to using FXSAVE");
         tty_set_color(FG_LIGHTRED, BG_BLACK);
-        printf("CPUID doesn't support FPU checking: Defaulting to using FXSAVE\n");
+        printf("XSAVE isn't supported: Defaulting to using FXSAVE\n");
         tty_set_color(FG_WHITE, BG_BLACK);
 
-        xsave_supported = false;
         fpu_state_component_bitmap = 0;
         xsave_instruction = FXSAVE;
-        xsave_area_size = 512;
-        xsave_area_pages = 1;
-
-        fpu_default_state = pfa_allocate_contiguous_pages(xsave_area_pages);
-        memset((uint8_t*)fpu_default_state, 0, xsave_area_size);
-        fpu_init();
-        fpu_save_state(fpu_default_state);
     }
+
+    LOG(INFO, "Enabling FPU");
+    enable_fpu();
+    LOG(DEBUG, "Setting up FPU support");
+    fpu_init_defaults();
 
     LOG(INFO, "Using the %s FPU family of instructions", fpu_get_save_instruction_name(xsave_instruction));
     printf("Using the %s FPU family of instructions\n", fpu_get_save_instruction_name(xsave_instruction));

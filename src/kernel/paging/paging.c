@@ -42,7 +42,7 @@ physical_address_t create_empty_pdpt_phys()
 bool is_pdpt_entry_present(const uint64_t* entry)
 {
     if (!entry) return false;
-    return (*entry) & 1;
+    return ((*entry) & 1) && (((*entry) & 0xfffffffffffff000) & get_physical_address_mask());
 }
 
 physical_address_t get_pdpt_entry_address(const uint64_t* entry)
@@ -136,7 +136,6 @@ void remap_range(uint64_t* pml4,
         uint64_t* pml4_entry = &pml4[pml4e];
         if (!is_pdpt_entry_present(pml4_entry))
             set_pdpt_entry(pml4_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
-
         uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
         
         uint64_t* pdpt_entry = &pdpt[pdpte];
