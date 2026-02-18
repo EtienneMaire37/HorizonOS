@@ -536,7 +536,10 @@ void kill_task(thread_t* task, int ret)
 
     thread_t* global_parent = find_task_by_pid_anywhere(task->ppid);
 
-    if (!global_parent || global_parent->queue == &reapable_tasks || global_parent->queue == &dead_tasks)
+    if (!global_parent || (global_parent->sig_act_array[SIGCHLD].sa_flags & SA_NOCLDWAIT) || global_parent->queue == &reapable_tasks || global_parent->queue == &dead_tasks)
+//  * If the SA_NOCLDWAIT flag is set when establishing a handler for SIGCHLD, POSIX.1 leaves it unspecified whether a SIGCHLD  signal  is
+//  *         generated  when a child process terminates.  On Linux, a SIGCHLD signal is generated in this case; on some other implementations, it
+//  *         is not.
         move_task_to_queue(&reapable_tasks, task);
     else
     {
@@ -557,6 +560,9 @@ void kill_task(thread_t* task, int ret)
 
     if (global_parent)
         tq_hashmap_remove(pid_to_children_tq_hashmap, global_parent->pid, task);
+
+    if (global_parent)
+        task_send_signal(global_parent, SIGCHLD);
 
     if (task == current_task)
         switch_task();

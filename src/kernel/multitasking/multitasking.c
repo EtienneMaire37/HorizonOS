@@ -227,39 +227,47 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
 static inline void task_stop(thread_t* thread, int sig)
 {
     LOG(TRACE, "Stopping task \"%s\"", thread->name);
-    move_task_to_queue(&stopped_tasks, thread);
 
-    if (thread == current_task)
-        switch_task();
+    thread_t* global_parent = find_task_by_pid_anywhere(thread->ppid);
+    if (global_parent)
+    {
+        if (!(global_parent->sig_act_array[SIGCHLD].sa_flags & SA_NOCLDSTOP))
+            task_send_signal(global_parent, SIGCHLD);
+    }
 
     thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, thread->ppid);
-    if (!parent)
-        return;
 
-    if (parent->waitpid_flags & WUNTRACED)
+    if (parent && (parent->waitpid_flags & WUNTRACED))
     {
         parent->waitpid_ret = thread->pid;
         parent->wstatus = ((sig & 0xff) << 8) | 0x7f;
         move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
-        return;
     }
+
+    move_task_to_queue(&stopped_tasks, thread);
+
+    if (thread == current_task)
+        switch_task();
 }
 static inline void task_continue(thread_t* thread)
 {
     LOG(TRACE, "Resuming task \"%s\"", thread->name);
     if (thread->queue == &stopped_tasks)
         move_task_to_queue(&running_tasks, thread);
+
+    thread_t* global_parent = find_task_by_pid_anywhere(thread->ppid);
+    if (global_parent)
+    {
+        if (!(global_parent->sig_act_array[SIGCHLD].sa_flags & SA_NOCLDSTOP))
+            task_send_signal(global_parent, SIGCHLD);
+    }
     
     thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, thread->ppid);
-    if (!parent)
-        return;
-
-    if (parent->waitpid_flags & WCONTINUED)
+    if (parent && (parent->waitpid_flags & WCONTINUED))
     {
         parent->waitpid_ret = thread->pid;
         parent->wstatus = 0xffff;
         move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
-        return;
     }
 }
 
@@ -301,6 +309,9 @@ void task_send_signal(thread_t* thread, int sig)
     LOG(DEBUG, "pid %d receiving signal %d", thread->pid, sig);
 
     struct sigaction* act = &thread->sig_act_array[sig];
+    
+    if (sig == SIGCONT)
+        task_continue(thread);
     
     if (act->sa_flags & SA_SIGINFO)
     {
