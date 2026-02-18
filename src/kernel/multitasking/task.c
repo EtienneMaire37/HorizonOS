@@ -574,12 +574,24 @@ void kill_task(thread_t* task, int ret)
 
 void task_mask_signal(thread_t* task, int sig)
 {
+    lock_scheduler();
     int idx = sig / sizeof(unsigned long);
     task->sig_mask.__sig[idx] |= (1ULL << (sig - idx * sizeof(unsigned long)));
+    unlock_scheduler();
+}
+
+void task_unmask_signal(thread_t* task, int sig)
+{
+    lock_scheduler();
+    int idx = sig / sizeof(unsigned long);
+    task->sig_mask.__sig[idx] &= ~(1ULL << (sig - idx * sizeof(unsigned long)));
+    unlock_scheduler();
 }
 
 void task_set_pending_signal(thread_t* task, int sig)
 {
+    lock_scheduler();
     int idx = sig / sizeof(unsigned long);
     task->sig_pending.__sig[idx] |= (1ULL << (sig - idx * sizeof(unsigned long)));
+    unlock_scheduler();
 }

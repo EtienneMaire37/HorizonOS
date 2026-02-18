@@ -4,6 +4,7 @@
 #include "../cpu/units.h"
 #include "signal.h"
 #include "../fpu/fpu.h"
+#include "sigset.h"
 
 #include <stdlib.h>
 
@@ -295,7 +296,17 @@ void task_send_signal_to_pgrp(int sig, pid_t pgrp)
     } while (*tq && it != *tq);
     unlock_scheduler();
 }
+
 void task_send_signal(thread_t* thread, int sig)
+{
+    lock_scheduler();
+    task_set_pending_signal(thread, sig);
+    if (!sigset_is_bit_set(thread->sig_mask, sig))
+        task_handle_signal(thread, sig);
+    unlock_scheduler();
+}
+
+void task_handle_signal(thread_t* thread, int sig)
 {
     lock_scheduler();
     if (thread == idle_task)
@@ -326,8 +337,7 @@ void task_send_signal(thread_t* thread, int sig)
         case (uint64_t)SIG_IGN:
             goto ign;
         default:
-            LOG(DEBUG, "act->sa_sigaction = %p", act->sa_sigaction);
-            abort();
+            goto signal;
         }
     }
     else
@@ -339,8 +349,7 @@ void task_send_signal(thread_t* thread, int sig)
         case (uint64_t)SIG_IGN:
             goto ign;
         default:
-            LOG(DEBUG, "act->sa_handler = %p", act->sa_handler);
-            abort();
+            goto signal;
         }
     }
 
@@ -375,4 +384,26 @@ ign:
     LOG(DEBUG, "Signal was ignored by the process.");
     unlock_scheduler();
     return;
+
+signal:
+    LOG(DEBUG, "Signal was sent to the process");
+    abort();
+    unlock_scheduler();
+    return;
+}
+
+void task_try_handle_signals(thread_t* thread, sigset_t old, sigset_t new)
+{
+    for (int i = 0; i < sizeof(old.__sig) / sizeof(unsigned long); i++)
+    {
+        unsigned long were_unset = old.__sig[i] ^ ~new.__sig[i];
+        while (were_unset) 
+        {
+            unsigned long bit = were_unset & -were_unset;  // ? find lowest set bit
+            int sig = __builtin_ctzll(were_unset) + i * sizeof(unsigned long) * 8;
+            if (sigset_is_bit_set(thread->sig_pending, sig))
+                task_handle_signal(thread, sig);
+            were_unset ^= bit;
+        }
+    }
 }

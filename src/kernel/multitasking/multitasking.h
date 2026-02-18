@@ -101,5 +101,7 @@ thread_t* find_task_by_pid_anywhere(pid_t pid);
 
 void task_send_signal_to_pgrp(int sig, pid_t pgrp);
 void task_send_signal(thread_t* thread, int sig);
+void task_handle_signal(thread_t* thread, int sig);
+void task_try_handle_signals(thread_t* thread, sigset_t old, sigset_t new);
 
 pid_t waitpid_find_child_in_tq(thread_queue_t* queue, pid_t pid, int* wstatus, int pgid_on_call);

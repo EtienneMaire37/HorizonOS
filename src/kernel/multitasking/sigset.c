@@ -23,3 +23,9 @@ sigset_t sigset_bitwise_not(sigset_t s)
 		((uint8_t*)&r)[i] = ~((uint8_t*)&s)[i];
 	return r;
 }
+
+bool sigset_is_bit_set(sigset_t s, int bit)
+{
+	int idx = bit / sizeof(unsigned long);
+    return (s.__sig[idx] & (1ULL << (bit - idx * sizeof(unsigned long)))) != 0;
+}

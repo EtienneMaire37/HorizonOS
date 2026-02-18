@@ -11,7 +11,7 @@
 #include "mutex.h"
 
 #define THREAD_NAME_MAX 64
-#define NUM_SIGNALS     128 // (sizeof(sigset_t) * 8)
+#define NUM_SIGNALS     SIGRTMAX
 
 typedef struct thread thread_t;
 
@@ -29,6 +29,8 @@ typedef struct thread
     
     uid_t ruid, euid, suid;
     gid_t rgid, egid, sgid;
+
+    int pending_signal;
 
     // * waitpid shenanigans
     pid_t wait_pid, waitpid_ret, pgid_on_waitpid;
@@ -129,8 +131,10 @@ void cleanup_tasks();
 void tasks_log();
 
 void kill_task(thread_t* task, int ret);
-void task_mask_signal(thread_t* index, int sig);
-void task_set_pending_signal(thread_t* index, int sig);
-void task_queue_signal(thread_t* index, int sig);
+
+void task_mask_signal(thread_t* task, int sig);
+void task_unmask_signal(thread_t* task, int sig);
+void task_set_pending_signal(thread_t* task, int sig);
+void task_queue_signal(thread_t* task, int sig);
 
 void waitpid_check_dead();

@@ -401,11 +401,15 @@ void c_syscall_handler(syscall_registers_t* registers)
         	sc_ret_errno = EFAULT;
         	break;
         }
+        lock_scheduler();
         if (arg3) *arg3 = current_task->sig_mask;
+        sigset_t old_sigmask = current_task->sig_mask;
         switch (arg1)
         {
         case SIG_BLOCK:
         	current_task->sig_mask = sigset_bitwise_or(*arg2, current_task->sig_mask);
+            task_unmask_signal(current_task, SIGKILL);
+            task_unmask_signal(current_task, SIGSTOP);
         	sc_ret_errno = 0;
         	break;
         case SIG_UNBLOCK:
@@ -414,11 +418,15 @@ void c_syscall_handler(syscall_registers_t* registers)
            	break;
         case SIG_SETMASK:
            	current_task->sig_mask = *arg2;
+            task_unmask_signal(current_task, SIGKILL);
+            task_unmask_signal(current_task, SIGSTOP);
            	sc_ret_errno = 0;
            	break;
         default:
         	sc_ret_errno = EINVAL;
         }
+        task_try_handle_signals(current_task, old_sigmask, current_task->sig_mask);
+        unlock_scheduler();
     	break;
     sc_case(SYS_WAIT4, 4, pid_t, int*, int, struct rusage*)
         SC_LOG("syscall SYS_WAIT4(%d, %p, %d, %p)", arg1, arg2, arg3, arg4);
