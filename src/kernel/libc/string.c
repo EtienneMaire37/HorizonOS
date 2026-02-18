@@ -6,6 +6,7 @@
 
 void* memset(void* dst, int value, size_t n)
 {
+    if (__builtin_memset != memset) return __builtin_memset(dst, value, n);
     for (size_t i = 0; i < n; i++)
         ((uint8_t*)dst)[i] = (uint8_t)value;
     return dst;
@@ -13,6 +14,7 @@ void* memset(void* dst, int value, size_t n)
 
 void* memcpy(void* dst, const void* src, size_t n) 
 {
+    if (__builtin_memcpy != memcpy) return __builtin_memcpy(dst, src, n);
     for (size_t i = 0; i < n; i++)
         ((uint8_t*)dst)[i] = ((uint8_t*)src)[i];
     return dst;
@@ -20,6 +22,7 @@ void* memcpy(void* dst, const void* src, size_t n)
 
 void* memmove(void* dst, const void* src, size_t length)
 {
+    if (__builtin_memmove != memmove) return __builtin_memmove(dst, src, length);
     uint8_t data[length];
     __builtin_memcpy(data, src, length);
     __builtin_memcpy(dst, data, length);
@@ -28,6 +31,7 @@ void* memmove(void* dst, const void* src, size_t length)
 
 int memcmp(const void* str1, const void* str2, size_t n)
 {
+    if (__builtin_memcmp != memcmp) return __builtin_memcmp(str1, str2, n);
     for(uint64_t i = 0; i < n; i++)
     {
         if(((uint8_t*)str1)[i] < ((uint8_t*)str2)[i])
@@ -41,6 +45,7 @@ int memcmp(const void* str1, const void* str2, size_t n)
 
 size_t strlen(const char* str)
 {
+    if (__builtin_strlen != strlen) return __builtin_strlen(str);
     size_t s = 0;
     while ((uint64_t)str & 3)
     {
@@ -71,6 +76,7 @@ size_t strlen(const char* str)
 
 int strcmp(const char* str1, const char* str2)
 {
+    if (__builtin_strcmp != strcmp) return __builtin_strcmp(str1, str2);
     const unsigned char* p1 = (const unsigned char*)str1;
     const unsigned char* p2 = (const unsigned char*)str2;
 
@@ -85,6 +91,7 @@ int strcmp(const char* str1, const char* str2)
 
 char* strcpy(char* destination, const char* source)
 {
+    if (__builtin_strcpy != strcpy) return __builtin_strcpy(destination, source);
     char* _dest = destination;
     while (*source)
     {
@@ -98,6 +105,7 @@ char* strcpy(char* destination, const char* source)
 
 char* strncpy(char* destination, const char* source, size_t n)
 {
+    if (__builtin_strncpy != strncpy) return __builtin_strncpy(destination, source, n);
     char* _dest = destination;
     size_t i = 0;
 
