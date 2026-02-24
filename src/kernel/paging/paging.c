@@ -335,7 +335,7 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
         uint64_t* new_pml4_entry = &dst[pml4e];
 
         if (!is_pdpt_entry_present(new_pml4_entry))
-            set_pdpt_entry(new_pml4_entry, create_empty_pdpt_phys(), PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+            set_pdpt_entry(new_pml4_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
         uint64_t* old_pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pml4_entry));
         
@@ -351,7 +351,7 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
         uint64_t* new_pdpt_entry = &new_pdpt[pdpte];
 
         if (!is_pdpt_entry_present(new_pdpt_entry))
-            set_pdpt_entry(new_pdpt_entry, create_empty_pdpt_phys(), PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+            set_pdpt_entry(new_pdpt_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
         uint64_t* old_pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pdpt_entry));
 
@@ -367,7 +367,7 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
         uint64_t* new_pd_entry = &new_pd[pde];
 
         if (!is_pdpt_entry_present(new_pd_entry))
-            set_pdpt_entry(new_pd_entry, create_empty_pdpt_phys(), PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+            set_pdpt_entry(new_pd_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
         uint64_t* old_pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pd_entry));
         uint64_t* new_pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(new_pd_entry));

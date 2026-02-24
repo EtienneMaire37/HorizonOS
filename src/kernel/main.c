@@ -78,6 +78,8 @@ int num_environ;
 #include "multitasking/startup_data.h"
 #include "cpu/segbase.h"
 #include "cpu/tsc.h"
+#include "multitasking/signal.h"
+#include "int/kernel_panic.h"
 
 initrd_file_t* commit_file;
 
@@ -269,6 +271,12 @@ void _start()
         printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
         LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
         remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_OFFSET, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+    
+    // * signal handler wrapper function
+        printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
+        remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
     }
 
     PHYS_MAP_BASE = PHYS_MAP_OFFSET;
@@ -294,37 +302,54 @@ void _start()
         uint32_t eax = 0, ebx, ecx = 0, edx;
 
         cpuid(1, eax, ebx, ecx, edx);
-        xsave_supported = (ecx & (1 << 26)) != 0;
+        fxsave_supported = (edx & (1 << 24)) != 0;
+        if (!fxsave_supported)
+            xsave_supported = false;
+        else
+            xsave_supported = (ecx & (1 << 26)) != 0;
     }
     else
         xsave_supported = false;
 
-    if (xsave_supported)
+    if (fxsave_supported)
     {
-        LOG(INFO, "Detecting FPU");
-
-        if (cpuid_highest_function_parameter >= 0x0d)
+        if (xsave_supported)
         {
-            uint32_t eax = 0, ebx, ecx = 0, edx;
-            cpuid_with_ecx(0x0d, 1, eax, ebx, ecx, edx);
+            LOG(INFO, "Detecting FPU");
 
-            xsave_instruction = 
-                // ((eax & (1 << 3)) ? XSAVES : 
-                ((eax & (1 << 0)) ? XSAVEOPT : 
-                ((eax & (1 << 1)) ? XSAVEC : XSAVE));
+            if (cpuid_highest_function_parameter >= 0x0d)
+            {
+                uint32_t eax = 0, ebx, ecx = 0, edx;
+                cpuid_with_ecx(0x0d, 1, eax, ebx, ecx, edx);
+
+                xsave_instruction = 
+                    // ((eax & (1 << 3)) ? XSAVES : 
+                    ((eax & (1 << 0)) ? XSAVEOPT : 
+                    ((eax & (1 << 1)) ? XSAVEC : XSAVE));
+            }
+            else
+                xsave_instruction = XSAVE;
         }
         else
-            xsave_instruction = XSAVE;
+        {
+            LOG(WARNING, "XSAVE isn't supported: Defaulting to using FXSAVE");
+            tty_set_color(FG_LIGHTRED, BG_BLACK);
+            printf("XSAVE isn't supported: Defaulting to using FXSAVE\n");
+            tty_set_color(FG_WHITE, BG_BLACK);
+
+            fpu_state_component_bitmap = 0;
+            xsave_instruction = FXSAVE;
+        }
     }
     else
     {
-        LOG(WARNING, "XSAVE isn't supported: Defaulting to using FXSAVE");
+        LOG(WARNING, "FXSAVE isn't supported: Defaulting to using FSAVE");
         tty_set_color(FG_LIGHTRED, BG_BLACK);
-        printf("XSAVE isn't supported: Defaulting to using FXSAVE\n");
+        printf("FXSAVE isn't supported: Defaulting to using FSAVE\n");
         tty_set_color(FG_WHITE, BG_BLACK);
 
         fpu_state_component_bitmap = 0;
-        xsave_instruction = FXSAVE;
+        xsave_instruction = FSAVE;
     }
 
     LOG(INFO, "Enabling FPU");
@@ -334,12 +359,6 @@ void _start()
 
     LOG(INFO, "Using the %s FPU family of instructions", fpu_get_save_instruction_name(xsave_instruction));
     printf("Using the %s FPU family of instructions\n", fpu_get_save_instruction_name(xsave_instruction));
-
-    if (xsave_supported)
-    {
-        LOG(INFO, "XSAVE area is %u bytes", xsave_area_size);
-        printf("XSAVE area is %u bytes\n", xsave_area_size);
-    }
 
     if (cpuid_highest_function_parameter >= 7)
     {
@@ -468,16 +487,14 @@ void _start()
     wrmsr(IA32_LSTAR_MSR, (uint64_t)syscall_handler);
     wrmsr(IA32_FMASK_MSR, (1 << 9)); // * disable interrupts
 
-    log_segbase();
-
     LOG(DEBUG, "Done setting up FS/GS segment bases");
 
     enable_interrupts();
 
     LOG(DEBUG, "Calibrating TSC...");
     calibrate_tsc();
-    LOG(INFO, "CPU running at approximatively %" PRIu64 " hz", tsc_cyles_per_second);
-    printf("CPU running at approximatively %" PRIu64 " hz\n", tsc_cyles_per_second);
+    LOG(INFO, "TSC clock running at approximatively %" PRIu64 " hz", tsc_cyles_per_second);
+    printf("TSC clock running at approximatively %" PRIu64 " hz\n", tsc_cyles_per_second);
 
     LOG(INFO, "Parsing ACPI tables..");
     printf("Parsing ACPI tables...\n");

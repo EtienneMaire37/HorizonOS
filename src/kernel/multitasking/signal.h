@@ -57,3 +57,5 @@ static inline int sig_default_action(int sig)
             return SIGDEF_TERM;
     }
 }
+
+extern void sighandler();

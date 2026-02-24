@@ -13,9 +13,10 @@ thread_t* multitasking_add_task_from_function(const char* name, void (*func)())
     thread_t* task = task_create_empty();
     task_set_name(task, name);
     task->cr3 = task_create_empty_vas(PG_SUPERVISOR);
+    task->ring = 0;
 
     task->rsp = TASK_STACK_TOP_ADDRESS - 8;
-    task_setup_stack(task, (uint64_t)func, KERNEL_CODE_SEGMENT, KERNEL_DATA_SEGMENT);
+    task_setup_stack(task, (uint64_t)func);
 
     multitasking_add_task(task);
     task_count++;
@@ -198,9 +199,7 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 
     task_stack_push(task, (uint64_t)data_cpy.argc);
 
-    task_setup_stack(task, header->e_entry, 
-        ring == 0 ? KERNEL_CODE_SEGMENT : USER_CODE_SEGMENT, 
-        ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT);
+    task_setup_stack(task, header->e_entry);
 
     multitasking_add_task(task);
     task_count++;

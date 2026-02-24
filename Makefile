@@ -6,7 +6,7 @@ export PATH := "$(MAKE_DIR)/pkg-config:$(SYSROOT_DIR)/usr/bin:$(SYSROOT_DIR)/usr
 export PKG_CONFIG := x86_64-horizonos-pkg-config
 export PKG_CONFIG_FOR_BUILD := pkg-config
 
-CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -D_GNU_SOURCE -march=x86-64 # v4
+CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -fstack-protector-strong -D_GNU_SOURCE -march=x86-64 # v4
 DATE := `date +"%Y-%m-%d"`
 CROSSLD := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-ld
 CROSSNM := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-nm
@@ -68,7 +68,7 @@ $(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub
 	cd ncurses/ncurses-6.6 && make DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	touch $@
 
-bin/%.o: src/kernel/%.c Makefile
+bin/%.o: src/kernel/%.c Makefile src/kernel/*
 	mkdir -p $(dir $@)
 	$(HOSGCC) -c $< -o $@ \
 	-MMD -MP \
@@ -77,9 +77,9 @@ bin/%.o: src/kernel/%.c Makefile
 	$(CFLAGS) \
 	-mno-red-zone \
 	-Wno-stringop-overflow -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-unused-function -Wno-format-zero-length \
-	-mno-80387 -mno-mmx -mno-sse -mno-avx \
+	-mgeneral-regs-only \
 	${USER_CFLAGS} -DBUILDING_KERNEL
-bin/%.asm.o: src/kernel/%.asm Makefile
+bin/%.asm.o: src/kernel/%.asm Makefile src/kernel/*
 	mkdir -p $(dir $@)
 	nasm -f elf64 $< -o $@
 $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) Makefile

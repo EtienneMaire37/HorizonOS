@@ -1,4 +1,5 @@
 #include "linked_list.h"
+#include "../debug/out.h"
 #include <stdlib.h>
 
 void ll_push_back(ll_t* ll, void* data)
@@ -7,7 +8,7 @@ void ll_push_back(ll_t* ll, void* data)
     if (!ll) return;
 
     ll_item_t* new_item = (ll_item_t*)malloc(sizeof(ll_item_t));
-    if (!new_item) return;
+    if (!new_item) abort();
 
     new_item->data = data;
 

@@ -25,6 +25,11 @@ SECTIONS
         *(.bss .bss.*)
         *(COMMON)
     } :boot
+    .sigwrap : 
+    {
+        . = ALIGN(0x1000);
+        *(.sigwrap)
+    }
 
     kernel_end = .;
 

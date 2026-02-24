@@ -11,7 +11,7 @@
 #include "mutex.h"
 
 #define THREAD_NAME_MAX 64
-#define NUM_SIGNALS     SIGRTMAX
+#define NUM_SIGNALS     (SIGRTMAX + 1)
 
 typedef struct thread thread_t;
 
@@ -21,6 +21,7 @@ typedef struct thread
 
     uint64_t rsp, cr3;
     uint64_t fs_base, gs_base;
+    uint64_t context_sp;
 
     sigset_t sig_pending, sig_mask;
     struct sigaction sig_act_array[NUM_SIGNALS];
@@ -30,7 +31,7 @@ typedef struct thread
     uid_t ruid, euid, suid;
     gid_t rgid, egid, sgid;
 
-    int pending_signal;
+    uint64_t pending_signal_handler;
 
     // * waitpid shenanigans
     pid_t wait_pid, waitpid_ret, pgid_on_waitpid;
@@ -108,7 +109,8 @@ uint8_t task_read_at_address_1b(thread_t* task, uint64_t address);
 uint64_t task_read_at_aligned_address_8b(thread_t* task, uint64_t address);
 uint64_t task_read_at_address_8b(thread_t* task, uint64_t address);
 
-void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg);
+void task_setup_stack(thread_t* task, uint64_t entry_point);
+void task_unsetup_stack(thread_t* task);
 void task_set_name(thread_t* task, const char* name);
 
 thread_t* task_create_empty();
@@ -125,6 +127,9 @@ void task_stack_push(thread_t*, uint64_t);
 void task_stack_push_auxv(thread_t* task, Elf64_auxv_t val);
 void task_stack_push_string(thread_t* task, const char* str);
 void task_stack_push_data(thread_t* task, void* data, size_t bytes);
+
+void task_context_stack_push(thread_t* task, uint64_t rsp);
+uint64_t task_context_stack_pop(thread_t* task);
 
 void cleanup_tasks();
 

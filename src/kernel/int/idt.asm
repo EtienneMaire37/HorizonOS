@@ -86,7 +86,7 @@ interrupt_table:
 
 extern interrupt_handler
 _interrupt_handler:
-    cmp qword [rsp + 24], 0x08
+    cmp word [rsp + 24], 0x08
 	je .dont_swapgs1
 	swapgs
 .dont_swapgs1:
@@ -163,9 +163,9 @@ _interrupt_handler:
 
 global iretq_instruction
 iretq_instruction:
-    cmp qword [rsp + 8], 0x08
+    cmp word [rsp + 8], 0x08
 	je .dont_swapgs2
 	swapgs
-.dont_swapgs2:
 
+.dont_swapgs2:
     iretq

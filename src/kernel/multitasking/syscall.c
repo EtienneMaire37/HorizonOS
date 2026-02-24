@@ -793,6 +793,15 @@ void c_syscall_handler(syscall_registers_t* registers)
         }
         unlock_scheduler();
         break;
+    sc_case(SYS_SIGRET, 0)
+        SC_LOG("syscall SYS_SIGRET");
+        lock_scheduler();
+        current_task->pending_signal_handler = 0;
+        move_running_task_to_thread_queue(&pending_signal_tasks, current_task);
+        switch_task();
+        unlock_scheduler();
+        abort();
+        break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
         if (arg1 >= 1 && arg1 <= NUM_KB_LAYOUTS)

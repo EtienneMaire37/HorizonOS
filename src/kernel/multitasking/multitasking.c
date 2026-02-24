@@ -22,6 +22,7 @@ uint16_t task_count = 0;
 uint64_t multitasking_counter = TASK_SWITCH_DELAY;
 
 thread_t* current_task = NULL;
+thread_t* last_task = NULL;
 bool multitasking_enabled = false;
 
 pid_t task_reading_stdin = -1;
@@ -52,6 +53,7 @@ void multitasking_start()
 {
     fflush(stdout);
     current_task = idle_task;
+    last_task = idle_task;
     multitasking_enabled = true;
 
     idle_main();
@@ -113,9 +115,11 @@ void end_context_switch();
 
 void full_context_switch(thread_t* next)
 {
+    // log_context(next);
+
     thread_t* old_task = current_task;
+    last_task = old_task;
     current_task = next;
-    TSS.rsp0 = TASK_KERNEL_STACK_TOP_ADDRESS;
 
     if (old_task->ring != 0)
         swapgs();
@@ -125,7 +129,7 @@ void full_context_switch(thread_t* next)
 
     fpu_save_state(old_task->fpu_state);
     
-    context_switch(old_task, current_task, current_task->ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT);
+    context_switch(old_task, current_task, (current_task->ring == 0) ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT);
 
     end_context_switch();
 }
@@ -139,6 +143,9 @@ void end_context_switch()
 
     if (current_task->ring != 0)
         swapgs();
+
+    // LOG(DEBUG, "Saved context of the last task:");
+    // log_context(last_task);
 }
 
 bool task_is_blocked(thread_t* task)
@@ -308,6 +315,9 @@ void task_send_signal(thread_t* thread, int sig)
 
 void task_handle_signal(thread_t* thread, int sig)
 {
+    if (sig >= NUM_SIGNALS || sig < 0) return;
+    if (sig >= SIGRTMIN && sig <= SIGRTMAX) abort();
+
     lock_scheduler();
     if (thread == idle_task)
     {
@@ -387,7 +397,10 @@ ign:
 
 signal:
     LOG(DEBUG, "Signal was sent to the process");
-    abort();
+    thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
+    move_task_to_queue(&pending_signal_tasks, thread);
+    if (thread == current_task)
+        switch_task();
     unlock_scheduler();
     return;
 }

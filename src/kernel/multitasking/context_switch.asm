@@ -4,19 +4,16 @@ bits 64
 extern task_rsp_offset
 extern task_cr3_offset
 
-extern fpu_state_component_bitmap
-
+; * void context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds);
+    ; $rdi = (uint64_t)old_tcb
+    ; $rsi = (uint64_t)next_tcb
+    ; $rdx = ds
 global context_switch
 context_switch:
-; * RDI, RSI, RDX are arguments (they are caller saved so no need to push them)
-    push rax
+; * If the callee wishes to use registers RBX, RSP, RBP, and R12–R15, 
+; * it must restore their original values before returning control to the caller. 
+; * All other registers must be saved by the caller if it wishes to preserve their values.
     push rbx
-    push rcx
-    push rdx
-    push r8
-    push r9
-    push r10
-    push r11
     push r12
     push r13
     push r14
@@ -24,12 +21,7 @@ context_switch:
     push rbp
 
     mov rbx, qword [rel task_rsp_offset]
-    ; $rdi = (uint64_t)old_tcb
     mov [rdi + rbx], rsp                ; rdi->rsp = $rsp
-
-    ; $rsi = (uint64_t)next_tcb
-
-    ; $rdx = ds
 
     mov rsp, [rsi + rbx]                ; $rsp = rsi->rsp
 
@@ -49,14 +41,7 @@ context_switch:
     pop r14
     pop r13
     pop r12
-    pop r11
-    pop r10
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
     pop rbx
-    pop rax
 
     mov ds, dx
     mov es, dx

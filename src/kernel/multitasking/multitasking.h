@@ -19,6 +19,7 @@ extern uint16_t task_count;
 extern uint64_t multitasking_counter;
 
 extern thread_t* current_task;
+extern thread_t* last_task;
 extern bool multitasking_enabled;
 
 extern pid_t task_reading_stdin;
@@ -87,6 +88,18 @@ static inline void log_tq(thread_queue_t* tq)
         } while (it != *tq);
     }
     LOG(DEBUG, "}");
+}
+
+static inline void log_context(thread_t* task)
+{
+    if (!task) return;
+    LOG(DEBUG, "log_context (rsp = %#16" PRIx64 ")", task->rsp);
+    for (int i = 0; i < 20; i++) 
+    {
+        if (task->rsp + (i + 1) * 8 >= TASK_STACK_TOP_ADDRESS)
+            break;
+        LOG(DEBUG, "%#16" PRIx64 " (rsp + %d) = %#16" PRIx64, task->rsp + 8 * i, i, task_read_at_address_8b(task, task->rsp + 8 * i));
+    }
 }
 
 void multitasking_init();

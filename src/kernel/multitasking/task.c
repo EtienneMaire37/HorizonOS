@@ -9,6 +9,7 @@
 #include "queue.h"
 #include "multitasking.h"
 #include "hashmap.h"
+#include "signal.h"
 
 const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
 const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
@@ -28,6 +29,8 @@ thread_t* task_create_empty()
     if (!task) return NULL;
 
     memset(task, 0, sizeof(task));
+
+    task->context_sp = TASK_KERNEL_STACK_BOTTOM_ADDRESS;
 
     task->file_table_mutex = MUTEX_INIT;
 
@@ -92,13 +95,21 @@ void task_destroy(thread_t* task)
     unlock_scheduler();
 }
 
-void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg)
+void task_setup_stack_ex(thread_t* task, 
+    uint64_t entry_point, uint64_t ret_rsp, uint64_t rflags,
+    uint64_t rbx, uint64_t r12, uint64_t r13, uint64_t r14, uint64_t r15, uint64_t rbp)
 {
-    task_stack_push(task, data_seg);
-    task_stack_push(task, task->rsp + 8);
+    task_context_stack_push(task, ret_rsp);
 
-    task_stack_push(task, 0x200);  // get_rflags()
-    task_stack_push(task, code_seg);
+    // LOG(DEBUG, "Pushed context:");
+    // log_context(task);
+
+    // if (task->context_sp >= TASK_KERNEL_STACK_BOTTOM_ADDRESS + 16) return;
+
+    task_stack_push(task, (task->ring == 0) ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT);
+    task_stack_push(task, ret_rsp);
+    task_stack_push(task, rflags);
+    task_stack_push(task, (task->ring == 0) ? KERNEL_CODE_SEGMENT : USER_CODE_SEGMENT);
     task_stack_push(task, entry_point);
 
     task_stack_push(task, (uint64_t)iretq_instruction);
@@ -106,20 +117,38 @@ void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, u
     task_stack_push(task, (uint64_t)unlock_scheduler);
     task_stack_push(task, (uint64_t)cleanup_tasks);
     task_stack_push(task, (uint64_t)end_context_switch);
+    
+    task_stack_push(task, rbx);           // rbx
+    task_stack_push(task, r12);           // r12
+    task_stack_push(task, r13);           // r13
+    task_stack_push(task, r14);           // r14
+    task_stack_push(task, r15);           // r15
+    task_stack_push(task, rbp);           // rbp
+}
 
-    task_stack_push(task, 0);           // rax
-    task_stack_push(task, 0);           // rbx
-    task_stack_push(task, 0);           // rcx
-    task_stack_push(task, code_seg);    // rdx
-    task_stack_push(task, 0);           // r8
-    task_stack_push(task, 0);           // r9
-    task_stack_push(task, 0);           // r10
-    task_stack_push(task, 0);           // r11
-    task_stack_push(task, 0);           // r12
-    task_stack_push(task, 0);           // r13
-    task_stack_push(task, 0);           // r14
-    task_stack_push(task, 0);           // r15
-    task_stack_push(task, 0);           // rbp
+void task_setup_stack(thread_t* task, uint64_t entry_point)
+{
+    task_setup_stack_ex(task, entry_point, task->rsp, 0x202, 0, 0, 0, 0, 0, 0);
+}
+void task_unsetup_stack(thread_t* task)
+{
+    task->rsp = task_context_stack_pop(task);
+    // LOG(DEBUG, "Popped context:");
+    // log_context(task); ucontext_t
+}
+
+void task_context_stack_push(thread_t* task, uint64_t rsp)
+{
+    LOG(TRACE, "task_context_stack_push(%p, %#" PRIx64 ")", task, rsp);
+    task_write_at_address_8b(task, task->context_sp, rsp);
+    task->context_sp += 8;
+}
+uint64_t task_context_stack_pop(thread_t* task)
+{
+    task->context_sp -= 8;
+    uint64_t ret = task_read_at_address_8b(task, task->context_sp);
+    LOG(TRACE, "task_context_stack_pop(%p) = %#" PRIx64 " (%#" PRIx64 ")", task, ret, task->rsp);
+    return ret;
 }
 
 void task_set_name(thread_t* task, const char* name)
@@ -281,7 +310,7 @@ void switch_task()
     lock_scheduler();
 
     thread_t* next_task = find_next_task();
-    if (current_task->pid != next_task->pid)
+    if (current_task != next_task)
         full_context_switch(next_task);
 
     cleanup_tasks();
@@ -371,7 +400,7 @@ void duplicate_task(thread_t* task)
     new_task->forked_pid = 0;
     new_task->system_task = task->system_task;
 
-    new_task->cr3 = task_create_empty_vas(new_task->ring == 0 ? PG_SUPERVISOR : PG_USER);
+    new_task->cr3 = task_create_empty_vas((new_task->ring == 0) ? PG_SUPERVISOR : PG_USER);
     new_task->rsp = task->rsp;
 
     new_task->fpu_state = fpu_state_create_copy(task->fpu_state);
@@ -416,6 +445,28 @@ void cleanup_tasks()
             }
         }
         while (forked_tasks && cur_forked_task != forked_tasks);
+    }
+
+    if (pending_signal_tasks)
+    {
+        thread_queue_item_t* it = pending_signal_tasks;
+        do
+        {
+            thread_t* cur = it->data;
+            it = it->next;
+            if (cur != current_task)
+            {
+                if (cur->pending_signal_handler)
+                    task_setup_stack(cur, (uint64_t)sighandler);
+                else
+                {
+                    // task_unsetup_stack(cur);
+                }
+                if (cur->pending_signal_handler)
+                    move_task_to_running_queue(&pending_signal_tasks, it);
+            }
+        }
+        while (pending_signal_tasks && it != pending_signal_tasks);
     }
 
     if (reapable_tasks)

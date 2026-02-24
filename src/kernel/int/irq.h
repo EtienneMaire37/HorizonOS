@@ -9,6 +9,7 @@
 
 void handle_apic_irq(interrupt_registers_t* registers)
 {
+    lock_scheduler();
     bool ts = false, sigint = false;
     switch (registers->interrupt_number)
     {
@@ -81,4 +82,6 @@ void handle_apic_irq(interrupt_registers_t* registers)
 
     if (ts)
         switch_task();
+
+    unlock_scheduler();
 }

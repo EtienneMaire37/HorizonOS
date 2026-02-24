@@ -25,7 +25,8 @@ void fpu_init_defaults()
     xsave_area_size = xsave_supported ? get_xsave_area_size() : 512;
     xsave_area_pages = (xsave_area_size + 0xfff) / 0x1000;
 
-    LOG(DEBUG, "XSAVE area is %u bytes long (%u page%s)", xsave_area_size, xsave_area_pages, xsave_area_pages == 1 ? "" : "s");
+    LOG(DEBUG, "%s area is %u bytes long (%u page%s)", fpu_get_save_instruction_name(xsave_instruction), xsave_area_size, xsave_area_pages, xsave_area_pages == 1 ? "" : "s");
+    printf("%s area is %u bytes long (%u page%s)\n", fpu_get_save_instruction_name(xsave_instruction), xsave_area_size, xsave_area_pages, xsave_area_pages == 1 ? "" : "s");
 
     fpu_default_state = pfa_allocate_contiguous_pages(xsave_area_pages);
     memset((uint8_t*)fpu_default_state, 0, xsave_area_size);
@@ -60,6 +61,9 @@ void fpu_save_state(uint8_t* s)
     case FXSAVE:
         asm volatile("fxsave [rdi]" :: "D"(s) : "memory");
         break;
+    case FSAVE:
+        asm volatile("fsave [rdi]" :: "D"(s) : "memory");
+        break;
     default:
         abort();
     }
@@ -83,6 +87,9 @@ void fpu_restore_state(uint8_t* s)
         break;
     case FXSAVE:
         asm volatile("fxrstor [rdi]" :: "D"(s) : "memory");
+        break;
+    case FSAVE:
+        asm volatile("frstor [rdi]" :: "D"(s) : "memory");
         break;
     default:
         abort();

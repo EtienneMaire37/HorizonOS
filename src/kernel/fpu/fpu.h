@@ -10,6 +10,7 @@
 #define XSAVEC      2
 #define XSAVE       3
 #define FXSAVE      4
+#define FSAVE       5
 #define NO_FPU      6
 
 static inline char* fpu_get_save_instruction_name(int inst)
@@ -21,6 +22,7 @@ static inline char* fpu_get_save_instruction_name(int inst)
     def_case(XSAVEC)
     def_case(XSAVE)
     def_case(FXSAVE)
+    def_case(FSAVE)
     default:
         return "INVALID";
     }

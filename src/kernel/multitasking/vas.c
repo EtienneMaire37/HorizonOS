@@ -7,13 +7,13 @@ physical_address_t task_create_empty_vas(uint8_t privilege)
     if (!paddr) return physical_null;
 
     for (int i = 256; i < 512; i++)
-        set_pdpt_entry(&cr3[i], get_pdpt_entry_address(&global_cr3[i]), PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+        set_pdpt_entry(&cr3[i], get_pdpt_entry_address(&global_cr3[i]), PG_USER, PG_READ_WRITE, CACHE_WB);
 
     allocate_range(cr3, TASK_STACK_BOTTOM_ADDRESS, TASK_STACK_PAGES,
             privilege, PG_READ_WRITE, CACHE_WB);
     if (privilege != PG_SUPERVISOR)
         allocate_range(cr3, TASK_KERNEL_STACK_BOTTOM_ADDRESS, TASK_KERNEL_STACK_PAGES,
-            PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+            PG_USER, PG_READ_WRITE, CACHE_WB);
 
     return paddr;
 }

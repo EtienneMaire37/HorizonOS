@@ -6,7 +6,7 @@
 #include "../cpu/cpuid.h"
 
 extern uint64_t fpu_state_component_bitmap;
-extern bool xsave_supported;
+extern bool xsave_supported, fxsave_supported;
 
 static inline uint64_t get_supported_xcr0()
 {
@@ -41,7 +41,8 @@ static inline void load_xcr0(uint64_t xcr0)
 static inline void enable_fpu()
 {
     uint64_t cr4 = get_cr4();
-    cr4 |= (1 << 9);    // * OSFXSR
+    if (fxsave_supported)
+        cr4 |= (1 << 9);    // * OSFXSR
     if (xsave_supported)
         cr4 |= (1 << 18);   // * OSXSAVE
     load_cr4(cr4);
