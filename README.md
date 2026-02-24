@@ -35,7 +35,7 @@ Here's a list of the supported options:
 | -DLOG_SYSCALLS | N/A | Whether to log syscalls |
 | -DLOG_MEMORY | N/A | Whether to log page allocation |
 
-For example to build with LOG_LEVEL=DEBUG and LOG_SYSCALLS:
+For example to build with LOG_LEVEL=TRACE and LOG_SYSCALLS:
 ```bash
 make USER_CFLAGS="-DLOG_LEVEL=TRACE -DLOG_SYSCALLS"
 ```
