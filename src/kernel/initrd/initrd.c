@@ -1,33 +1,61 @@
 #include "initrd.h"
 
+#include <stdlib.h>
+
 initrd_file_t initrd_files[MAX_INITRD_FILES];
 uint8_t initrd_files_count = 0;
+
+struct ustar_header empty_header;
 
 void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 {
     LOG(INFO, "Parsing initrd");
 
-    LOG(INFO, "Initrd size : %" PRIu64 " bytes", initrd_size);
+    LOG(INFO, "Initrd address : %#" PRIx64" | Initrd size : %" PRIu64 " bytes", initrd_start, initrd_size);
+
+    memset(&empty_header, 0, sizeof(empty_header));
 
     uint64_t initrd_offset = 0;
+    initrd_files_count = 0;
 
+    bool last_empty = false;
     while (initrd_offset < initrd_size)
     {
+        uint64_t file_size = 0;
+
         struct ustar_header* header = (struct ustar_header*)(initrd_start + initrd_offset);
 
-        if (header->name[0] == '\0')
-            break;
+        if (header->filename_prefix[0] != '\0')
+        {
+            LOG(WARNING, "Skipping file with filename prefix");
+            goto do_loop;
+        }
+        if (memcmp(header, &empty_header, sizeof(struct ustar_header)) == 0)
+        {
+            if (last_empty)
+            {
+                LOG(INFO, "Found end of archive at %" PRIu64, initrd_offset);
+                break;
+            }
+            last_empty = true;
+            goto do_loop;
+        }
+        else
+            last_empty = false;
 
         if (!USTAR_IS_VALID_HEADER(*header))
         {
-            LOG(WARNING, "Invalid USTAR header at offset %" PRIu64, initrd_offset);
-            break;
+            LOG(WARNING, "Invalid USTAR header at offset %" PRIu64 " (\"%c%c%c%c%c%c\")", 
+                initrd_offset, 
+                header->ustar[0], header->ustar[1], header->ustar[2], header->ustar[3], header->ustar[4], header->ustar[5]);
+            goto do_loop;
         }
 
-        uint64_t file_size = ustar_get_number(header->size, 12);
+        file_size = ustar_get_number(header->size, 12);
 
         initrd_files[initrd_files_count].name = &header->name[0];
-        size_t len = strlen(initrd_files[initrd_files_count].name);
+        size_t len = strnlen(initrd_files[initrd_files_count].name, 99);
+        initrd_files[initrd_files_count].name[len] = 0;
         if (len >= 1)
         {
             if (initrd_files[initrd_files_count].name[len - 1] == '.')
@@ -64,6 +92,9 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
         initrd_files[initrd_files_count].st = st;
 
         initrd_files_count++;
+
+        if (initrd_files_count >= MAX_INITRD_FILES)
+            abort();
         
     do_loop:
         initrd_offset += (file_size + USTAR_BLOCK_SIZE - 1) / USTAR_BLOCK_SIZE * USTAR_BLOCK_SIZE + USTAR_BLOCK_SIZE;
@@ -71,38 +102,34 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 
     for (uint8_t i = 0; i < initrd_files_count; i++)
     {
-        // if (initrd_files[i].size != 0 && 
-        //     initrd_files[i].name != NULL)
+        char* tree_inter = initrd_files_count - i > 1 ? "├" : "└";
+        tar_file_type this_type = initrd_files[i].type;
+        switch (this_type)
         {
-            char* tree_inter = initrd_files_count - i > 1 ? "├" : "└";
-            tar_file_type this_type = initrd_files[i].type;
-            switch (this_type)
-            {
-            case USTAR_TYPE_FILE_1:
-            case USTAR_TYPE_FILE_2:
-                LOG(INFO, "%s── File : \"%s\" ; Size : %" PRIu64 " bytes", tree_inter, initrd_files[i].name, initrd_files[i].size);
-                break;
-            case USTAR_TYPE_HARD_LINK:
-                LOG(INFO, "%s── Hard link : \"%s\" pointing to \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);
-                break;
-            case USTAR_TYPE_SYMBOLIC_LINK:
-                LOG(INFO, "%s── Symbolic link : \"%s\" pointing to \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);
-                break;
-            case USTAR_TYPE_CHARACTER_DEVICE:
-                LOG(INFO, "%s── Character device : \"%s\"", tree_inter, initrd_files[i].name);
-                break;
-            case USTAR_TYPE_BLOCK_DEVICE:
-                LOG(INFO, "%s── Block device : \"%s\"", tree_inter, initrd_files[i].name);
-                break;
-            case USTAR_TYPE_DIRECTORY:
-                LOG(INFO, "%s── Directory : \"%s\"", tree_inter, initrd_files[i].name);
-                break;
-            case USTAR_TYPE_NAMED_PIPE:
-                LOG(INFO, "%s── FIFO : \"%s\"", tree_inter, initrd_files[i].name);
-                break;
-            default:
-                ;
-            }
+        case USTAR_TYPE_FILE_1:
+        case USTAR_TYPE_FILE_2:
+            LOG(INFO, "%s── File : \"%s\" ; Size : %" PRIu64 " bytes", tree_inter, initrd_files[i].name, initrd_files[i].size);
+            break;
+        case USTAR_TYPE_HARD_LINK:
+            LOG(INFO, "%s── Hard link : \"%s\" pointing to \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);
+            break;
+        case USTAR_TYPE_SYMBOLIC_LINK:
+            LOG(INFO, "%s── Symbolic link : \"%s\" pointing to \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);
+            break;
+        case USTAR_TYPE_CHARACTER_DEVICE:
+            LOG(INFO, "%s── Character device : \"%s\"", tree_inter, initrd_files[i].name);
+            break;
+        case USTAR_TYPE_BLOCK_DEVICE:
+            LOG(INFO, "%s── Block device : \"%s\"", tree_inter, initrd_files[i].name);
+            break;
+        case USTAR_TYPE_DIRECTORY:
+            LOG(INFO, "%s── Directory : \"%s\"", tree_inter, initrd_files[i].name);
+            break;
+        case USTAR_TYPE_NAMED_PIPE:
+            LOG(INFO, "%s── FIFO : \"%s\"", tree_inter, initrd_files[i].name);
+            break;
+        default:
+            abort();
         }
     }
 

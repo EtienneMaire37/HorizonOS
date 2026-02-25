@@ -74,6 +74,47 @@ size_t strlen(const char* str)
     __builtin_unreachable();
 }
 
+size_t strnlen(const char* str, size_t maxlen)
+{
+    if (__builtin_strnlen != strnlen) return __builtin_strnlen(str, maxlen);
+    size_t s = 0;
+    while ((uint64_t)str & 3)
+    {
+        if (s >= maxlen)
+            return maxlen;
+        if (!(*str))
+            return s;
+        str++;
+        s++;
+    }
+
+    uint32_t dword;
+    while (true)
+    {
+        dword = *(uint32_t*)str;
+        if (s >= maxlen)
+            return maxlen;
+        if (!(dword & 0xff))
+            return s;
+        if (s + 1 >= maxlen)
+            return maxlen;
+        if (!(dword & 0xff00))
+            return s + 1;
+        if (s + 2 >= maxlen)
+            return maxlen;
+        if (!(dword & 0xff0000))
+            return s + 2;
+        if (s + 3 >= maxlen)
+            return maxlen;
+        if (!(dword & 0xff000000))
+            return s + 3;
+
+        str += 4;
+        s += 4;
+    }
+    __builtin_unreachable();
+}
+
 int strcmp(const char* str1, const char* str2)
 {
     if (__builtin_strcmp != strcmp) return __builtin_strcmp(str1, str2);

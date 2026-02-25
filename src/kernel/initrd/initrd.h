@@ -19,7 +19,7 @@ typedef struct initrd_file
     char* link;
 } initrd_file_t;
 
-#define MAX_INITRD_FILES 32
+#define MAX_INITRD_FILES 64
 
 extern initrd_file_t initrd_files[MAX_INITRD_FILES];
 extern uint8_t initrd_files_count;

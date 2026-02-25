@@ -101,7 +101,9 @@ void tty_set_color(uint8_t fg_color, uint8_t bg_color)
 {
 	fflush(stdout);
 
+#ifndef LOG_TO_TTY
 	tty_color = (fg_color & 0x0f) | (bg_color & 0xf0);
+#endif
 }
 
 void tty_set_window_size(int sx, int sy)
@@ -344,13 +346,13 @@ void tty_outc(char c)
 		break;
 
 	case '\t':
+	{
 		tty_render_character(tty_cursor, c, tty_color);
-		tty_cursor += TAB_LENGTH;
-		tty_cursor /= TAB_LENGTH;
-		tty_cursor *= TAB_LENGTH;
+		tty_cursor = ((tty_cursor - (tty_cursor / TTY_RES_X) * TTY_RES_X + TAB_LENGTH) / TAB_LENGTH) * TAB_LENGTH + (tty_cursor / TTY_RES_X) * TTY_RES_X;
 		if (tty_cursor_blink)
 			tty_render_cursor(tty_cursor);
 		break;
+	}
 
 	case '\b':
 		tty_render_character(tty_cursor, c, tty_color);

@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-struct ustar_header
+struct __attribute__((packed)) ustar_header
 {
     char    name[100];
     uint8_t mode[8];

@@ -6,7 +6,6 @@ export PATH := "$(MAKE_DIR)/pkg-config:$(SYSROOT_DIR)/usr/bin:$(SYSROOT_DIR)/usr
 export PKG_CONFIG := x86_64-horizonos-pkg-config
 export PKG_CONFIG_FOR_BUILD := pkg-config
 
-CFLAGS := -std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -fstack-protector-strong -D_GNU_SOURCE -march=x86-64 # v4
 DATE := `date +"%Y-%m-%d"`
 CROSSLD := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-ld
 CROSSNM := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-nm
@@ -74,7 +73,7 @@ bin/%.o: src/kernel/%.c Makefile src/kernel/*
 	-MMD -MP \
 	-Wall -Werror -Wno-address-of-packed-member -fpic -I./bootboot/dist -I./root/usr/include \
 	-O2 \
-	$(CFLAGS) \
+	-std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -fstack-protector-strong -D_GNU_SOURCE -march=x86-64 \
 	-mno-red-zone \
 	-Wno-stringop-overflow -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-unused-function -Wno-format-zero-length \
 	-mgeneral-regs-only \
@@ -128,12 +127,11 @@ horizonos.iso: $(HOSGCC) $(MKBOOTIMG) resources/pci.ids src/tasks/bin/init $(KER
 	
 	rm -f bin/horizonos.bin
 
-# 	PATH="/usr/sbin:${PATH}" $(DIR2FAT32) bin/horizonos.bin 2048 ./root
 	dd if=/dev/zero of=bin/horizonos.bin bs=1M count=1
 	
 	$(MKBOOTIMG) src/kernel/bootboot.json horizonos.iso
 
-# 	qemu-img convert -O vdi horizonos.iso horizonos.vdi
+	qemu-img convert -O vdi horizonos.iso horizonos.vdi
 
 src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC) Makefile
 	mkdir -p ./src/tasks/bin

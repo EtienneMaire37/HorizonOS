@@ -98,15 +98,12 @@ void _start()
 {
     disable_interrupts();
 
-    if (!bootboot.fb_scanline) 
-        abort();
-
     apic_init();
     uint8_t cpu_id = apic_get_cpu_id();
-
+    
     if (bootboot.bspid != cpu_id) // * Only one core supported for now
         halt();
-
+    
     if (bootboot.bspid == cpu_id)
     {
         LOG(DEBUG, "_start");
@@ -116,7 +113,7 @@ void _start()
 
         LOG(INFO, "Kernel booted successfully with BOOTBOOT (%#" PRIx64 "-%#" PRIx64 ")", kernel_start_phys, kernel_end_phys);
         LOG(INFO, "Kernel is %" PRIu64 " bytes long", kernel_end_phys - kernel_start_phys);
-        LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %#" PRIx64 "", bootboot.fb_width, bootboot.fb_height, bootboot.fb_scanline, bootboot.fb_ptr);
+        LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %#" PRIx64, bootboot.fb_width, bootboot.fb_height, bootboot.fb_scanline, bootboot.fb_ptr);
         LOG(INFO, "Type: %s", fb_type_string[bootboot.fb_type]);
 
         framebuffer.width = bootboot.fb_width;
@@ -180,9 +177,20 @@ void _start()
 
     tty_color = (FG_WHITE | BG_BLACK);
 
-// * vvv Now we can use printf
+// * vvv Now we can use stdout
+
+    assert(*(uint32_t*)bootboot.magic == 0x544f4f42);   // * "BOOT"
+    assert(bootboot.fb_scanline);
+
+    LOG(DEBUG, "BOOTBOOT protocol: %#x", bootboot.protocol);
+
+    assert(!(bootboot.protocol & PROTOCOL_BIGENDIAN));
 
     tty_clear_screen(' ');
+
+    // // * testing
+    // initrd_parse(bootboot.initrd_ptr, bootboot.initrd_size);
+    // while (true);
 
     commit_file = initrd_find_file("boot/commit.txt");
 
@@ -219,7 +227,7 @@ void _start()
         memset(global_cr3, 0, 4096);
         uint64_t* bootboot_cr3 = (uint64_t*)get_cr3();
 
-        LOG(DEBUG, "bootboot_cr3: %#" PRIx64 "", (uint64_t)bootboot_cr3);
+        LOG(DEBUG, "bootboot_cr3: %#" PRIx64, (uint64_t)bootboot_cr3);
 
     // * "When the kernel gains control, the memory mapping looks like this:"
     // *  -128M         "mmio" area           (0xFFFFFFFFF8000000)
@@ -249,19 +257,19 @@ void _start()
             if (ptr + len >= MAX_MEMORY)
                 len = MAX_MEMORY - ptr;
                 
-            LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
+            LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
             printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
             remap_range(global_cr3, ptr + PHYS_MAP_OFFSET, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
         }
 
     // * LAPIC registers
         printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
-        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
+        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
         remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
 
     // * Framebuffer
         printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
-        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
+        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
         
     // ? Write-combining cache
         remap_range(global_cr3, (uint64_t)framebuffer.address + PHYS_MAP_OFFSET, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
@@ -269,7 +277,7 @@ void _start()
 
     // * initrd
         printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
         remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_OFFSET, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
     
     // * signal handler wrapper function

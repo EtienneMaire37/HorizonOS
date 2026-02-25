@@ -27,9 +27,15 @@ int fputc(int c, FILE* stream)
     case STDIN_FILENO:
         return EOF;
     case STDOUT_FILENO:
+    #ifndef NO_STDOUT
         tty_outc((char)c);
+    #endif
         return c;
     case STDERR_FILENO:
+    #ifdef LOG_TO_TTY
+        if (tty_font.f)
+            tty_outc((char)c);
+        #endif
         debug_outc((char)c);
         return c;
     default:

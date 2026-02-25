@@ -65,6 +65,7 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
     }
 
     thread_t* task = task_create_empty();
+    if (!task) return NULL;
     task_set_name(task, name);
     task->cr3 = task_create_empty_vas(ring == 0 ? PG_SUPERVISOR : PG_USER);
 

@@ -9,7 +9,6 @@ src/tasks/src/bash
 root/
 
 bootboot
-dir2fat32/
 
 crosstoolchain/
 hostoolchain/
