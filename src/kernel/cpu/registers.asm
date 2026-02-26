@@ -12,8 +12,3 @@ set_rflags:
     push rdi
     popfq
     ret
-
-global get_rbp
-get_rbp:
-    mov rax, rbp
-    ret

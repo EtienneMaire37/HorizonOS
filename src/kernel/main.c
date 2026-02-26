@@ -90,9 +90,9 @@ void _start()
     // * Assume CPUID support
     
     uint8_t cpu_id = cpuid_get_cpu_id();
+    // LOG(TRACE, "CPU ID: %u", cpu_id);
     
     apic_init();
-    
     
     if (mp_request.response->bsp_lapic_id != cpu_id) // * SMP not supported for now
         halt();
@@ -104,19 +104,24 @@ void _start()
     
     if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1)
         halt();
+
+    // assert(framebuffer_request.response->framebuffers[0]->memory_model == LIMINE_FRAMEBUFFER_RGB);
+    assert(framebuffer_request.response->framebuffers[0]->bpp % 8 == 0);
     
     framebuffer.width = framebuffer_request.response->framebuffers[0]->width;
     framebuffer.height = framebuffer_request.response->framebuffers[0]->height;
     framebuffer.stride = framebuffer_request.response->framebuffers[0]->pitch;
     framebuffer.address = framebuffer_request.response->framebuffers[0]->address;
     framebuffer.format = framebuffer_request.response->framebuffers[0]->memory_model;
+    framebuffer.bytes_per_pixel = framebuffer_request.response->framebuffers[0]->bpp / 8;
+    framebuffer.red_shift = framebuffer_request.response->framebuffers[0]->red_mask_shift;
+    framebuffer.green_shift = framebuffer_request.response->framebuffers[0]->green_mask_shift;
+    framebuffer.blue_shift = framebuffer_request.response->framebuffers[0]->blue_mask_shift;
     
     LOG(INFO, "Kernel booted successfully with limine (%#" PRIx64 "-%#" PRIx64 ")", kernel_start_phys, kernel_end_phys);
     LOG(INFO, "Kernel is %" PRIu64 " bytes long", kernel_end_phys - kernel_start_phys);
     LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %p", framebuffer.width, framebuffer.height, framebuffer.stride, framebuffer.address);
-    
-    assert(framebuffer.format == LIMINE_FRAMEBUFFER_RGB);
-    
+        
     LOG(INFO, "LAPIC base: %p", lapic);
     
     LOG(INFO, "CPUID highest function parameter: %#x", cpuid_highest_function_parameter);
@@ -142,19 +147,28 @@ void _start()
 
     LOG(INFO, "Physical address is %u bits long", physical_address_width);
 
-    
     init_pat();
     
     LOG(INFO, "cpu_id : %u", cpu_id);
-    
-    abort();
 
-    // initrd_parse(bootboot.initrd_ptr, bootboot.initrd_size);
+    struct limine_file* initrd = NULL;
+    for (int i = 0; i < module_request.response->module_count; i++)
+    {
+        struct limine_file* file = module_request.response->modules[i];
+        if (strcmp(initrd_module.path, file->path) == 0)
+        {
+            initrd = file;
+            break;
+        }
+    }
+    assert(initrd);
+
+    initrd_parse((uint64_t)initrd->address, initrd->size);
     kernel_symbols_file = initrd_find_file("boot/symbols.txt");
 
     tty_font = psf_font_load_from_initrd("boot/ka8x16thin-1.psf");
 
-    if(!tty_font.f)
+    if (!tty_font.f)
     {
         LOG(DEBUG, "Couldn't find psf font in initrd");
         abort();
@@ -176,6 +190,8 @@ void _start()
     puts((const char*)commit_file->data);
     tty_set_color(FG_WHITE, BG_BLACK);
 
+    while (true);
+    
     pfa_detect_usable_memory();
 
     printf("Detected ");

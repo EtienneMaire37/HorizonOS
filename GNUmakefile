@@ -81,7 +81,7 @@ $(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub
 # 	cd ncurses/ncurses-6.6 && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 # 	touch $@
 
-bin/%.o: src/kernel/%.c GNUmakefile src/kernel/* limine/limine
+bin/%.o: src/kernel/%.c GNUmakefile src/kernel/link.ld limine/limine
 	mkdir -p $(dir $@)
 	$(HOSGCC) -c $< -o $@ \
 	-MMD -MP \
@@ -92,7 +92,7 @@ bin/%.o: src/kernel/%.c GNUmakefile src/kernel/* limine/limine
 	-Wno-stringop-overflow -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-unused-function -Wno-format-zero-length \
 	-mgeneral-regs-only \
 	${USER_CFLAGS} -DBUILDING_KERNEL -I limine-protocol/include
-bin/%.asm.o: src/kernel/%.asm GNUmakefile src/kernel/*
+bin/%.asm.o: src/kernel/%.asm GNUmakefile src/kernel/link.ld
 	mkdir -p $(dir $@)
 	nasm -f elf64 $< -o $@
 $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) GNUmakefile
@@ -102,16 +102,18 @@ $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) GNUmakefile
 	-lgcc
 # 	$(CROSSSTRIP) $@
 
-run:	all
+run:	horizonos.iso
 	mkdir debug -p
 	qemu-system-x86_64 $(QEMU_FLAGS)
 
-debug: 	all
+debug: 	horizonos.iso
 	mkdir debug -p
 	qemu-system-x86_64 $(QEMU_FLAGS) -s -S &
 	gdb -x gdb-config.txt
 
 horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) limine/limine
+	rm -f $@
+
 	mkdir -p bin/initrd_contents
 
 	mkdir -p bin/initrd_contents/sbin
@@ -137,6 +139,8 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) limi
 	cp resources/* bin/initrd_contents/boot/
 	$(CROSSNM) -n --defined-only -C bin/initrd_contents/boot/kernel.elf > bin/initrd_contents/boot/symbols.txt
 	git log -n 1 --pretty=format:'%H' > bin/initrd_contents/boot/commit.txt
+
+	tar -C bin/initrd_contents -cf root/boot/initrd.tar .
 
 	mkdir -p root/boot/limine
 	cp src/boot/limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin root/boot/limine/

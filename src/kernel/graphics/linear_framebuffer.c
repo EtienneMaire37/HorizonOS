@@ -2,7 +2,7 @@
 
 linear_framebuffer_t framebuffer;
 
-void framebuffer_setpixel(linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+void framebuffer_setpixel(linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint8_t red, uint8_t green, uint8_t blue)
 {
     if (!buffer)
         return;
@@ -12,10 +12,10 @@ void framebuffer_setpixel(linear_framebuffer_t* buffer, uint32_t x, uint32_t y, 
     if (x >= buffer->width) return;
     if (y >= buffer->height) return;
 
-    ((uint32_t*)(buffer->address + buffer->stride * y))[x] = framebuffer_encode_color_data(buffer, red, green, blue, alpha);
+    *(uint32_t*)&((uint8_t*)(buffer->address + buffer->stride * y))[buffer->bytes_per_pixel * x] = framebuffer_encode_color_data(buffer, red, green, blue);
 }
 
-void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint32_t size_x, uint32_t size_y, uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint32_t size_x, uint32_t size_y, uint8_t red, uint8_t green, uint8_t blue)
 {
     if (!buffer)
         return;
@@ -32,7 +32,7 @@ void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y,
     if (bottom >= buffer->height)
         bottom = buffer->height;
 
-    uint32_t dword = framebuffer_encode_color_data(buffer, red, green, blue, alpha);
+    uint32_t dword = framebuffer_encode_color_data(buffer, red, green, blue);
 
     if (red == green && red == blue)
     {
@@ -44,7 +44,7 @@ void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y,
         {
             for (uint32_t i = y; i < bottom; i++)
             {
-                memset((void*)((uintptr_t)buffer->address + buffer->stride * i) + 4 * x, red, 4 * (right - x));
+                memset((void*)((uintptr_t)buffer->address + buffer->stride * i) + buffer->bytes_per_pixel * x, red, 4 * (right - x));
             }
         }
     }
@@ -94,7 +94,7 @@ void framebuffer_render_psf2_char(
             bool put = (glyph_row[byte_index] >> bit_index) & 1;
 
             if (put)
-                framebuffer_setpixel(buffer, j, i, r, g, b, 0);
+                framebuffer_setpixel(buffer, j, i, r, g, b);
         }
     }
 }

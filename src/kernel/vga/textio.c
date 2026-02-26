@@ -33,7 +33,7 @@ void tty_clear_screen(char c)
 	if (c == 0 || c == ' ')
 	{
 		srgb_t bg_color = vga_get_bg_color(tty_color);
-		framebuffer_fill_rect(&framebuffer, 0, 0, framebuffer.width, framebuffer.height, bg_color.r, bg_color.g, bg_color.b, 0);
+		framebuffer_fill_rect(&framebuffer, 0, 0, framebuffer.width, framebuffer.height, bg_color.r, bg_color.g, bg_color.b);
 		tty_cursor = 0;
 		goto end;
 	}
@@ -142,7 +142,7 @@ void tty_render_character(uint32_t cursor, char c, uint8_t color)
 	uint32_t y = tty_get_character_pos_y(cursor);
 
 	srgb_t bg_color = vga_get_bg_color(color);
-	framebuffer_fill_rect(&framebuffer, x, y, width, height, bg_color.r, bg_color.g, bg_color.b, 0);
+	framebuffer_fill_rect(&framebuffer, x, y, width, height, bg_color.r, bg_color.g, bg_color.b);
 
 	if (!is_printable_character(c)) return;
 
@@ -163,7 +163,7 @@ void tty_render_cursor(uint32_t cursor)
 	uint32_t x = tty_get_character_pos_x(cursor);
 	uint32_t y = tty_get_character_pos_y(cursor);
 
-	framebuffer_fill_rect(&framebuffer, x, y + (8 * height / 10), width, height / 5, 255, 255, 255, 0);
+	framebuffer_fill_rect(&framebuffer, x, y + (8 * height / 10), width, height / 5, 255, 255, 255);
 }
 
 void tty_refresh_screen()
@@ -406,7 +406,7 @@ void tty_outc(char c)
 
 		memset(&tty_data[(TTY_RES_Y - rows_to_scroll) * TTY_RES_X], 0x0f, TTY_RES_X * sizeof(uint16_t));
 
-		framebuffer_fill_rect(&framebuffer, 0, tty_get_character_pos_y((TTY_RES_Y - rows_to_scroll) * TTY_RES_X), framebuffer.width, tty_get_character_height(), 0, 0, 0, 0);
+		framebuffer_fill_rect(&framebuffer, 0, tty_get_character_pos_y((TTY_RES_Y - rows_to_scroll) * TTY_RES_X), framebuffer.width, tty_get_character_height(), 0, 0, 0);
 	}
 
 	unlock_scheduler();

@@ -25,7 +25,16 @@ static inline void load_cr4(uint64_t cr4)
 {
     asm volatile("mov cr4, rax" : : "a" (cr4));
 }
+static inline uint64_t get_rbp()
+{
+    uint64_t rbp;
+    asm volatile ("mov rax, rbp" : "=a"(rbp));
+    return rbp;
+}
+static inline void set_rbp(uint64_t rbp)
+{
+    asm volatile ("mov rbp, rax" :: "a"(rbp));
+}
 
 extern uint64_t get_rflags();
 extern void set_eflags(uint64_t value);
-extern uint64_t get_rbp();

@@ -53,7 +53,10 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 
         file_size = ustar_get_number(header->size, 12);
 
-        initrd_files[initrd_files_count].name = &header->name[0];
+        if (strcmp(header->name, ".") == 0)
+            goto do_loop;
+
+        initrd_files[initrd_files_count].name = &header->name[2];
         size_t len = strnlen(initrd_files[initrd_files_count].name, 99);
         initrd_files[initrd_files_count].name[len] = 0;
         if (len >= 1)
