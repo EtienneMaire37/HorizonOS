@@ -3,10 +3,7 @@
 #include "defs.h"
 #include "../cpu/util.h"
 #include <stdbool.h>
-
-#include <bootboot.h>
-
-extern BOOTBOOT bootboot;
+#include <limine.h>
 
 struct rsdt_table* rsdt;
 struct xsdt_table* xsdt;
@@ -20,6 +17,8 @@ uint8_t preferred_power_management_profile;
 
 bool acpi_10;
 uint32_t sdt_count;
+
+#include "../boot/limine.h"
 
 #include "tables.h"
 
@@ -80,7 +79,7 @@ void map_table_in_current_vas(uint64_t address, uint8_t privilege, uint8_t read_
 
 void acpi_find_tables()
 {
-    rsdt_address = bootboot.arch.x86_64.acpi_ptr;
+    abort();
     rsdt = NULL;
     xsdt = NULL;
     fadt = NULL;

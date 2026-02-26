@@ -19,7 +19,8 @@ These instructions assume a Debian-like environment. Feel free to adapt those in
 
 Install dependencies:
 ```bash
-sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo nasm xorriso mkbootimg util-linux dosfstools mtools qemu-system qemu-utils unzip autoconf2.69 zip meson
+sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo nasm xorriso mkbootimg util-linux dosfstools mtools qemu-system qemu-utils unzip autoconf2.69 zip meson aptitude
+sudo aptitude install ovmf -y
 ```
 
 ### Building
@@ -56,7 +57,6 @@ make run
 HorizonOS uses the following third-party libraries and resources:
 
 - [liballoc](https://github.com/blanham/liballoc) - For libc memory allocation (Public domain)
-- [BOOTBOOT](https://gitlab.com/bztsrc/bootboot) - A UEFI bootloader (MIT license)
 - [pci.ids](https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids) - List of PCI IDs (GPLv3)
 
 ## Contributing
@@ -67,4 +67,3 @@ Feel free to contribute and submit pull requests !
 ## License
 
 HorizonOS is licensed under the GNU GPLv3 License. See the `LICENSE` file for more details.
-BOOTBOOT (downloaded upon build) is licensed under the MIT license. See the `bootboot/LICENSE` file for more details.

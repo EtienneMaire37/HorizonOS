@@ -54,7 +54,5 @@ void rtc_get_time()
 
     system_thousands = 0;
 
-    system_minutes += bootboot.timezone;
-
     resolve_time();
 }

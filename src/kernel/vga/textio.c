@@ -236,6 +236,8 @@ void tty_ansi_H_code(uint8_t code)
 
 void tty_outc(char c)
 {
+	if (!tty_font.f)
+		return;
 	if (c == 0)
 		return;
 

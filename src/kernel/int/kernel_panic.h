@@ -168,11 +168,6 @@ static inline void print_stack_trace(uint64_t rip, uint64_t rbp_val, bool ttyout
     if (ttyout)
         putchar('\n');
 
-    // while (rbp != NULL && rbp->rip != 0 && i <= max_stack_frames && is_address_canonical((uintptr_t)rbp) && is_address_canonical((uintptr_t)rbp->rip) && (uintptr_t)rbp != 0 && (uintptr_t)rbp->rip != 0 && 
-    // (((!multitasking_enabled || (multitasking_enabled && first_task_switch)) &&
-    //         (((uintptr_t)rbp > 0xffffffffffffffff - 1024 * bootboot.numcores) && ((uintptr_t)rbp <= 0xffffffffffffffff))) || 
-    //     (((uintptr_t)rbp < TASK_STACK_TOP_ADDRESS) && ((uintptr_t)rbp >= TASK_STACK_BOTTOM_ADDRESS))))
-
     const int max_stack_frames = 12;
 
     for (int i = 0; i <= max_stack_frames; i++)

@@ -1,15 +1,15 @@
 #pragma once
 
 #include "../files/psf.h"
-#include <bootboot.h>
+#include "../boot/limine.h"
+
+#include <stdlib.h>
 
 typedef struct linear_framebuffer
 {
-    uintptr_t address;
+    void* address;
     uint32_t width, height;
     uint32_t stride;
-
-    // * From bootboot.h
     uint8_t format;
 } linear_framebuffer_t;
 
@@ -22,16 +22,14 @@ static inline uint32_t framebuffer_encode_color_data(linear_framebuffer_t* buffe
     if (!buffer->address)
         return 0;
 
+    abort();
+
     switch (buffer->format)
     {
-    case FB_ARGB:
-        return ((uint32_t)alpha << 24) | ((uint32_t)red << 16) | ((uint32_t)green << 8) | blue;
-    case FB_RGBA:
+    case LIMINE_FRAMEBUFFER_RGB:
         return ((uint32_t)red << 24) | ((uint32_t)green << 16) | ((uint32_t)blue << 8) | alpha;
-    case FB_ABGR:
-        return ((uint32_t)alpha << 24) | ((uint32_t)blue << 16) | ((uint32_t)green << 8) | red;
-    case FB_BGRA:
-        return ((uint32_t)blue << 24) | ((uint32_t)green << 16) | ((uint32_t)red << 8) | alpha;
+    default:
+        abort();
     }
 
     return 0;

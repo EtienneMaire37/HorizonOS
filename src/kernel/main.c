@@ -5,11 +5,7 @@
 #include <stddef.h>
 #include "cpu/util.h"
 
-#include <bootboot.h>
-
-extern BOOTBOOT bootboot;
-extern uint8_t environment[4096];
-extern uint8_t fb;
+#include "boot/limine.h"
 
 extern char kernel_start, kernel_end;
 physical_address_t kernel_start_phys, kernel_end_phys;
@@ -83,88 +79,77 @@ int num_environ;
 
 initrd_file_t* commit_file;
 
-atomic_flag print_spinlock = ATOMIC_FLAG_INIT;
-atomic_bool did_init_std = false;
-
-const char* fb_type_string[] = 
-{
-    "FB_ARGB",
-    "FB_RGBA",
-    "FB_ABGR",
-    "FB_BGRA"
-};
-
 void _start()
 {
     disable_interrupts();
-
-    apic_init();
-    uint8_t cpu_id = apic_get_cpu_id();
     
-    if (bootboot.bspid != cpu_id) // * Only one core supported for now
+    PHYS_MAP_BASE = hhdm_request.response->offset;
+
+    uint32_t eax, ebx, ecx, edx;
+    cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
+    // * Assume CPUID support
+    
+    uint8_t cpu_id = cpuid_get_cpu_id();
+    
+    apic_init();
+    
+    
+    if (mp_request.response->bsp_lapic_id != cpu_id) // * SMP not supported for now
         halt();
     
-    if (bootboot.bspid == cpu_id)
+    LOG(DEBUG, "_start");
+    
+    kernel_start_phys = (physical_address_t)&kernel_start;
+    kernel_end_phys = (physical_address_t)&kernel_end;
+    
+    if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1)
+        halt();
+    
+    framebuffer.width = framebuffer_request.response->framebuffers[0]->width;
+    framebuffer.height = framebuffer_request.response->framebuffers[0]->height;
+    framebuffer.stride = framebuffer_request.response->framebuffers[0]->pitch;
+    framebuffer.address = framebuffer_request.response->framebuffers[0]->address;
+    framebuffer.format = framebuffer_request.response->framebuffers[0]->memory_model;
+    
+    LOG(INFO, "Kernel booted successfully with limine (%#" PRIx64 "-%#" PRIx64 ")", kernel_start_phys, kernel_end_phys);
+    LOG(INFO, "Kernel is %" PRIu64 " bytes long", kernel_end_phys - kernel_start_phys);
+    LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %p", framebuffer.width, framebuffer.height, framebuffer.stride, framebuffer.address);
+    
+    assert(framebuffer.format == LIMINE_FRAMEBUFFER_RGB);
+    
+    LOG(INFO, "LAPIC base: %p", lapic);
+    
+    LOG(INFO, "CPUID highest function parameter: %#x", cpuid_highest_function_parameter);
+    
+    *(uint32_t*)&manufacturer_id_string[0] = ebx;
+    *(uint32_t*)&manufacturer_id_string[4] = edx;
+    *(uint32_t*)&manufacturer_id_string[8] = ecx;
+    manufacturer_id_string[12] = 0;
+    
+    LOG(INFO, "CPU manufacturer id : \"%s\"", manufacturer_id_string);
+    
+    cpuid(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
+    LOG(INFO, "CPUID highest extended function parameter: %#x", cpuid_highest_extended_function_parameter);
+
+    if (cpuid_highest_extended_function_parameter >= 0x80000008)
     {
-        LOG(DEBUG, "_start");
-
-        kernel_start_phys = (physical_address_t)&kernel_start;
-        kernel_end_phys = (physical_address_t)&kernel_end;
-
-        LOG(INFO, "Kernel booted successfully with BOOTBOOT (%#" PRIx64 "-%#" PRIx64 ")", kernel_start_phys, kernel_end_phys);
-        LOG(INFO, "Kernel is %" PRIu64 " bytes long", kernel_end_phys - kernel_start_phys);
-        LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %#" PRIx64, bootboot.fb_width, bootboot.fb_height, bootboot.fb_scanline, bootboot.fb_ptr);
-        LOG(INFO, "Type: %s", fb_type_string[bootboot.fb_type]);
-
-        framebuffer.width = bootboot.fb_width;
-        framebuffer.height = bootboot.fb_height;
-        framebuffer.stride = bootboot.fb_scanline;
-        framebuffer.address = (uintptr_t)bootboot.fb_ptr;
-        framebuffer.format = bootboot.fb_type;
-
-        LOG(INFO, "LAPIC base: %p", lapic);
-
-        uint32_t ebx, ecx, edx;
-        cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
-        // !! Actually will cause a triple fault on CPUs that don't support CPUID but you shouldn't be running this OS on such hardware anyway
-
-        LOG(INFO, "CPUID highest function parameter: %#x", cpuid_highest_function_parameter);
-
-        *(uint32_t*)&manufacturer_id_string[0] = ebx;
-        *(uint32_t*)&manufacturer_id_string[4] = edx;
-        *(uint32_t*)&manufacturer_id_string[8] = ecx;
-        manufacturer_id_string[12] = 0;
-
-        LOG(INFO, "CPU manufacturer id : \"%s\"", manufacturer_id_string);
-
-        cpuid(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
-        LOG(INFO, "CPUID highest extended function parameter: %#x", cpuid_highest_extended_function_parameter);
-
-        if (cpuid_highest_extended_function_parameter >= 0x80000008)
-        {
-            uint32_t eax = 0, ebx, ecx, edx; // Just so gcc doesn't complain but cant possibly be used uninitialized
-            cpuid(0x80000008, eax, ebx, ecx, edx);
-            physical_address_width = eax & 0xff;
-        }
-        else
-            physical_address_width = 64;
-
-        LOG(INFO, "Physical address is %u bits long", physical_address_width);
-
-        init_pat();
-
-        atomic_store(&did_init_std, true);
+        uint32_t eax = 0, ebx, ecx, edx; // Just so gcc doesn't complain but cant possibly be used uninitialized
+        cpuid(0x80000008, eax, ebx, ecx, edx);
+        physical_address_width = eax & 0xff;
     }
+    else
+        physical_address_width = 64;
 
-    while (!atomic_load(&did_init_std));
+    LOG(INFO, "Physical address is %u bits long", physical_address_width);
 
-    acquire_spinlock(&print_spinlock);
-
+    
+    init_pat();
+    
     LOG(INFO, "cpu_id : %u", cpu_id);
+    
+    abort();
 
-    release_spinlock(&print_spinlock);
-
-    initrd_parse(bootboot.initrd_ptr, bootboot.initrd_size);
+    // initrd_parse(bootboot.initrd_ptr, bootboot.initrd_size);
     kernel_symbols_file = initrd_find_file("boot/symbols.txt");
 
     tty_font = psf_font_load_from_initrd("boot/ka8x16thin-1.psf");
@@ -179,18 +164,9 @@ void _start()
 
 // * vvv Now we can use stdout
 
-    assert(*(uint32_t*)bootboot.magic == 0x544f4f42);   // * "BOOT"
-    assert(bootboot.fb_scanline);
-
-    LOG(DEBUG, "BOOTBOOT protocol: %#x", bootboot.protocol);
-
-    assert(!(bootboot.protocol & PROTOCOL_BIGENDIAN));
+    assert(LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision));
 
     tty_clear_screen(' ');
-
-    // // * testing
-    // initrd_parse(bootboot.initrd_ptr, bootboot.initrd_size);
-    // while (true);
 
     commit_file = initrd_find_file("boot/commit.txt");
 
@@ -225,66 +201,67 @@ void _start()
     {
         global_cr3 = (uint64_t*)pfa_allocate_physical_page();
         memset(global_cr3, 0, 4096);
-        uint64_t* bootboot_cr3 = (uint64_t*)get_cr3();
+        uint64_t* boot_cr3 = (uint64_t*)get_cr3();
 
-        LOG(DEBUG, "bootboot_cr3: %#" PRIx64, (uint64_t)bootboot_cr3);
+        LOG(DEBUG, "boot_cr3: %#" PRIx64, (uint64_t)boot_cr3);
 
-    // * "When the kernel gains control, the memory mapping looks like this:"
-    // *  -128M         "mmio" area           (0xFFFFFFFFF8000000)
-    // *   -64M         "fb" framebuffer      (0xFFFFFFFFFC000000)
-    // *    -2M         "bootboot" structure  (0xFFFFFFFFFFE00000)
-    // *    -2M+1page   "environment" string  (0xFFFFFFFFFFE01000)
-    // *    -2M+2page.. code segment   v      (0xFFFFFFFFFFE02000)
-    // *     ..0        stack          ^      (0x0000000000000000)
-    // *    0-16G       RAM identity mapped   (0x0000000400000000)
+    // // * "When the kernel gains control, the memory mapping looks like this:"
+    // // *  -128M         "mmio" area           (0xFFFFFFFFF8000000)
+    // // *   -64M         "fb" framebuffer      (0xFFFFFFFFFC000000)
+    // // *    -2M         "bootboot" structure  (0xFFFFFFFFFFE00000)
+    // // *    -2M+1page   "environment" string  (0xFFFFFFFFFFE01000)
+    // // *    -2M+2page.. code segment   v      (0xFFFFFFFFFFE02000)
+    // // *     ..0        stack          ^      (0x0000000000000000)
+    // // *    0-16G       RAM identity mapped   (0x0000000400000000)
 
-    // * bootboot + environment + code segment + stack
-        printf("Copying mapping of range %#" PRIx64 "-%#" PRIx64 " from bootboot\n", 0xFFFFFFFFFFE00000, (uint64_t)0);
-        LOG(DEBUG, "Copying mapping of range %#" PRIx64 "-%#" PRIx64 " from bootboot", 0xFFFFFFFFFFE00000, (uint64_t)0);
+    // // * bootboot + environment + code segment + stack
+    //     printf("Copying mapping of range %#" PRIx64 "-%#" PRIx64 " from bootboot\n", 0xFFFFFFFFFFE00000, (uint64_t)0);
+    //     LOG(DEBUG, "Copying mapping of range %#" PRIx64 "-%#" PRIx64 " from bootboot", 0xFFFFFFFFFFE00000, (uint64_t)0);
 
-        copy_mapping(bootboot_cr3, global_cr3, 0xFFFFFFFFFFE00000, (uint64_t)(-0xFFFFFFFFFFE00000) >> 12);
+    //     copy_mapping(bootboot_cr3, global_cr3, 0xFFFFFFFFFFE00000, (uint64_t)(-0xFFFFFFFFFFE00000) >> 12);
 
-        for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++)
-        {
-            uint64_t ptr = MMapEnt_Ptr(mmap_ent) & 0xfffffffffffff000;
-            uint64_t len = ((MMapEnt_Size(mmap_ent) + 0xfff) / 0x1000) * 0x1000;
+    //     for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++)
+    //     {
+    //         uint64_t ptr = MMapEnt_Ptr(mmap_ent) & 0xfffffffffffff000;
+    //         uint64_t len = ((MMapEnt_Size(mmap_ent) + 0xfff) / 0x1000) * 0x1000;
 
-            if (!MMapEnt_IsFree(mmap_ent))
-                continue;
+    //         if (!MMapEnt_IsFree(mmap_ent))
+    //             continue;
 
-            if (ptr >= MAX_MEMORY)
-                continue;
-            if (ptr + len >= MAX_MEMORY)
-                len = MAX_MEMORY - ptr;
+    //         if (ptr >= MAX_MEMORY)
+    //             continue;
+    //         if (ptr + len >= MAX_MEMORY)
+    //             len = MAX_MEMORY - ptr;
                 
-            LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
-            printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
-            remap_range(global_cr3, ptr + PHYS_MAP_OFFSET, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-        }
+    //         LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
+    //         printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
+    //         remap_range(global_cr3, ptr + PHYS_MAP_OFFSET, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+    //     }
 
-    // * LAPIC registers
-        printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
-        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
-        remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
+    // // * LAPIC registers
+    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
+    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
+    //     remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
 
-    // * Framebuffer
-        printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
-        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
+    // // * Framebuffer
+    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
+    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
         
-    // ? Write-combining cache
-        remap_range(global_cr3, (uint64_t)framebuffer.address + PHYS_MAP_OFFSET, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
-            PG_SUPERVISOR, PG_READ_WRITE, CACHE_WC);
+    // // ? Write-combining cache
+    //     remap_range(global_cr3, (uint64_t)framebuffer.address + PHYS_MAP_OFFSET, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
+    //         PG_SUPERVISOR, PG_READ_WRITE, CACHE_WC);
 
-    // * initrd
-        printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-        remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_OFFSET, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+    // // * initrd
+    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+    //     remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_OFFSET, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
     
-    // * signal handler wrapper function
-        printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
-        LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
-        uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
-        remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
+    // // * signal handler wrapper function
+    //     printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+    //     LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+    //     uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
+    //     remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
+        abort();
     }
 
     PHYS_MAP_BASE = PHYS_MAP_OFFSET;
@@ -389,8 +366,8 @@ void _start()
 
     printf("LAPIC base: %p\n", lapic);
 
-    printf("%u core%s running\n", bootboot.numcores, bootboot.numcores == 1 ? "" : "s");
-    LOG(INFO, "%u core%s running", bootboot.numcores, bootboot.numcores == 1 ? "" : "s");
+    printf("%" PRIu64 " core%s running\n", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
+    LOG(INFO, "%" PRIu64 " core%s running", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
 
     printf("CPU manufacturer id : ");
     tty_set_color(FG_LIGHTRED, BG_BLACK);

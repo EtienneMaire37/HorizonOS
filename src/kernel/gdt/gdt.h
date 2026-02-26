@@ -8,7 +8,7 @@ struct gdt_decriptor
 {
     uint16_t size;      // The size of the table in bytes subtracted by 1
     uint64_t address;   // The linear address of the GDT (not the physical address, paging applies).
-} __attribute__((__packed__));
+} __attribute__((packed));
 
 struct gdt_entry
 {   
@@ -19,7 +19,7 @@ struct gdt_entry
     uint8_t 	limit_hi    : 4;
     uint8_t 	flags       : 4;
     uint8_t 	base_hi     : 8;
-} __attribute__((__packed__));
+} __attribute__((packed));
 
 struct tss_entry 
 {
@@ -38,7 +38,7 @@ struct tss_entry
 	uint64_t reserved2;
 	uint16_t reserved3;
 	uint16_t iopb;
-} __attribute__((__packed__));
+} __attribute__((packed));
 
 static const int tss_rsp0_offset = offsetof(struct tss_entry, rsp0);
 

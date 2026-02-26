@@ -158,7 +158,7 @@ _interrupt_handler:
     pop rdx
     pop rcx
     pop rax
-    
+
     add rsp, 8 + 8  ; skip error code and interrupt number
 
 global iretq_instruction

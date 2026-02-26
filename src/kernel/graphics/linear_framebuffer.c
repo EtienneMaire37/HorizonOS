@@ -38,13 +38,13 @@ void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y,
     {
         if (x == 0 && y == 0 && size_x == buffer->width && size_y == buffer->height)
         {
-            memset((void*)buffer->address, red, buffer->stride * size_y);
+            memset(buffer->address, red, buffer->stride * size_y);
         }
         else
         {
             for (uint32_t i = y; i < bottom; i++)
             {
-                memset((void*)(buffer->address + buffer->stride * i) + 4 * x, red, 4 * (right - x));
+                memset((void*)((uintptr_t)buffer->address + buffer->stride * i) + 4 * x, red, 4 * (right - x));
             }
         }
     }

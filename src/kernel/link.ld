@@ -1,37 +1,77 @@
-ENTRY(_start)
+OUTPUT_FORMAT(elf64-x86-64)
 
-mmio        = 0xfffffffff8000000;
-fb          = 0xfffffffffc000000;
-bootboot    = 0xffffffffffe00000;
-environment = 0xffffffffffe01000;
+ENTRY(_start)
 
 PHDRS
 {
     boot PT_LOAD;
+    limine_requests PT_LOAD;
+    text PT_LOAD;
+    rodata PT_LOAD;
+    data PT_LOAD;
+    sigwrap PT_LOAD;
 }
+
 SECTIONS
 {
-    . = 0xffffffffffe02000;
+    . = 0xffffffff80000000;
     kernel_start = .;
+
+    .limine_requests : 
+    {
+        KEEP(*(.limine_requests_start))
+        KEEP(*(.limine_requests))
+        KEEP(*(.limine_requests_end))
+    } :limine_requests
+
+    . = ALIGN(4096);
+
     .text : 
     {
-        KEEP(*(.text.boot)) *(.text .text.*)
+        *(.text .text.*)
+    } :text
+
+    . = ALIGN(4096);
+
+    .rodata : 
+    {
         *(.rodata .rodata.*)
+    } :rodata
+
+    .note.gnu.build-id : 
+    {
+        *(.note.gnu.build-id)
+    } :rodata
+
+    . = ALIGN(4096);
+
+    .data : 
+    {
         *(.data .data.*)
-    } :boot
-    .bss (NOLOAD) : 
-    { 
-        . = ALIGN(16);
-        *(.bss .bss.*)
-        *(COMMON)
-    } :boot
+    } :data
+
+    . = ALIGN(4096);
+
     .sigwrap : 
     {
-        . = ALIGN(0x1000);
         *(.sigwrap)
     }
 
+    . = ALIGN(4096);
+
+    .bss : 
+    {
+        *(.bss .bss.*)
+        *(COMMON)
+    } :data
+
+    . = ALIGN(4096);
+
     kernel_end = .;
 
-    /DISCARD/ : { *(.eh_frame) *(.comment) }
+    /DISCARD/ : 
+    {
+        *(.eh_frame*)
+        *(.note .note.*)
+    }
 }

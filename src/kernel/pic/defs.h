@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 #define apic_reg_offset(reg, next_reg) ((next_reg) - (reg) - 4)
 #define apic_reg_next_offset()         (0x10 - 4)

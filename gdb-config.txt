@@ -1,0 +1,6 @@
+set pagination off
+file bin/kernel.elf
+set architecture i386:x86-64
+target remote localhost:1234
+continue
+

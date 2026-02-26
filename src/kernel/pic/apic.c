@@ -1,7 +1,7 @@
 #include "defs.h"
 
 // * page 0xFEE00xxx
-volatile local_apic_registers_t* lapic = (volatile local_apic_registers_t*)0xfee00000;
+volatile local_apic_registers_t* lapic = NULL;
 
 uint32_t ps2_1_gsi = 1, ps2_12_gsi = 12;
 
@@ -14,24 +14,21 @@ uint32_t ps2_1_gsi = 1, ps2_12_gsi = 12;
 
 void apic_init()
 {
-    // uint64_t apic_base_msr = rdmsr(IA32_APIC_BASE_MSR);
-    // uint64_t apic_base_address = apic_base_msr & 0xffffff000;
-    // lapic = (volatile local_apic_registers_t*)apic_base_address;
-    // * Will always be mapped at the same address anyways
+    lapic = (volatile local_apic_registers_t*)(0xfee00000 + PHYS_MAP_BASE);
 
     uint64_t apic_base_msr = rdmsr(IA32_APIC_BASE_MSR);
-    // if (apic_base_msr & (1ULL << 11))   // Enabled
-    // {
-    //     apic_base_msr &= ~(1ULL << 11);
-    //     wrmsr(IA32_APIC_BASE_MSR, apic_base_msr); // Disable
-    // }
+    if (apic_base_msr & (1ULL << 11))   // Enabled
+    {
+        apic_base_msr &= ~(1ULL << 11);
+        wrmsr(IA32_APIC_BASE_MSR, apic_base_msr); // Disable
+    }
 
     // * Disable x2APIC and enable
     apic_base_msr &= ~(1ULL << 10);
     wrmsr(IA32_APIC_BASE_MSR, apic_base_msr);
 
-    // apic_base_msr |= (1ULL << 11);
-    // wrmsr(IA32_APIC_BASE_MSR, apic_base_msr);
+    apic_base_msr |= (1ULL << 11);
+    wrmsr(IA32_APIC_BASE_MSR, apic_base_msr);
 }
 
 uint8_t apic_get_cpu_id()

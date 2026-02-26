@@ -14,3 +14,10 @@ extern uint32_t cpuid_highest_function_parameter, cpuid_highest_extended_functio
                                                                         LOG(ERROR, "CPUID function not supported (%#x)", eax);
 
 extern char manufacturer_id_string[13];    // 12 byte string ending with ASCII NULL
+
+static inline uint8_t cpuid_get_cpu_id()
+{
+    uint32_t eax, ebx, ecx, edx;
+    cpuid(1, eax, ebx, ecx, edx);
+    return ebx >> 24;
+}

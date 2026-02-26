@@ -8,8 +8,6 @@ src/tasks/src/bash
 
 root/
 
-bootboot
-
 crosstoolchain/
 hostoolchain/
 mlibc/mlibc/
@@ -26,3 +24,7 @@ data.txt
 
 mlibc/.built
 ncurses/*
+
+.deps-obtained
+limine
+limine-protocol

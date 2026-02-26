@@ -5,6 +5,7 @@
 #include "../paging/paging.h"
 #include "mmap.h"
 #include "page_frame_allocator.h"
+#include "../boot/limine.h"
 
 uint64_t usable_memory = 0;
 struct mem_block usable_memory_map[MAX_USABLE_MEMORY_BLOCKS];
@@ -21,12 +22,6 @@ uint64_t memory_allocated, allocatable_memory;
 
 mutex_t pfa_lock = MUTEX_INIT;
 
-#include "page_frame_allocator.h"
-
-#include <bootboot.h>
-
-extern BOOTBOOT bootboot;
-
 void pfa_detect_usable_memory() 
 {
     usable_memory = usable_memory_blocks = 0;
@@ -37,20 +32,16 @@ void pfa_detect_usable_memory()
 
     LOG(INFO, "Usable memory map:");
 
-    for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++) 
+    for (int i = 0; i < mmap_request.response->entry_count; i++) 
     {
-        LOG(DEBUG, "   BOOTBOOT memory block : address : %#" PRIx64 " ; length : %" PRIu64 " | type : %" PRIu64, 
-            MMapEnt_Ptr(mmap_ent), MMapEnt_Size(mmap_ent), MMapEnt_Type(mmap_ent));
-        // printf("   BOOTBOOT memory block : address : %#" PRIx64 " ; length : %" PRIu64 " | type : %u\n", 
-        //     MMapEnt_Ptr(mmap_ent), MMapEnt_Size(mmap_ent), MMapEnt_Type(mmap_ent));
-
-        if (!MMapEnt_IsFree(mmap_ent))
-            continue;
-        if (MMapEnt_Ptr(mmap_ent) == physical_null)
+        struct limine_memmap_entry* entry = mmap_request.response->entries[i];
+        LOG(DEBUG, "   Limine memory block : address : %#" PRIx64 " ; length : %" PRIu64 " | type : %" PRIu64, 
+            entry->base, entry->length, entry->type);
+        if (entry->type != LIMINE_MEMMAP_USABLE)
             continue;
 
-        physical_address_t addr = MMapEnt_Ptr(mmap_ent);
-        uint64_t len = MMapEnt_Size(mmap_ent);
+        physical_address_t addr = entry->base;
+        uint64_t len = entry->length;
 
         if (addr >= MAX_MEMORY)
             break;
