@@ -8,7 +8,7 @@
 #include "boot/limine.h"
 
 extern char kernel_start, kernel_end;
-physical_address_t kernel_start_phys, kernel_end_phys;
+void *kernel_start_ptr, *kernel_end_ptr;
 
 char** environ = NULL;
 int num_environ;
@@ -99,8 +99,8 @@ void _start()
     
     LOG(DEBUG, "_start");
     
-    kernel_start_phys = (physical_address_t)&kernel_start;
-    kernel_end_phys = (physical_address_t)&kernel_end;
+    kernel_start_ptr = (void*)&kernel_start;
+    kernel_end_ptr = (void*)&kernel_end;
     
     if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1)
         halt();
@@ -118,8 +118,8 @@ void _start()
     framebuffer.green_shift = framebuffer_request.response->framebuffers[0]->green_mask_shift;
     framebuffer.blue_shift = framebuffer_request.response->framebuffers[0]->blue_mask_shift;
     
-    LOG(INFO, "Kernel booted successfully with limine (%#" PRIx64 "-%#" PRIx64 ")", kernel_start_phys, kernel_end_phys);
-    LOG(INFO, "Kernel is %" PRIu64 " bytes long", kernel_end_phys - kernel_start_phys);
+    LOG(INFO, "Kernel booted successfully with limine (%p-%p)", kernel_start_ptr, kernel_end_ptr);
+    LOG(INFO, "Kernel is %" PRIu64 " bytes long", (uint64_t)kernel_end_ptr - (uint64_t)kernel_start_ptr);
     LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %p", framebuffer.width, framebuffer.height, framebuffer.stride, framebuffer.address);
         
     LOG(INFO, "LAPIC base: %p", lapic);
@@ -209,95 +209,75 @@ void _start()
         printf("warning: PAT not supported (this might cause poor performance on graphical intensive programs)\n");
     }
 
-    while (true);
-
     LOG(INFO, "Setting up paging...");
     printf("Setting up paging...\n");
 
     {
-        global_cr3 = (uint64_t*)pfa_allocate_physical_page();
+        global_cr3 = pfa_allocate_page();
+        LOG(DEBUG, "global_cr3: %p", global_cr3);
         memset(global_cr3, 0, 4096);
-        uint64_t* boot_cr3 = (uint64_t*)get_cr3();
+
+        uint64_t* boot_cr3 = (uint64_t*)(get_cr3() + PHYS_MAP_BASE);
 
         LOG(DEBUG, "boot_cr3: %#" PRIx64, (uint64_t)boot_cr3);
 
-    // // * "When the kernel gains control, the memory mapping looks like this:"
-    // // *  -128M         "mmio" area           (0xFFFFFFFFF8000000)
-    // // *   -64M         "fb" framebuffer      (0xFFFFFFFFFC000000)
-    // // *    -2M         "bootboot" structure  (0xFFFFFFFFFFE00000)
-    // // *    -2M+1page   "environment" string  (0xFFFFFFFFFFE01000)
-    // // *    -2M+2page.. code segment   v      (0xFFFFFFFFFFE02000)
-    // // *     ..0        stack          ^      (0x0000000000000000)
-    // // *    0-16G       RAM identity mapped   (0x0000000400000000)
+        printf("Copying mapping of range %p-%p from limine\n", kernel_start_ptr, kernel_end_ptr);
+        LOG(DEBUG, "Copying mapping of range %p-%p from limine", kernel_start_ptr, kernel_end_ptr);
 
-    // // * bootboot + environment + code segment + stack
-    //     printf("Copying mapping of range %#" PRIx64 "-%#" PRIx64 " from bootboot\n", 0xFFFFFFFFFFE00000, (uint64_t)0);
-    //     LOG(DEBUG, "Copying mapping of range %#" PRIx64 "-%#" PRIx64 " from bootboot", 0xFFFFFFFFFFE00000, (uint64_t)0);
-
-    //     copy_mapping(bootboot_cr3, global_cr3, 0xFFFFFFFFFFE00000, (uint64_t)(-0xFFFFFFFFFFE00000) >> 12);
-
-    //     for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++)
-    //     {
-    //         uint64_t ptr = MMapEnt_Ptr(mmap_ent) & 0xfffffffffffff000;
-    //         uint64_t len = ((MMapEnt_Size(mmap_ent) + 0xfff) / 0x1000) * 0x1000;
-
-    //         if (!MMapEnt_IsFree(mmap_ent))
-    //             continue;
-
-    //         if (ptr >= MAX_MEMORY)
-    //             continue;
-    //         if (ptr + len >= MAX_MEMORY)
-    //             len = MAX_MEMORY - ptr;
+        copy_mapping(boot_cr3, global_cr3, (uintptr_t)kernel_start_ptr, (uint64_t)((uintptr_t)kernel_end_ptr - (uintptr_t)kernel_start_ptr) >> 12);
                 
-    //         LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, ptr, ptr + len, ptr + PHYS_MAP_BASE, ptr + len + PHYS_MAP_BASE);
-    //         printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_BASE, ptr + len + PHYS_MAP_BASE);
-    //         remap_range(global_cr3, ptr + PHYS_MAP_BASE, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-    //     }
+        for (int i = 0; i < mmap_request.response->entry_count; i++) 
+        {
+            struct limine_memmap_entry* entry = mmap_request.response->entries[i];
 
-    // // * LAPIC registers
-    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_BASE, (uint64_t)lapic + PHYS_MAP_BASE + 0x1000);
-    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_BASE, (uint64_t)lapic + PHYS_MAP_BASE + 0x1000);
-    //     remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_BASE, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
+            if (entry->type == LIMINE_MEMMAP_RESERVED || entry->type == LIMINE_MEMMAP_BAD_MEMORY)
+                continue;
+            if (entry->base & 0xfff)
+                continue;
+            if (entry->length & 0xfff)
+                continue;
 
-    // // * Framebuffer
-    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_BASE, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_BASE);
-    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_BASE, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_BASE);
-        
-    // // ? Write-combining cache
-    //     remap_range(global_cr3, (uint64_t)framebuffer.address + PHYS_MAP_BASE, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
-    //         PG_SUPERVISOR, PG_READ_WRITE, CACHE_WC);
+            uint64_t ptr = entry->base;
+            uint64_t len = entry->length;
 
-    // // * initrd
-    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_BASE + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_BASE + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_BASE + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_BASE + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-    //     remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_BASE, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-    
-    // // * signal handler wrapper function
-    //     printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
-    //     LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
-    //     uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
-    //     remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
-        abort();
+            if (ptr >= MAX_MEMORY)
+                continue;
+            if (len > MAX_MEMORY - ptr)
+                len = MAX_MEMORY - ptr;
+            
+            // ? Write-combining cache for the framebuffer
+            // ? Write-back for usable memory
+            // ? Uncacheable for MMIO and SMBIOS
+            int cache = (entry->type == LIMINE_MEMMAP_USABLE || 
+                entry->type == LIMINE_MEMMAP_EXECUTABLE_AND_MODULES ||
+                entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE ||
+                entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE) ? CACHE_WB
+             : (entry->type == LIMINE_MEMMAP_FRAMEBUFFER ? CACHE_WC
+             : CACHE_UC);
+
+            LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, ptr, ptr + len, ptr + PHYS_MAP_BASE, ptr + len + PHYS_MAP_BASE);
+            printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_BASE, ptr + len + PHYS_MAP_BASE);
+            remap_range(global_cr3, ptr + PHYS_MAP_BASE, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, cache);
+        }
+
+    // * lapic
+        uint64_t lapic_base = rdmsr(IA32_APIC_BASE_MSR) & ~0xfffULL;
+        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, lapic_base, lapic_base + 0x1000, (uint64_t)lapic, (uint64_t)lapic + 0x1000);
+        printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", lapic_base, lapic_base + 0x1000, (uint64_t)lapic, (uint64_t)lapic + 0x1000);
+        remap_range(global_cr3, (uintptr_t)lapic, lapic_base, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
+
+    // * signal handler wrapper function
+        printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
+        remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
     }
-
-    PHYS_MAP_BASE = PHYS_MAP_BASE;
-    global_cr3 = (uint64_t*)((physical_address_t)global_cr3 + PHYS_MAP_BASE);
 
     load_cr3((uint64_t)global_cr3 - PHYS_MAP_BASE);
 
-    bitmap = (uint8_t*)((physical_address_t)bitmap + PHYS_MAP_BASE);
-    lapic = (volatile local_apic_registers_t*)((physical_address_t)lapic + PHYS_MAP_BASE);
-    framebuffer.address += PHYS_MAP_BASE;
-    for (int i = 0; i < initrd_files_count; i++)
-    {
-        initrd_files[i].name += PHYS_MAP_BASE;
-        initrd_files[i].data += PHYS_MAP_BASE;
-        initrd_files[i].link += PHYS_MAP_BASE;
-    }
-
     printf("Paging setup done\n");
     LOG(INFO, "Set up paging");
-
+    
     if (cpuid_highest_function_parameter >= 1)
     {
         uint32_t eax = 0, ebx, ecx = 0, edx;
@@ -630,6 +610,8 @@ void _start()
     LOG(DEBUG, "Starting multitasking...");
 
     log_segbase();
+    
+    while (true);
 
     multitasking_start();
 

@@ -52,34 +52,34 @@ limine/limine:
 mlibc: $(MLIBC_STAMP)
 
 $(MLIBC_STAMP): mlibc/src/* $(HOSGCC) GNUmakefile
-# 	cp -r mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
-# 	mkdir -p mlibc/mlibc/build
-# 	cd mlibc/mlibc && meson \
-# 		setup \
-# 		--cross-file=.cross_file \
-# 		--prefix=/usr \
-# 		-Ddefault_library=static \
-# 		build --reconfigure
+	cp -r mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
+	mkdir -p mlibc/mlibc/build
+	cd mlibc/mlibc && meson \
+		setup \
+		--cross-file=.cross_file \
+		--prefix=/usr \
+		-Ddefault_library=static \
+		build --reconfigure
 
-# 	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
-# 	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
+	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
+	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
 
-# 	cd mlibc/mlibc && meson \
-# 		setup \
-# 		--cross-file=.cross_file \
-# 		--prefix=/usr \
-# 		-Ddefault_library=shared \
-# 		build --reconfigure
+	cd mlibc/mlibc && meson \
+		setup \
+		--cross-file=.cross_file \
+		--prefix=/usr \
+		-Ddefault_library=shared \
+		build --reconfigure
 
-# 	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
-# 	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
-# 	touch $@
+	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
+	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
+	touch $@
 
 $(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub
-# 	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec --with-libtool-opts=-static
-# 	cd ncurses/ncurses-6.6 && $(MAKE) -j$(nproc)
-# 	cd ncurses/ncurses-6.6 && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
-# 	touch $@
+	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec --with-libtool-opts=-static
+	cd ncurses/ncurses-6.6 && $(MAKE) -j$(nproc)
+	cd ncurses/ncurses-6.6 && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
+	touch $@
 
 bin/%.o: src/kernel/%.c GNUmakefile src/kernel/link.ld limine/limine
 	mkdir -p $(dir $@)
@@ -161,10 +161,10 @@ src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/bash src/tasks/bin/setkbl
 	$(CROSSSTRIP) $@
 
 src/tasks/bin/bash: $(BASH_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC)
-# 	cd src/tasks/src/bash && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --enable-static-link --without-bash-malloc --disable-nls --with-curses
-# 	cd src/tasks/src/bash && $(MAKE) -j$(nproc)
-# 	cd src/tasks/src/bash && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
-# 	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/bash
+	cd src/tasks/src/bash && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --enable-static-link --without-bash-malloc --disable-nls --with-curses
+	cd src/tasks/src/bash && $(MAKE) -j$(nproc)
+	cd src/tasks/src/bash && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
+	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/bash
 
 src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC) GNUmakefile
 	mkdir -p src/tasks/bin

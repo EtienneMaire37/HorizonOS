@@ -40,6 +40,10 @@ void pfa_detect_usable_memory()
             entry->base, entry->length, entry->type);
         if (entry->type != LIMINE_MEMMAP_USABLE)
             continue;
+        if (entry->base & 0xfff)
+            continue;
+        if (entry->length & 0xfff)
+            continue;
         assert(usable_memory_blocks <= MAX_USABLE_MEMORY_BLOCKS);
 
         physical_address_t addr = entry->base;

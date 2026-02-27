@@ -14,9 +14,9 @@ uint32_t ps2_1_gsi = 1, ps2_12_gsi = 12;
 
 void apic_init()
 {
-    lapic = (volatile local_apic_registers_t*)(0xfee00000 + PHYS_MAP_BASE);
-
     uint64_t apic_base_msr = rdmsr(IA32_APIC_BASE_MSR);
+
+    lapic = (volatile local_apic_registers_t*)((apic_base_msr & ~0xfffULL) + PHYS_MAP_BASE);
 
     // * Disable x2APIC and enable
     apic_base_msr &= ~(1ULL << 10);

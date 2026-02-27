@@ -1,10 +1,6 @@
 bits 64
 section .text
 
-idtr:
-    dw 0
-    dq 0
-
 global load_idt
 ; void load_idt()
 load_idt:
@@ -169,3 +165,9 @@ iretq_instruction:
 
 .dont_swapgs2:
     iretq
+
+section .data
+
+idtr:
+    dw 0
+    dq 0
