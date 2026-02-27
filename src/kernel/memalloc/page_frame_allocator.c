@@ -2,6 +2,7 @@
 #include "../cpu/units.h"
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "../paging/paging.h"
 #include "mmap.h"
 #include "page_frame_allocator.h"
@@ -39,6 +40,7 @@ void pfa_detect_usable_memory()
             entry->base, entry->length, entry->type);
         if (entry->type != LIMINE_MEMMAP_USABLE)
             continue;
+        assert(usable_memory_blocks <= MAX_USABLE_MEMORY_BLOCKS);
 
         physical_address_t addr = entry->base;
         uint64_t len = entry->length;
@@ -80,14 +82,16 @@ void pfa_detect_usable_memory()
     uint64_t total_pages = 0;
     for (uint64_t i = 0; i < usable_memory_blocks; i++)
         total_pages += usable_memory_map[i].length / 0x1000;
-    
+
     bitmap_size = ((total_pages + 7) / 8 + 7) & ~7ULL; // * Align to qwords
     uint64_t bitmap_pages = (bitmap_size + 0xfff) / 0x1000;
-
-    while (first_alloc_block < usable_memory_blocks && (usable_memory_map[first_alloc_block].length / 0x1000) < bitmap_pages)
+    
+    LOG(TRACE, "Bitmap size: %" PRIu64, bitmap_size);
+    
+    while (first_alloc_block < usable_memory_blocks && (usable_memory_map[first_alloc_block].length / 0x1000) <= bitmap_pages)
         first_alloc_block++;
 
-    bitmap = (uint8_t*)usable_memory_map[first_alloc_block].address;
+    bitmap = (uint8_t*)usable_memory_map[first_alloc_block].address + PHYS_MAP_BASE;
 
     printf("pfa: bitmap address: %#" PRIx64 "\n", (uint64_t)bitmap);
 
@@ -292,24 +296,24 @@ void* pfa_allocate_page()
 {
     physical_address_t paddr = pfa_allocate_physical_page();
     if (!paddr) return NULL;
-    return (void*)(paddr + PHYS_MAP_OFFSET);
+    return (void*)(paddr + PHYS_MAP_BASE);
 }
 
 void pfa_free_page(const void* ptr)
 {
     if (!ptr) return;
-    pfa_free_physical_page((physical_address_t)ptr - PHYS_MAP_OFFSET);
+    pfa_free_physical_page((physical_address_t)ptr - PHYS_MAP_BASE);
 }
 
 void* pfa_allocate_contiguous_pages(uint32_t pages)
 {
     physical_address_t paddr = pfa_allocate_physical_contiguous_pages(pages);
     if (!paddr) return NULL;
-    return (void*)(paddr + PHYS_MAP_OFFSET);
+    return (void*)(paddr + PHYS_MAP_BASE);
 }
 
 void pfa_free_contiguous_pages(const void* ptr, uint32_t pages)
 {
     if (!ptr) return;
-    pfa_free_physical_contiguous_pages((physical_address_t)ptr - PHYS_MAP_OFFSET, pages);
+    pfa_free_physical_contiguous_pages((physical_address_t)ptr - PHYS_MAP_BASE, pages);
 }

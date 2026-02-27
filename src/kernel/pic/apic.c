@@ -17,11 +17,6 @@ void apic_init()
     lapic = (volatile local_apic_registers_t*)(0xfee00000 + PHYS_MAP_BASE);
 
     uint64_t apic_base_msr = rdmsr(IA32_APIC_BASE_MSR);
-    if (apic_base_msr & (1ULL << 11))   // Enabled
-    {
-        apic_base_msr &= ~(1ULL << 11);
-        wrmsr(IA32_APIC_BASE_MSR, apic_base_msr); // Disable
-    }
 
     // * Disable x2APIC and enable
     apic_base_msr &= ~(1ULL << 10);

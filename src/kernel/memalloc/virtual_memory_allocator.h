@@ -7,7 +7,7 @@
 
 static inline __attribute__((always_inline)) bool is_page_free(uint64_t vaddr)
 {
-    uint64_t* pml4 = (uint64_t*)(get_cr3() + PHYS_MAP_OFFSET);
+    uint64_t* pml4 = (uint64_t*)(get_cr3() + PHYS_MAP_BASE);
 
     uint64_t pte = (vaddr >> 12) & 0x1ff;
     uint64_t pde = (vaddr >> (12 + 9)) & 0x1ff;

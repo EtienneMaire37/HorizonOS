@@ -8,7 +8,7 @@
 
 #include <stdbool.h>
 
-#define PHYS_MAP_OFFSET     0xffff800000000000
+// #define PHYS_MAP_OFFSET     0xffff800000000000
 extern uint64_t PHYS_MAP_BASE;
 
 #define PG_SHIFT        12ULL

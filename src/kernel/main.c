@@ -189,17 +189,15 @@ void _start()
     tty_set_color(FG_LIGHTMAGENTA, BG_BLACK);
     puts((const char*)commit_file->data);
     tty_set_color(FG_WHITE, BG_BLACK);
-
-    while (true);
     
     pfa_detect_usable_memory();
-
+    
     printf("Detected ");
     tty_set_color(FG_LIGHTBLUE, BG_BLACK);
     printf("%" PRIu64 " ", allocatable_memory);
     tty_set_color(FG_WHITE, BG_BLACK);
     printf("bytes of allocatable memory\n");
-
+    
     if (pat_enabled)
     {
         LOG(INFO, "PAT successfully enabled");
@@ -210,6 +208,8 @@ void _start()
         LOG(WARNING, "PAT not supported");
         printf("warning: PAT not supported (this might cause poor performance on graphical intensive programs)\n");
     }
+
+    while (true);
 
     LOG(INFO, "Setting up paging...");
     printf("Setting up paging...\n");
@@ -249,28 +249,28 @@ void _start()
     //         if (ptr + len >= MAX_MEMORY)
     //             len = MAX_MEMORY - ptr;
                 
-    //         LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
-    //         printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_OFFSET, ptr + len + PHYS_MAP_OFFSET);
-    //         remap_range(global_cr3, ptr + PHYS_MAP_OFFSET, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+    //         LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, ptr, ptr + len, ptr + PHYS_MAP_BASE, ptr + len + PHYS_MAP_BASE);
+    //         printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_BASE, ptr + len + PHYS_MAP_BASE);
+    //         remap_range(global_cr3, ptr + PHYS_MAP_BASE, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
     //     }
 
     // // * LAPIC registers
-    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
-    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic + PHYS_MAP_OFFSET + 0x1000);
-    //     remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_OFFSET, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
+    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_BASE, (uint64_t)lapic + PHYS_MAP_BASE + 0x1000);
+    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)lapic, (uint64_t)lapic + 0x1000, (uint64_t)lapic + PHYS_MAP_BASE, (uint64_t)lapic + PHYS_MAP_BASE + 0x1000);
+    //     remap_range(global_cr3, (uint64_t)lapic + PHYS_MAP_BASE, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
 
     // // * Framebuffer
-    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
-    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_OFFSET, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_OFFSET);
+    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_BASE, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_BASE);
+    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000, framebuffer.address + PHYS_MAP_BASE, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000 + PHYS_MAP_BASE);
         
     // // ? Write-combining cache
-    //     remap_range(global_cr3, (uint64_t)framebuffer.address + PHYS_MAP_OFFSET, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
+    //     remap_range(global_cr3, (uint64_t)framebuffer.address + PHYS_MAP_BASE, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
     //         PG_SUPERVISOR, PG_READ_WRITE, CACHE_WC);
 
     // // * initrd
-    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_OFFSET + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-    //     remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_OFFSET, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
+    //     printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_BASE + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_BASE + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+    //     LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000, PHYS_MAP_BASE + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000), PHYS_MAP_BASE + (uint64_t)(bootboot.initrd_ptr & 0xfffffffffffff000) + (uint64_t)((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
+    //     remap_range(global_cr3, ((uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000) + PHYS_MAP_BASE, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
     
     // // * signal handler wrapper function
     //     printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
@@ -280,19 +280,19 @@ void _start()
         abort();
     }
 
-    PHYS_MAP_BASE = PHYS_MAP_OFFSET;
-    global_cr3 = (uint64_t*)((physical_address_t)global_cr3 + PHYS_MAP_OFFSET);
+    PHYS_MAP_BASE = PHYS_MAP_BASE;
+    global_cr3 = (uint64_t*)((physical_address_t)global_cr3 + PHYS_MAP_BASE);
 
-    load_cr3((uint64_t)global_cr3 - PHYS_MAP_OFFSET);
+    load_cr3((uint64_t)global_cr3 - PHYS_MAP_BASE);
 
-    bitmap = (uint8_t*)((physical_address_t)bitmap + PHYS_MAP_OFFSET);
-    lapic = (volatile local_apic_registers_t*)((physical_address_t)lapic + PHYS_MAP_OFFSET);
-    framebuffer.address += PHYS_MAP_OFFSET;
+    bitmap = (uint8_t*)((physical_address_t)bitmap + PHYS_MAP_BASE);
+    lapic = (volatile local_apic_registers_t*)((physical_address_t)lapic + PHYS_MAP_BASE);
+    framebuffer.address += PHYS_MAP_BASE;
     for (int i = 0; i < initrd_files_count; i++)
     {
-        initrd_files[i].name += PHYS_MAP_OFFSET;
-        initrd_files[i].data += PHYS_MAP_OFFSET;
-        initrd_files[i].link += PHYS_MAP_OFFSET;
+        initrd_files[i].name += PHYS_MAP_BASE;
+        initrd_files[i].data += PHYS_MAP_BASE;
+        initrd_files[i].link += PHYS_MAP_BASE;
     }
 
     printf("Paging setup done\n");
