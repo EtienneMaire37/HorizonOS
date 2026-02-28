@@ -44,6 +44,8 @@ void pfa_detect_usable_memory()
             continue;
         if (entry->length & 0xfff)
             continue;
+        if (entry->base == physical_null)   // * Skip NULL
+            continue;
         assert(usable_memory_blocks <= MAX_USABLE_MEMORY_BLOCKS);
 
         physical_address_t addr = entry->base;
@@ -51,7 +53,7 @@ void pfa_detect_usable_memory()
 
         if (addr >= MAX_MEMORY)
             break;
-        if (addr + len > MAX_MEMORY)
+        if (addr > MAX_MEMORY - len)
             len = MAX_MEMORY - addr;
 
         uint64_t align = addr & 0xfff;
@@ -91,20 +93,23 @@ void pfa_detect_usable_memory()
     uint64_t bitmap_pages = (bitmap_size + 0xfff) / 0x1000;
     
     LOG(TRACE, "Bitmap size: %" PRIu64, bitmap_size);
+    printf("PFA: Bitmap size: %" PRIu64 "\n", bitmap_size);
     
-    while (first_alloc_block < usable_memory_blocks && (usable_memory_map[first_alloc_block].length / 0x1000) <= bitmap_pages)
+    while (first_alloc_block < usable_memory_blocks && usable_memory_map[first_alloc_block].length / 0x1000 <= bitmap_pages)
         first_alloc_block++;
+
+    assert(first_alloc_block < usable_memory_blocks);
 
     bitmap = (uint8_t*)usable_memory_map[first_alloc_block].address + PHYS_MAP_BASE;
 
-    printf("pfa: bitmap address: %#" PRIx64 "\n", (uint64_t)bitmap);
+    printf("PFA: bitmap address: %#" PRIx64 "\n", (uint64_t)bitmap);
 
     if (usable_memory == 0 || first_alloc_block >= usable_memory_blocks) 
         goto no_memory;
 
     usable_memory_map[first_alloc_block].length -= 0x1000 * bitmap_pages;
     usable_memory_map[first_alloc_block].address += 0x1000 * bitmap_pages;
-    if (usable_memory_map[first_alloc_block].length == 0)
+    if (usable_memory_map[first_alloc_block].length <= 0)
         first_alloc_block++;
 
     if (first_alloc_block >= usable_memory_blocks)
@@ -119,7 +124,7 @@ void pfa_detect_usable_memory()
     return;
 
 no_memory:
-    LOG(CRITICAL, "No usable memory detected");
+    LOG(CRITICAL, "Not enough usable memory detected");
     abort();
 }
 
@@ -145,7 +150,7 @@ physical_address_t pfa_allocate_physical_page()
 
         *qword |= ((uint64_t)1 << bit);
 
-        uint64_t page_index = 64 / 8 * i + bit;
+        uint64_t page_index = 8 * i + bit;
 
         uint64_t remaining = page_index;
         for (uint32_t j = first_alloc_block; j < usable_memory_blocks; j++) 
@@ -198,6 +203,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
             {
                 bit = 0;
                 offset++;
+                if (i + offset >= bitmap_size) goto loop_start;
                 qword = (uint64_t*)&bitmap[i + offset];
             }
             if ((*qword) & (1ULL << bit))
@@ -221,6 +227,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
             {
                 bit = 0;
                 offset++;
+                if (i + offset >= bitmap_size) goto loop_start;
                 qword = (uint64_t*)&bitmap[i + offset];
             }
             *qword |= ((uint64_t)1 << bit);
@@ -234,7 +241,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
             if (remaining <= block_pages - pages) 
             {
                 physical_address_t addr = usable_memory_map[j].address + remaining * 0x1000;
-                first_free_page_index_hint = 64 / 8 * i + bit;
+                first_free_page_index_hint = 8 * i + bit;
                 memory_allocated += 0x1000 * pages;
                 LOG_MEM_ALLOCATED();
                 release_mutex(&pfa_lock);
@@ -243,6 +250,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
             }
             remaining -= block_pages;
         }
+        abort();
     }
 
     LOG(CRITICAL, "pfa_allocate_physical_contiguous_pages: Out of memory at end!");
@@ -258,11 +266,7 @@ void pfa_free_physical_page(physical_address_t address)
         return;
     }
 
-    if (address & 0xfff) 
-    {
-        LOG(CRITICAL, "pfa_free_physical_page: Unaligned address (%#" PRIx64 ")", address);
-        abort();
-    }
+    assert(!(address & 0xfff));
 
     uint64_t page_index = 0;
     for (uint32_t i = first_alloc_block; i < usable_memory_blocks; i++) 

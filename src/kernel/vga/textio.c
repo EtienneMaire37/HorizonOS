@@ -175,10 +175,10 @@ void tty_render_character(uint32_t cursor, char c, uint8_t color)
 	uint32_t y = tty_get_character_pos_y(cursor);
 
 	srgb_t bg_color = vga_get_bg_color(color);
-	framebuffer_fill_rect(&framebuffer, x, y, width, height, bg_color.r, bg_color.g, bg_color.b);
 
 	if (!is_printable_character(c))
 	{
+		framebuffer_fill_rect(&framebuffer, x, y, width, height, bg_color.r, bg_color.g, bg_color.b);
 		unlock_scheduler();
 		return;
 	}
@@ -187,7 +187,8 @@ void tty_render_character(uint32_t cursor, char c, uint8_t color)
 	framebuffer_render_psf2_char(&framebuffer, x, y, width, height, &tty_font, c,
 		fg_color.r,
 		fg_color.g,
-		fg_color.b);
+		fg_color.b,
+		false, bg_color.r, bg_color.g, bg_color.b);
 	unlock_scheduler();
 }
 

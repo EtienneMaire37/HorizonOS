@@ -40,4 +40,5 @@ void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y,
 void framebuffer_render_psf2_char(
     linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height, 
     psf_font_t* font, char c,
-    uint8_t r, uint8_t g, uint8_t b);
+    uint8_t r, uint8_t g, uint8_t b,
+    bool transparent, uint8_t bgr, uint8_t bgg, uint8_t bgb);
