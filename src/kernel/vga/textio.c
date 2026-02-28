@@ -3,7 +3,9 @@
 #include "constants.h"
 #include "../multitasking/multitasking.h"
 
-uint16_t tty_data[TTY_RES_X * TTY_RES_Y] = {0};
+uint16_t* tty_data = NULL;
+
+uint32_t TTY_RES_X = 0, TTY_RES_Y = 0;
 
 uint32_t tty_cursor = 0;
 uint8_t tty_color;
@@ -16,8 +18,6 @@ bool tty_cursor_blink = true;
 
 psf_font_t tty_font;
 
-const uint32_t tty_padding = 0;	// pixels
-
 uint8_t tty_control_sequence_buffer[TTY_ANSI_BUFFER] = {0};
 uint8_t tty_escape_sequence_index = 0;
 bool tty_reading_escape_sequence = false, tty_reading_control_sequence = false;
@@ -26,8 +26,14 @@ bool tty_reading_escape_sequence = false, tty_reading_control_sequence = false;
 #include "vga.h"
 #include "../graphics/linear_framebuffer.h"
 
+void tty_init()
+{
+	tty_set_window_size(framebuffer.width / 10, framebuffer.height / 20);
+}
+
 void tty_clear_screen(char c)
 {
+	lock_scheduler();
 	for (uint32_t i = 0; i < TTY_RES_X * TTY_RES_Y; i++)
 		tty_data[i] = ((uint16_t)tty_color << 8) | ' ';
 	if (c == 0 || c == ' ')
@@ -42,6 +48,7 @@ void tty_clear_screen(char c)
 		tty_outc(c);
 	tty_cursor = 0;
 end:
+	unlock_scheduler();
 }
 
 uint8_t tty_ansi_to_vga(uint8_t ansi_code) 
@@ -99,41 +106,67 @@ uint8_t tty_ansi_to_vga_mask(uint8_t ansi_code)
 
 void tty_set_color(uint8_t fg_color, uint8_t bg_color)
 {
+	lock_scheduler();
 	fflush(stdout);
 
 #ifndef LOG_TO_TTY
 	tty_color = (fg_color & 0x0f) | (bg_color & 0xf0);
 #endif
+	unlock_scheduler();
 }
 
 void tty_set_window_size(int sx, int sy)
 {
 	LOG(DEBUG, "tty_set_window_size(%d, %d)", sx, sy);
+	if (sx >= framebuffer.width || sy >= framebuffer.height)
+		return;
+	lock_scheduler();
+	TTY_RES_X = sx;
+	TTY_RES_Y = sy;
+	tty_data = realloc(tty_data, TTY_RES_X * TTY_RES_Y * sizeof(tty_data[0]));
+	unlock_scheduler();
 }
 
 uint32_t tty_get_character_width()
 {
-	return (framebuffer.width - 2 * tty_padding) / TTY_RES_X;
+	lock_scheduler();
+	uint32_t ret = framebuffer.width / TTY_RES_X;
+	unlock_scheduler();
+	return ret;
 }
 
 uint32_t tty_get_character_height()
 {
-	return (framebuffer.height - 2 * tty_padding) * (psf_get_glyph_height(&tty_font) + psf_get_glyph_width(&tty_font) - 1) / psf_get_glyph_width(&tty_font) / TTY_RES_X;
+	lock_scheduler();
+	uint32_t ret = framebuffer.height / TTY_RES_Y;
+	unlock_scheduler();
+	return ret;
 }
 
 uint32_t tty_get_character_pos_x(uint32_t index)
 {
-	return tty_padding + tty_get_character_width() * (index % TTY_RES_X);
+	lock_scheduler();
+	uint32_t ret = tty_get_character_width() * (index % TTY_RES_X);
+	unlock_scheduler();
+	return ret;
 }
 
 uint32_t tty_get_character_pos_y(uint32_t index)
 {
-	return tty_padding + tty_get_character_height() * (index / TTY_RES_X);
+	lock_scheduler();
+	uint32_t ret = tty_get_character_height() * (index / TTY_RES_X);
+	unlock_scheduler();
+	return ret;
 }
 
 void tty_render_character(uint32_t cursor, char c, uint8_t color)
 {
-	if (cursor >= TTY_RES_X * TTY_RES_Y) return;
+	lock_scheduler();
+	if (cursor >= TTY_RES_X * TTY_RES_Y) 
+	{
+		unlock_scheduler();
+		return;
+	}
 	
 	uint32_t width = tty_get_character_width();
 	uint32_t height = tty_get_character_height();
@@ -144,18 +177,28 @@ void tty_render_character(uint32_t cursor, char c, uint8_t color)
 	srgb_t bg_color = vga_get_bg_color(color);
 	framebuffer_fill_rect(&framebuffer, x, y, width, height, bg_color.r, bg_color.g, bg_color.b);
 
-	if (!is_printable_character(c)) return;
+	if (!is_printable_character(c))
+	{
+		unlock_scheduler();
+		return;
+	}
 
 	srgb_t fg_color = vga_get_fg_color(color);
 	framebuffer_render_psf2_char(&framebuffer, x, y, width, height, &tty_font, c,
 		fg_color.r,
 		fg_color.g,
 		fg_color.b);
+	unlock_scheduler();
 }
 
 void tty_render_cursor(uint32_t cursor)
 {
-	if (cursor >= TTY_RES_X * TTY_RES_Y) return;
+	lock_scheduler();
+	if (cursor >= TTY_RES_X * TTY_RES_Y) 
+	{
+		unlock_scheduler();
+		return;
+	}
 
 	uint32_t width = tty_get_character_width();
 	uint32_t height = tty_get_character_height();
@@ -164,14 +207,18 @@ void tty_render_cursor(uint32_t cursor)
 	uint32_t y = tty_get_character_pos_y(cursor);
 
 	framebuffer_fill_rect(&framebuffer, x, y + (8 * height / 10), width, height / 5, 255, 255, 255);
+
+	unlock_scheduler();
 }
 
 void tty_refresh_screen()
 {
+	lock_scheduler();
 	for (uint32_t i = 0; i < TTY_RES_X * TTY_RES_Y; i++)
 		tty_render_character(i, tty_data[i], tty_data[i] >> 8);
 	if (tty_cursor_blink)
 		tty_render_cursor(tty_cursor);
+	unlock_scheduler();
 }
 
 void tty_ansi_m_code(uint8_t code)
@@ -377,37 +424,20 @@ void tty_outc(char c)
 	if (tty_cursor_blink)
 		tty_render_cursor(tty_cursor);
 
+	bool scrolled = false;
 	while (tty_cursor / TTY_RES_X >= TTY_RES_Y)
 	{
-		uint32_t rows_to_scroll = tty_cursor / TTY_RES_X - TTY_RES_Y + 1;
+		scrolled = true;
 
-		tty_cursor -= rows_to_scroll * TTY_RES_X;
+		tty_cursor -= TTY_RES_X;
 
-		if (rows_to_scroll >= TTY_RES_Y)
-		{
-			memset(&tty_data, 0x0f, sizeof(tty_data));
-			tty_refresh_screen();
-			tty_cursor = (TTY_RES_Y - 1) * TTY_RES_X;
-			break;
-		}
+		for (uint32_t i = 0; i < TTY_RES_Y - 1; i++)
+			memcpy(&tty_data[i * TTY_RES_X], &tty_data[(i + 1) * TTY_RES_X], TTY_RES_X * sizeof(uint16_t));
 
-		for (uint32_t i = 0; i < TTY_RES_Y - rows_to_scroll; i++)
-		{
-			for (uint32_t j = 0; j < TTY_RES_X; j++)
-			{
-				if (is_printable_character(tty_data[i * TTY_RES_X + j]) || is_printable_character(tty_data[(i + 1) * TTY_RES_X + j]) || ((tty_data[(i + 1) * TTY_RES_X + j] & 0xff) == 0x0f))
-				{
-					uint16_t data = tty_data[(i + 1) * TTY_RES_X + j];
-					tty_render_character(i * TTY_RES_X + j, data, data >> 8);
-				}
-			}
-			memcpy(&tty_data[i * TTY_RES_X], &tty_data[(i + rows_to_scroll) * TTY_RES_X], TTY_RES_X * sizeof(uint16_t));
-		}
-
-		memset(&tty_data[(TTY_RES_Y - rows_to_scroll) * TTY_RES_X], 0x0f, TTY_RES_X * sizeof(uint16_t));
-
-		framebuffer_fill_rect(&framebuffer, 0, tty_get_character_pos_y((TTY_RES_Y - rows_to_scroll) * TTY_RES_X), framebuffer.width, tty_get_character_height(), 0, 0, 0);
+		memset(&tty_data[(TTY_RES_Y - 1) * TTY_RES_X], 0x0f, TTY_RES_X * sizeof(uint16_t));
 	}
+	if (scrolled)
+		tty_refresh_screen();
 
 	unlock_scheduler();
 }

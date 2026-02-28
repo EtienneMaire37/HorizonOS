@@ -32,7 +32,7 @@ override NCURSES_STAMP := ncurses/.built
 
 override BASH_DL_STAMP := src/tasks/src/bash/.downloaded
 
-QEMU_FLAGS := -accel kvm -cpu host -debugcon file:debug/latest.log -m 256 -drive file=horizonos.iso,index=0,media=disk,format=raw -smp 8 -bios /usr/share/ovmf/OVMF.fd
+QEMU_FLAGS := -accel kvm -cpu host -debugcon file:debug/latest.log -m 256 -drive file=horizonos.iso,index=0,media=disk,format=raw -smp 8
 
 .PHONY: all run rmbin clean
 
@@ -102,11 +102,23 @@ $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) GNUmakefile
 	-lgcc
 # 	$(CROSSSTRIP) $@
 
-run:	horizonos.iso
+run:	uefi-run
+debug: 	uefi-debug
+
+uefi-run:	horizonos.iso
+	mkdir debug -p
+	qemu-system-x86_64 $(QEMU_FLAGS) -bios /usr/share/ovmf/OVMF.fd
+
+uefi-debug: horizonos.iso
+	mkdir debug -p
+	qemu-system-x86_64 $(QEMU_FLAGS) -bios /usr/share/ovmf/OVMF.fd -s -S &
+	gdb -x gdb-config.txt
+
+bios-run:	horizonos.iso
 	mkdir debug -p
 	qemu-system-x86_64 $(QEMU_FLAGS)
 
-debug: 	horizonos.iso
+bios-debug: horizonos.iso
 	mkdir debug -p
 	qemu-system-x86_64 $(QEMU_FLAGS) -s -S &
 	gdb -x gdb-config.txt

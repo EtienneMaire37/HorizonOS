@@ -1,20 +1,23 @@
 #pragma once
 
+#define ACPI_1_0            0
+#define ACPI_2_0_PLUS       2
 
+typedef uint8_t acpi_revision_t;
 
-// struct rsdp_table
-// {
-//     char signature[8];
-//     uint8_t checksum;
-//     char oem_id[6];
-//     uint8_t revision;
-//     uint32_t rsdt_address;  // Deprecated since ACPI 2.0+
+struct rsdp_table
+{
+    char signature[8];
+    uint8_t checksum;
+    char oem_id[6];
+    acpi_revision_t revision;
+    uint32_t rsdt_address;  // Deprecated since ACPI 2.0+
 
-//     uint32_t length;
-//     uint64_t xsdt_address;
-//     uint8_t extended_checksum;
-//     uint8_t reserved[3];
-// } __attribute__((packed));
+    uint32_t length;
+    uint64_t xsdt_address;
+    uint8_t extended_checksum;
+    uint8_t reserved[3];
+} __attribute__((packed));
 
 struct sdt_header
 {

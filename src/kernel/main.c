@@ -174,6 +174,8 @@ void _start()
         abort();
     }
 
+    tty_init();
+
     tty_color = (FG_WHITE | BG_BLACK);
 
 // * vvv Now we can use stdout
@@ -461,7 +463,6 @@ void _start()
     sc_data.kernel_rsp = TASK_KERNEL_STACK_TOP_ADDRESS;
     wrmsr(IA32_KERNEL_GS_BASE_MSR, (uint64_t)&sc_data);
 
-    // TODO: Check cpuid
     wrmsr(IA32_EFER_MSR, rdmsr(IA32_EFER_MSR) | 1); // * enable syscalls
     // * In Long Mode, userland CS will be loaded from STAR 63:48 + 16 and userland SS from STAR 63:48 + 8 on SYSRET.
     wrmsr(IA32_STAR_MSR, ((uint64_t)(KERNEL_DATA_SEGMENT | 3) << 48) | ((uint64_t)KERNEL_CODE_SEGMENT << 32));
@@ -541,10 +542,10 @@ void _start()
     }
     vfs_root->inode->parent = vfs_root;
     vfs_explore(vfs_root);
+
     vfs_mount_device("mnt", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
     vfs_mount_device("initrd", "/mnt", (drive_t){.type = DT_INITRD}, 0, 0);
     vfs_mount_device("dev", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
-    vfs_get_folder_tnode("/dev", NULL)->inode->flags |= VFS_NODE_EXPLORED;
 
     vfs_add_special("/dev", "stdin", CHR_MODE, task_chr_stdin, 0, 0);
     vfs_add_special("/dev", "stdout", CHR_MODE, task_chr_stdout, 0, 0);
@@ -591,8 +592,6 @@ void _start()
         }
     };
 
-    // TODO: Find out how to use efi_ptr (System Table) to get access to runtime uefi functions
-
     LOG(DEBUG, "sizeof(thread_t): %lld", (unsigned long long)sizeof(thread_t));
 
     fflush(stdout);
@@ -610,8 +609,8 @@ void _start()
     LOG(DEBUG, "Starting multitasking...");
 
     log_segbase();
-    
-    while (true);
+
+    wrgsbase(rdmsr(IA32_KERNEL_GS_BASE_MSR));
 
     multitasking_start();
 

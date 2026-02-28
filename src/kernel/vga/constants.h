@@ -39,8 +39,4 @@
 
 #define TAB_LENGTH       4
 
-#define TTY_RES_X   102
-#define TTY_RES_Y   36
-// Assume ar (probably should set a max value and dynamically scroll if below a certain threshold)
-
 #define TTY_ANSI_BUFFER     32

@@ -49,9 +49,11 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
         LOG(ERROR, "vfs_initrd_do_explore: not an initrd mounted folder!!!");
         return;
     }
+    LOG(TRACE, "initrd: Exploring ");
     char* constructed_path = malloc(PATH_MAX);
     if (!constructed_path) return;
     vfs_realpath_from_folder_tnode(tnode, constructed_path);
+    CONTINUE_LOG(TRACE, "\"%s\"", constructed_path);
     char* prefix = malloc(PATH_MAX);
     if (!prefix) 
     {
@@ -60,7 +62,6 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
     }
     vfs_realpath_from_folder_tnode(mount_point, prefix);
     size_t prefix_length = strlen(prefix);
-    // LOG(DEBUG, "Exploring \"%s\"", constructed_path);
     tnode->inode->files = NULL;
     tnode->inode->folders = NULL;
     char* path = strcmp(constructed_path, prefix) == 0 ? "" : &constructed_path[(mount_point == vfs_root ? 0 : 1) + prefix_length];
@@ -74,6 +75,7 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
         {
             if (initrd_files[i].type != USTAR_TYPE_FILE_1 && initrd_files[i].type != USTAR_TYPE_DIRECTORY) continue;
             char* name = initrd_files[i].name;
+            LOG(TRACE, "initrd: Adding file entry \"%s\"", name);
             for (ssize_t j = 0; name[j] != 0; j++)
             {
                 if (name[j] == '/' && name[j + 1] != 0)
@@ -125,6 +127,9 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
                 (*current_folder_tnode)->inode->st.st_rdev = S_ISCHR((*current_folder_tnode)->inode->st.st_mode) || S_ISBLK((*current_folder_tnode)->inode->st.st_mode) ? vfs_generate_device_id() : 0;
 
                 (*current_folder_tnode)->inode->flags = VFS_NODE_INIT;
+
+                (*current_folder_tnode)->inode->folders = NULL;
+                (*current_folder_tnode)->inode->files = NULL;
 
                 (*current_folder_tnode)->next = NULL;
                 (*current_folder_tnode)->inode->parent = tnode;

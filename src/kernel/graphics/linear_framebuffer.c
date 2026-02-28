@@ -22,8 +22,8 @@ void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y,
     if (!buffer->address)
         return;
 
-    if (x >= buffer->width) return;
-    if (y >= buffer->height) return;
+    if (x > buffer->width - size_x) return;
+    if (y > buffer->height - size_y) return;
 
     uint32_t right = x + size_x, bottom = y + size_y;
 

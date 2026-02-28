@@ -244,7 +244,7 @@ void vfs_mount_device(const char* name, const char* path, drive_t drive, uid_t u
 
 mount: 
     (*current) = vfs_create_empty_folder_tnode(name, parent, 
-            VFS_NODE_INIT | VFS_NODE_MOUNTPOINT, 
+            VFS_NODE_INIT | VFS_NODE_MOUNTPOINT | (drive.type == DT_VIRTUAL ? VFS_NODE_EXPLORED : 0), 
             drive.type == DT_VIRTUAL ? 0 : vfs_generate_device_id(), 
             S_IFDIR | 
             S_IRUSR | S_IXUSR |
@@ -771,6 +771,7 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
 void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth)
 {
     if (!tnode) return;
+    if (!tnode->inode) return;
 
     char access_str[11];
 
