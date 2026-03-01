@@ -12,25 +12,7 @@
 #include "../io/keyboard.h"
 #include "../multitasking/task.h"
 #include "../paging/paging.h"
-
-typedef struct __attribute__((packed))
-{
-    uint64_t r15;
-    uint64_t r14;
-    uint64_t r13;
-    uint64_t r12;
-    uint64_t r11;
-    uint64_t r10;
-    uint64_t r9;
-    uint64_t r8;
-    uint64_t rdi;
-    uint64_t rsi;
-    uint64_t rbp;
-    uint64_t rbx;
-    uint64_t rdx;
-    uint64_t rcx;
-    uint64_t rax;
-} syscall_registers_t;
+#include "../cpu/segbase.h"
 
 #define SC_ARG0()
 #define SC_ARG1(t1) \
@@ -71,6 +53,4 @@ typedef struct __attribute__((packed))
 #define SC_LOG(fmt, ...)
 #endif
 
-void c_syscall_handler(syscall_registers_t* registers);
-
-void handle_syscall(interrupt_registers_t* registers);
+void c_syscall_handler(interrupt_registers_t* registers, void** return_address);

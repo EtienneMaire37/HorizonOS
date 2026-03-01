@@ -15,8 +15,11 @@
 #include "../time/ktime.h"
 #include <fcntl.h>
 #include <assert.h>
+#include "signal.h"
 
-void c_syscall_handler(syscall_registers_t* registers)
+extern void sigret();
+
+void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
 {
     // SC_LOG("syscall %" PRIu64, registers->rax);
     switch (registers->rax)
@@ -796,12 +799,7 @@ void c_syscall_handler(syscall_registers_t* registers)
         break;
     sc_case(SYS_SIGRET, 0)
         SC_LOG("syscall SYS_SIGRET");
-        lock_scheduler();
-        current_task->pending_signal_handler = 0;
-        move_running_task_to_thread_queue(&pending_signal_tasks, current_task);
-        switch_task();
-        unlock_scheduler();
-        abort();
+        *return_value = sigret;
         break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
@@ -819,4 +817,14 @@ void c_syscall_handler(syscall_registers_t* registers)
         task_send_signal(current_task, SIGILL);
         sc_ret_errno = ENOSYS;
     }
+
+    lock_scheduler();
+    if (current_task->sig_pending_user_space)
+    {
+        // * We pad the stack frame in syscall_handler
+        setup_user_signal_stack_frame__interrupt((interrupt_registers_t*)registers);
+        current_task->sig_pending_user_space = false;
+        *return_value = intret;
+    }
+    unlock_scheduler();
 }

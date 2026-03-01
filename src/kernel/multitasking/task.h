@@ -25,6 +25,7 @@ typedef struct thread
 
     sigset_t sig_pending, sig_mask;
     struct sigaction sig_act_array[NUM_SIGNALS];
+    bool sig_pending_user_space;
 
     uint32_t return_value;
     

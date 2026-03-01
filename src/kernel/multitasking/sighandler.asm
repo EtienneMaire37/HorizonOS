@@ -12,17 +12,19 @@ section .sigwrap
 ;     asm volatile ("syscall" :: "a"(SYS_SIGRET));
 ; }
 
+; * rax = sighandler
 global sighandler
 sighandler:
-    mov rax, 1
-    mov rbx, 1
-    mov rdx, str
-    mov rsi, 10
-    syscall
+    call rax
 
     mov rax, 33
     syscall
+do_ud:
     ud
-    jmp $
+    jmp do_ud
 
-str: db "sighandler"
+extern intret
+global sigret
+sigret: 
+    mov rsp, [gs:0] ; * remove syscall stack frame
+    jmp intret

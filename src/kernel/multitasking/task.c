@@ -447,28 +447,6 @@ void cleanup_tasks()
         while (forked_tasks && cur_forked_task != forked_tasks);
     }
 
-    if (pending_signal_tasks)
-    {
-        thread_queue_item_t* it = pending_signal_tasks;
-        do
-        {
-            thread_t* cur = it->data;
-            it = it->next;
-            if (cur != current_task)
-            {
-                if (cur->pending_signal_handler)
-                    task_setup_stack(cur, (uint64_t)sighandler);
-                else
-                {
-                    // task_unsetup_stack(cur);
-                }
-                if (cur->pending_signal_handler)
-                    move_task_to_running_queue(&pending_signal_tasks, it);
-            }
-        }
-        while (pending_signal_tasks && it != pending_signal_tasks);
-    }
-
     if (reapable_tasks)
     {
         thread_queue_item_t* cur_reapable_task = reapable_tasks;

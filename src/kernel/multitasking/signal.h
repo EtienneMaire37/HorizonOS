@@ -1,4 +1,8 @@
+#pragma once
+
 #include <signal.h>
+#include "../int/int.h"
+#include "syscall.h"
 
 #define SIGDEF_TERM 0
 #define SIGDEF_IGN  1
@@ -59,3 +63,4 @@ static inline int sig_default_action(int sig)
 }
 
 extern void sighandler();
+void setup_user_signal_stack_frame__interrupt(interrupt_registers_t* registers);

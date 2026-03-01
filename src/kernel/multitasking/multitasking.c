@@ -398,7 +398,7 @@ ign:
 signal:
     LOG(DEBUG, "Signal was sent to the process");
     thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
-    move_task_to_queue(&pending_signal_tasks, thread);
+    thread->sig_pending_user_space = true;
     if (thread == current_task)
         switch_task();
     unlock_scheduler();

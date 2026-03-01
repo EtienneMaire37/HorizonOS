@@ -110,8 +110,6 @@ _interrupt_handler:
     mov ax, 0x10
     mov ds, ax
     mov es, ax
-    ; mov fs, ax
-    ; mov gs, ax
     mov ss, ax
 
     mov rax, cr2
@@ -129,6 +127,8 @@ _interrupt_handler:
     ; * -> nullplan
     sti
     call interrupt_handler
+global intret
+intret:
     cli
     
     add rsp, 8 + 8  ; skip cr2 and cr3
@@ -136,8 +136,6 @@ _interrupt_handler:
     pop rax
     mov ds, ax
     mov es, ax
-    ; mov fs, ax
-    ; mov gs, ax
 
     pop r15
     pop r14

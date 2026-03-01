@@ -6,7 +6,6 @@ thread_queue_t reapable_tasks = TQ_INIT;
 thread_queue_t waitpid_tasks = TQ_INIT;
 thread_queue_t forked_tasks = TQ_INIT;
 thread_queue_t stopped_tasks = TQ_INIT;
-thread_queue_t pending_signal_tasks = TQ_INIT;
 
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data)
 {

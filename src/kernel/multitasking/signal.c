@@ -1,0 +1,14 @@
+#include "signal.h"
+#include "multitasking.h"
+
+void setup_user_signal_stack_frame__interrupt(interrupt_registers_t* registers)
+{
+    uint64_t ret_rsp = registers->rsp;
+    ret_rsp -= 128;  // * skip red zone
+    ret_rsp -= sizeof(interrupt_registers_t);
+    
+    memcpy((void*)ret_rsp, registers, sizeof(interrupt_registers_t));
+    registers->rip = (uint64_t)sighandler;
+    registers->rsp = ret_rsp;
+    registers->rax = current_task->pending_signal_handler;
+}

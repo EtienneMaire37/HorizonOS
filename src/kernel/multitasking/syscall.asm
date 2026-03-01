@@ -12,6 +12,14 @@ syscall_handler:
     mov [gs:0], rsp
     mov rsp, [gs:8]
 
+    ; * pad rsp to match the stack frame of interrupt_handler
+    push 0x18 | 3       ; * ss
+    push qword [gs:0]   ; * user rsp
+    push r11            ; * rflags
+    push 0x20 | 3       ; * cs
+    push rcx            ; * rip
+    sub rsp, 8 + 8
+
     push rax
     push rcx
     push rdx
@@ -28,8 +36,6 @@ syscall_handler:
     push r14
     push r15
 
-    mov rdi, rsp
-
     xor rax, rax
     mov ax, ds
     push rax
@@ -37,9 +43,16 @@ syscall_handler:
     mov ax, ss
     mov ds, ax
 
+    sub rsp, 8 + 8  ; * see above
+
+    mov rdi, rsp
+    lea rsi, [rsp - 8]
+
     sti
     call c_syscall_handler
     cli
+
+    add rsp, 8 + 8 ; * same here
 
     pop rax
     mov ds, ax
@@ -59,6 +72,9 @@ syscall_handler:
     pop rdx
     pop rcx
     pop rax
+
+    add rsp, 8 + 8 ; * same here
+    add rsp, 8 * 5
 
     mov rsp, [gs:0]
 

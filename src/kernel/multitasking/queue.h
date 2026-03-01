@@ -12,8 +12,7 @@ extern thread_queue_t   dead_tasks,
                         reapable_tasks, 
                         waitpid_tasks, 
                         forked_tasks, 
-                        stopped_tasks,
-                        pending_signal_tasks;
+                        stopped_tasks;
 
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data);
 void thread_queue_remove(thread_queue_t* queue, thread_queue_item_t* data);
