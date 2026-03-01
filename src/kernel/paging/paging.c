@@ -45,6 +45,12 @@ bool is_pdpt_entry_present(const uint64_t* entry)
     return ((*entry) & 1) && (((*entry) & 0xfffffffffffff000) & get_physical_address_mask());
 }
 
+bool is_pdpt_entry_large(const uint64_t* entry)
+{
+    if (!entry) return false;
+    return ((*entry) & (1 << 7)) != 0;
+}
+
 physical_address_t get_pdpt_entry_address(const uint64_t* entry)
 {
     return is_pdpt_entry_present(entry) ? (physical_address_t)(((*entry) & 0xfffffffffffff000) & get_physical_address_mask()) : physical_null;
@@ -118,9 +124,6 @@ void remap_range(uint64_t* pml4,
         abort();
     }
 
-    // * "uncanonize"
-    start_virtual_address &= 0xffffffffffff;
-
     // uint64_t end_virtual_address = start_virtual_address + 0x1000 * pages;
 
     // for (uint64_t vaddr = start_virtual_address; vaddr < end_virtual_address; vaddr += 0x1000)
@@ -180,9 +183,6 @@ void allocate_range(uint64_t* pml4,
         abort();
     }
 
-    // * "uncanonize"
-    start_virtual_address &= 0xffffffffffff;
-
     // uint64_t end_virtual_address = start_virtual_address + 0x1000 * pages;
 
     // for (uint64_t vaddr = start_virtual_address; vaddr < end_virtual_address; vaddr += 0x1000)
@@ -238,9 +238,6 @@ void free_range(uint64_t* pml4,
         LOG(CRITICAL, "free_range: Kernel tried to free non page aligned addresses");
         abort();
     }
-
-    // * "uncanonize"
-    start_virtual_address &= 0xffffffffffff;
 
     for (uint64_t i = 0; i < pages; i++)
     {
@@ -310,9 +307,6 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
         abort();
     }
 
-    // * "uncanonize"
-    start_virtual_address &= 0xffffffffffff;
-
     for (uint64_t i = 0; i < pages; i++)
     {
         uint64_t vaddr = start_virtual_address + 0x1000 * i;
@@ -327,10 +321,7 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
 
         uint64_t* old_pml4_entry = &src[pml4e];
         if (!is_pdpt_entry_present(old_pml4_entry))
-        {
-            i += ((uint64_t)1 << (9 * 3)) - (pdpte << (9 * 2)) - (pde << 9) - pte - 1;
-            continue;
-        }
+            skip_pml4();
 
         uint64_t* new_pml4_entry = &dst[pml4e];
 
@@ -341,14 +332,19 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
         
         uint64_t* old_pdpt_entry = &old_pdpt[pdpte];
         if (!is_pdpt_entry_present(old_pdpt_entry))
-        {
-            i += ((uint64_t)1 << (9 * 2)) - (pde << 9) - pte - 1;
-            continue;
-        }
+            skip_pdpt();
 
         uint64_t* new_pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(new_pml4_entry));
 
         uint64_t* new_pdpt_entry = &new_pdpt[pdpte];
+
+        // * 1GB page
+        // !!! WILL LEAK MEMORY IF USED ON TOP OF ALLOCATED PAGE TABLES
+        if (is_pdpt_entry_large(old_pdpt_entry))
+        {
+            *new_pdpt_entry = *old_pdpt_entry;
+            skip_pdpt();
+        }
 
         if (!is_pdpt_entry_present(new_pdpt_entry))
             set_pdpt_entry(new_pdpt_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
@@ -357,14 +353,19 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
 
         uint64_t* old_pd_entry = &old_pd[pde];
         if (!is_pdpt_entry_present(old_pd_entry))
-        {
-            i += ((uint64_t)1 << 9) - pte - 1;
-            continue;
-        }
+            skip_pd();
 
         uint64_t* new_pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(new_pdpt_entry));
 
         uint64_t* new_pd_entry = &new_pd[pde];
+
+        // * 2MB page
+        // !!! WILL LEAK MEMORY IF USED ON TOP OF ALLOCATED PAGE TABLES
+        if (is_pdpt_entry_large(old_pd_entry))
+        {
+            *new_pd_entry = *old_pd_entry;
+            skip_pd();
+        }
 
         if (!is_pdpt_entry_present(new_pd_entry))
             set_pdpt_entry(new_pd_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
@@ -382,9 +383,6 @@ void* virtual_to_physical(uint64_t* cr3, uint64_t vaddr)
 {	
     if (!cr3)
         return NULL;
-        
-    // * "uncanonize"
-    vaddr &= 0xffffffffffff;
 
     uint64_t pte = (vaddr >> 12) & 0x1ff;
     uint64_t pde = (vaddr >> (12 + 9)) & 0x1ff;

@@ -11,6 +11,10 @@
 // #define PHYS_MAP_OFFSET     0xffff800000000000
 extern uint64_t PHYS_MAP_BASE;
 
+#define skip_pml4() { i += ((uint64_t)1 << (9 * 3)) - (pdpte << (9 * 2)) - (pde << 9) - pte - 1; continue; }
+#define skip_pdpt() { i += ((uint64_t)1 << (9 * 2)) - (pde << 9) - pte - 1; continue; }
+#define skip_pd()   { i += ((uint64_t)1 << 9) - pte - 1; continue; }
+
 #define PG_SHIFT        12ULL
 #define PG_SIZE         (1ULL << PG_SHIFT)
 #define IDX_BITS        9ULL
