@@ -11,16 +11,18 @@ uint32_t ps2_1_gsi = 1, ps2_12_gsi = 12;
 #include "../cpu/memory.h"
 #include "../ps2/ps2.h"
 #include "../cpu/msr.h"
+#include "../int/kernel_panic.h"
 
 void apic_init()
 {
     uint64_t apic_base_msr = rdmsr(IA32_APIC_BASE_MSR);
+    if (apic_base_msr & (1ULL << 10))   // * x2APIC can NOT be disabled
+    {
+        kernel_panic_ex(NULL, PANIC_X2APIC);
+        abort();
+    }
 
     lapic = (volatile local_apic_registers_t*)((apic_base_msr & ~0xfffULL) + PHYS_MAP_BASE);
-
-    // * Disable x2APIC and enable
-    apic_base_msr &= ~(1ULL << 10);
-    wrmsr(IA32_APIC_BASE_MSR, apic_base_msr);
 
     apic_base_msr |= (1ULL << 11);
     wrmsr(IA32_APIC_BASE_MSR, apic_base_msr);

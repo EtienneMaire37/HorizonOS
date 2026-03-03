@@ -1,7 +1,9 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
+#include "../cpu/msr.h"
 #include "defs.h"
 
 // * page 0xFEE00xxx
@@ -17,3 +19,9 @@ void lapic_send_eoi();
 void lapic_set_spurious_interrupt_number(uint8_t int_num);
 void lapic_enable();
 void lapic_set_tpr(uint8_t p);
+
+static inline bool is_bsp()
+{
+    // * BSP bit
+    return (rdmsr(IA32_APIC_BASE_MSR) & (1 << 8)) != 0;
+}

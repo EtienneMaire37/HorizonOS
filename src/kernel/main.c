@@ -87,14 +87,9 @@ void _start()
 
     uint32_t eax, ebx, ecx, edx;
     cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
-    // * Assume CPUID support
+    // * CPUID is guaranteed to be present on x86_64
     
-    uint8_t cpu_id = cpuid_get_cpu_id();
-    // LOG(TRACE, "CPU ID: %u", cpu_id);
-    
-    apic_init();
-    
-    if (mp_request.response->bsp_lapic_id != cpu_id) // * SMP not supported for now
+    if (!is_bsp()) // * SMP not supported for now
         halt();
     
     LOG(DEBUG, "_start");
@@ -149,7 +144,7 @@ void _start()
 
     init_pat();
     
-    LOG(INFO, "cpu_id : %u", cpu_id);
+    LOG(INFO, "cpu_id : %u", cpuid_get_cpu_id());
 
     struct limine_file* initrd = NULL;
     for (int i = 0; i < module_request.response->module_count; i++)
@@ -173,6 +168,8 @@ void _start()
         LOG(DEBUG, "Couldn't find psf font in initrd");
         abort();
     }
+    
+    pfa_detect_usable_memory();
 
     tty_init();
 
@@ -192,8 +189,6 @@ void _start()
     puts((const char*)commit_file->data);
     tty_set_color(FG_WHITE, BG_BLACK);
     
-    pfa_detect_usable_memory();
-    
     printf("Detected ");
     tty_set_color(FG_LIGHTBLUE, BG_BLACK);
     printf("%" PRIu64 " ", allocatable_memory);
@@ -210,6 +205,9 @@ void _start()
         LOG(WARNING, "PAT not supported");
         printf("warning: PAT not supported (this might cause poor performance on graphical intensive programs)\n");
     }
+
+    // * Enable APIC before mapping LAPIC registers
+    apic_init();
 
     LOG(INFO, "Setting up paging...");
     printf("Setting up paging...\n");

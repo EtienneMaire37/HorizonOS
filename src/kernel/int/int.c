@@ -45,7 +45,12 @@ void interrupt_handler(interrupt_registers_t* registers)
                 kernel_panic((interrupt_registers_t*)registers);
             }
             else
-                task_send_signal(current_task, registers->interrupt_number == 14 ? SIGSEGV : SIGILL);
+            {
+                int signum = get_signal_from_exception(registers);
+                task_send_signal(current_task, signum);
+                kill_task(current_task, signum);
+                abort();
+            }
         }
         else
             kernel_panic((interrupt_registers_t*)registers);

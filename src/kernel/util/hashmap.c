@@ -94,7 +94,8 @@ void hashmap_remove_item(hashmap_t* hmp, uint64_t key)
 
 void* hashmap_get_item(hashmap_t* hmp, uint64_t key)
 {
-	if (!hmp) return NULL;
+	// LOG(TRACE, "hashmap_get_item(%p, %#" PRIx64 ")", hmp, key);
+	if (!hmp || hmp->items == 0) return NULL;
 	ll_t* ll = &hmp->data[hash64(key) % hmp->items];
 	if (!*ll)
 		return NULL;
@@ -102,6 +103,7 @@ void* hashmap_get_item(hashmap_t* hmp, uint64_t key)
 	do
 	{
 		hashmap_item_t* item = (hashmap_item_t*)it->data;
+		if (!item) abort();
 		if (item->key == key)
 			return item->value;
 		it = it->next;

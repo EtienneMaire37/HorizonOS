@@ -7,6 +7,7 @@
 #include "mmap.h"
 #include "page_frame_allocator.h"
 #include "../boot/limine.h"
+#include "../int/kernel_panic.h"
 
 uint64_t usable_memory = 0;
 struct mem_block usable_memory_map[MAX_USABLE_MEMORY_BLOCKS];
@@ -133,6 +134,8 @@ physical_address_t pfa_allocate_physical_page()
     if (memory_allocated + 0x1000 > allocatable_memory) 
     {
         LOG(CRITICAL, "pfa_allocate_physical_page: Out of memory at start!");
+        kernel_panic_ex(NULL, PANIC_OOM);
+        abort();
         return physical_null;
     }
 
@@ -171,6 +174,7 @@ physical_address_t pfa_allocate_physical_page()
     }
 
     LOG(CRITICAL, "pfa_allocate_physical_page: Out of memory at end!");
+    abort();
     release_mutex(&pfa_lock);
     return physical_null;
 }
@@ -180,6 +184,8 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
     if (memory_allocated + 0x1000 * pages > allocatable_memory) 
     {
         LOG(CRITICAL, "pfa_allocate_physical_contiguous_pages: Out of memory at start!");
+        kernel_panic_ex(NULL, PANIC_OOM);
+        abort();
         return physical_null;
     }
 
@@ -254,6 +260,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(uint32_t pages)
     }
 
     LOG(CRITICAL, "pfa_allocate_physical_contiguous_pages: Out of memory at end!");
+    abort();
     release_mutex(&pfa_lock);
     return physical_null;
 }

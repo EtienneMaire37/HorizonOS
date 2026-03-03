@@ -1,6 +1,8 @@
 #pragma once
 
 #include <stdint.h>
+#include <signal.h>
+#include <stdlib.h>
 #include "../initrd/initrd.h"
 
 typedef struct __attribute__((packed)) interrupt_registers
@@ -83,6 +85,44 @@ static inline const char* get_error_message(uint32_t fault, uint32_t error_code)
             return "SGX_VIOLATION_EXCEPTION";
     }
     return error_str[fault];
+}
+static inline int get_signal_from_exception(interrupt_registers_t* registers)
+{
+    if (!registers)
+        abort();
+    switch (registers->interrupt_number)
+    {
+    case 0:
+        return SIGFPE;
+    case 1:
+        return SIGTRAP;
+    case 3:
+        return SIGTRAP;
+    case 4:
+        return SIGSEGV;
+    case 5:
+        return SIGSEGV;
+    case 6:
+        return SIGILL;
+    case 10:
+        return SIGSEGV;
+    case 11:
+        return SIGSEGV;
+    case 12:
+        return SIGSEGV;
+    case 13:
+        return SIGSEGV;
+    case 14:
+        return SIGSEGV;
+    case 16:
+        return SIGFPE;
+    case 17:
+        return SIGBUS;
+    case 19:
+        return SIGFPE;
+    default:
+        abort();
+    }
 }
 
 extern initrd_file_t* kernel_symbols_file;
