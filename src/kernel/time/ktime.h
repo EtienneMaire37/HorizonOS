@@ -2,6 +2,7 @@
 
 #include "time.h"
 #include "gdn.h"
+#include "../util/math.h"
 #include <time.h>
 
 static inline time_t ktime(time_t* t)

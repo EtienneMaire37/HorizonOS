@@ -12,6 +12,6 @@ void __attribute__((noreturn)) abort()
     disable_interrupts();
     LOG(ERROR, "Kernel aborted.");
     print_stack_trace((uint64_t)abort, get_rbp(), false);
-    printf("Kernel aborted.\n");
+    printf("\x1b[31mKernel aborted.\x1b[0m\n");
     halt();
 }

@@ -1,5 +1,7 @@
 #include "defs.h"
 
+#include <assert.h>
+
 // * page 0xFEE00xxx
 volatile local_apic_registers_t* lapic = NULL;
 
@@ -12,56 +14,65 @@ uint32_t ps2_1_gsi = 1, ps2_12_gsi = 12;
 #include "../ps2/ps2.h"
 #include "../cpu/msr.h"
 #include "../int/kernel_panic.h"
+#include "../cmos/rtc.h"
 
 void apic_init()
 {
     uint64_t apic_base_msr = rdmsr(IA32_APIC_BASE_MSR);
-    if (apic_base_msr & (1ULL << 10))   // * x2APIC can NOT be disabled
-    {
-        kernel_panic_ex(NULL, PANIC_X2APIC);
-        abort();
-    }
-
-    lapic = (volatile local_apic_registers_t*)((apic_base_msr & ~0xfffULL) + PHYS_MAP_BASE);
+    // * x2APIC enabled => CPUID.01H:ECX[21] = 1 so no need to check it
+    if (apic_base_msr & (1ULL << 10))   // * x2APIC
+        lapic = NULL;
+    else
+        lapic = (volatile local_apic_registers_t*)((apic_base_msr & ~0xfffULL) + PHYS_MAP_BASE);
 
     apic_base_msr |= (1ULL << 11);
     wrmsr(IA32_APIC_BASE_MSR, apic_base_msr);
 }
 
-uint8_t apic_get_cpu_id()
+uint32_t __attribute__((const)) apic_get_cpu_id()
 {
-    return (lapic->id_register >> 24) & 0xff;
+    if (lapic)
+        return (lapic->id_register >> 24) & 0xff;
+    else
+        return rdmsr(IA32_X2APIC_APICID_MSR);
 }
 
 void lapic_send_eoi()
 {
-    lapic->end_of_interrupt_register = 0;
+    if (lapic)
+        lapic->end_of_interrupt_register = 0;
+    else
+        wrmsr(IA32_X2APIC_EOI_MSR, 0);
 }
 
 void lapic_set_spurious_interrupt_number(uint8_t int_num)
 {
-    uint32_t val = lapic->spurious_interrupt_vector_register;
+    uint32_t val = lapic ? lapic->spurious_interrupt_vector_register : rdmsr(IA32_X2APIC_SIVR_MSR);
     val &= 0xffffff00;
     val |= int_num;
-    lapic->spurious_interrupt_vector_register = val;
+    if (lapic)  lapic->spurious_interrupt_vector_register = val;
+    else        wrmsr(IA32_X2APIC_SIVR_MSR, val);
 }
 
 void lapic_enable()
 {
-    lapic->spurious_interrupt_vector_register |= 0x100;
+    if (lapic)  lapic->spurious_interrupt_vector_register |= 0x100;
+    else        wrmsr(IA32_X2APIC_SIVR_MSR, rdmsr(IA32_X2APIC_SIVR_MSR) | 0x100);
 }
 
 void lapic_disable()
 {
-    lapic->spurious_interrupt_vector_register &= ~0x100;
+    if (lapic)  lapic->spurious_interrupt_vector_register &= ~0x100;
+    else        wrmsr(IA32_X2APIC_SIVR_MSR, rdmsr(IA32_X2APIC_SIVR_MSR) & ~0x100);
 }
 
 void lapic_set_tpr(uint8_t p)
 {
-    uint32_t val = lapic->task_priority_register;
+    uint32_t val = lapic ? lapic->task_priority_register : rdmsr(IA32_X2APIC_TPR_MSR);
     val &= 0xffffff00;
     val |= p;
-    lapic->task_priority_register = val;
+    if (lapic)  lapic->task_priority_register = val;
+    else        wrmsr(IA32_X2APIC_TPR_MSR, val);
 }
 
 uint32_t ioapic_read_register(volatile io_apic_registers_t* ioapic, uint8_t reg)
@@ -222,6 +233,10 @@ void madt_extract_data()
         struct madt_ioapic_entry* ps2_1_ioapic_entry = (struct madt_ioapic_entry*)find_entry_in_madt(is_madt_entry_irq_1_capable);
         struct madt_ioapic_entry* ps2_12_ioapic_entry = (struct madt_ioapic_entry*)find_entry_in_madt(is_madt_entry_irq_12_capable);
 
+        uint64_t lapic_id = apic_get_cpu_id();
+        // ! Horrible way to do things
+        // TODO: Use logical destination mode
+        assert(lapic_id == (lapic_id & 0xff));
         if (ps2_1_ioapic_entry)
         {
             LOG(DEBUG, "Found I/O APIC entry able to handle GSI %u", ps2_1_gsi);
@@ -235,7 +250,7 @@ void madt_extract_data()
                 APIC_POLARITY_ACTIVE_HIGH |
                 APIC_TRIGGER_EDGE |
                 APIC_MASK_ENABLED |
-                ((uint64_t)apic_get_cpu_id() << 56));
+                (lapic_id << 56));
         }
         if (ps2_12_ioapic_entry)
         {
@@ -250,7 +265,48 @@ void madt_extract_data()
                 APIC_POLARITY_ACTIVE_HIGH |
                 APIC_TRIGGER_EDGE |
                 APIC_MASK_ENABLED |
-                ((uint64_t)apic_get_cpu_id() << 56));
+                (lapic_id << 56));
         }
     }
+}
+
+void apic_timer_init()
+{
+    rtc_wait_while_updating();
+
+    if (lapic)
+    {
+        lapic->divide_configuration_register = 3;
+        lapic->initial_count_register = 0xffffffff;
+    }
+    else
+    {
+        wrmsr(IA32_X2APIC_DIV_CONF_MSR, 3);
+        wrmsr(IA32_X2APIC_INIT_COUNT_MSR, 0xffffffff);
+    }
+
+    rtc_get_time();
+
+    if (lapic)
+    {
+        lapic->lvt_timer_register = 0x10000;    // mask it
+
+        uint32_t ticks_in_1_sec = 0xffffffff - lapic->current_count_register;
+
+        lapic->lvt_timer_register = APIC_TIMER_INT | 0x20000; // * APIC_TIMER_INT | PERIODIC
+        lapic->divide_configuration_register = 3;
+        lapic->initial_count_register = ticks_in_1_sec / GLOBAL_TIMER_FREQUENCY;
+    }
+    else
+    {
+        wrmsr(IA32_X2APIC_LVT_TIMER_MSR, 0x10000);    // mask it
+
+        uint32_t ticks_in_1_sec = 0xffffffff - rdmsr(IA32_X2APIC_CUR_COUNT_MSR);
+
+        wrmsr(IA32_X2APIC_LVT_TIMER_MSR, APIC_TIMER_INT | 0x20000); // * APIC_TIMER_INT | PERIODIC
+        wrmsr(IA32_X2APIC_DIV_CONF_MSR, 3);
+        wrmsr(IA32_X2APIC_INIT_COUNT_MSR, ticks_in_1_sec / GLOBAL_TIMER_FREQUENCY);
+    }
+
+    time_initialized = true;
 }

@@ -19,7 +19,7 @@ volatile struct limine_mp_request mp_request =
 {
     .id = LIMINE_MP_REQUEST_ID,
     .revision = 0,
-    .flags = 0
+    .flags = LIMINE_MP_REQUEST_X86_64_X2APIC
 };
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_rsdp_request rsdp_request = 

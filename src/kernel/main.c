@@ -116,9 +116,7 @@ void _start()
     LOG(INFO, "Kernel booted successfully with limine (%p-%p)", kernel_start_ptr, kernel_end_ptr);
     LOG(INFO, "Kernel is %" PRIu64 " bytes long", (uint64_t)kernel_end_ptr - (uint64_t)kernel_start_ptr);
     LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %p", framebuffer.width, framebuffer.height, framebuffer.stride, framebuffer.address);
-        
-    LOG(INFO, "LAPIC base: %p", lapic);
-    
+            
     LOG(INFO, "CPUID highest function parameter: %#x", cpuid_highest_function_parameter);
     
     *(uint32_t*)&manufacturer_id_string[0] = ebx;
@@ -260,11 +258,14 @@ void _start()
             remap_range(global_cr3, ptr + PHYS_MAP_BASE, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, cache);
         }
 
-    // * lapic
-        uint64_t lapic_base = rdmsr(IA32_APIC_BASE_MSR) & ~0xfffULL;
-        LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, lapic_base, lapic_base + 0x1000, (uint64_t)lapic, (uint64_t)lapic + 0x1000);
-        printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", lapic_base, lapic_base + 0x1000, (uint64_t)lapic, (uint64_t)lapic + 0x1000);
-        remap_range(global_cr3, (uintptr_t)lapic, lapic_base, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
+    // * If not using x2APIC, map lapic
+        if (lapic)
+        {
+            uint64_t lapic_base = rdmsr(IA32_APIC_BASE_MSR) & ~0xfffULL;
+            LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, lapic_base, lapic_base + 0x1000, (uint64_t)lapic, (uint64_t)lapic + 0x1000);
+            printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", lapic_base, lapic_base + 0x1000, (uint64_t)lapic, (uint64_t)lapic + 0x1000);
+            remap_range(global_cr3, (uintptr_t)lapic, lapic_base, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
+        }
 
     // * signal handler wrapper function
         printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
@@ -360,7 +361,16 @@ void _start()
     else
         LOG(DEBUG, "FSGSBASE is not set");
 
-    printf("LAPIC base: %p\n", lapic);
+    if (lapic)
+    {
+        printf("Using xAPIC; LAPIC base: %p\n", lapic);
+        LOG(INFO, "Using xAPIC; LAPIC base: %p", lapic);
+    }
+    else
+    {
+        printf("Using x2APIC\n");
+        LOG(INFO, "Using x2APIC");
+    }
 
     printf("%" PRIu64 " core%s running\n", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
     LOG(INFO, "%" PRIu64 " core%s running", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
@@ -428,24 +438,7 @@ void _start()
     printf("Setting up the APIC timer");
     fflush(stdout);
 
-    {
-        rtc_wait_while_updating();
-
-        lapic->divide_configuration_register = 3;
-        lapic->initial_count_register = 0xffffffff;
-
-        rtc_get_time();
-
-        lapic->lvt_timer_register = 0x10000;    // mask it
-
-        uint32_t ticks_in_1_sec = 0xffffffff - lapic->current_count_register;
-
-        lapic->lvt_timer_register = APIC_TIMER_INT | 0x20000; // APIC_TIMER_INT | PERIODIC
-        lapic->divide_configuration_register = 3;
-        lapic->initial_count_register = ticks_in_1_sec / GLOBAL_TIMER_FREQUENCY;
-
-        time_initialized = true;
-    }
+    apic_timer_init();
 
     LOG(INFO, "Set up the APIC timer");
     printf(" | Done\n");

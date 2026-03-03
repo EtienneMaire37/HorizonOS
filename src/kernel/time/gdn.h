@@ -1,6 +1,8 @@
 #pragma once
 
 #include <time.h>
+#include <stdlib.h>
+#include "../debug/out.h"
 
 #define GDN_EPOCH 719162
 
