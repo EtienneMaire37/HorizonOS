@@ -144,6 +144,9 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) limi
 	cp src/tasks/bin/* bin/initrd_contents/bin/ -r
 	cp bin/initrd_contents/sbin/init src/tasks/bin/init
 
+	rm -f bin/initrd_contents/bin/sh
+	ln -s bash bin/initrd_contents/bin/sh
+
 	mkdir -p root/boot
 	cp bin/kernel.elf bin/initrd_contents/boot/kernel.elf
 	cp bin/kernel.elf root/boot/kernel.elf

@@ -275,6 +275,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
         thread_t* new_task = multitasking_add_task_from_vfs(rpath, rpath, 3, false, &data, current_task->cwd);
         if (!new_task)
         {
+            LOG(TRACE, "EXECVE: Couldn't load executable");
             unlock_scheduler();
             sc_ret_errno = ENOENT;
             break;

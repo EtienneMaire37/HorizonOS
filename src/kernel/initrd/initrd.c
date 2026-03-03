@@ -114,10 +114,10 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
             LOG(INFO, "%s── File : \"%s\" ; Size : %" PRIu64 " bytes", tree_inter, initrd_files[i].name, initrd_files[i].size);
             break;
         case USTAR_TYPE_HARD_LINK:
-            LOG(INFO, "%s── Hard link : \"%s\" pointing to \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);
+            LOG(INFO, "%s── Hard link : \"%s\" -> \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);
             break;
         case USTAR_TYPE_SYMBOLIC_LINK:
-            LOG(INFO, "%s── Symbolic link : \"%s\" pointing to \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);
+            LOG(INFO, "%s── Symbolic link : \"%s\" -> \"%s\"", tree_inter, initrd_files[i].name, initrd_files[i].link);
             break;
         case USTAR_TYPE_CHARACTER_DEVICE:
             LOG(INFO, "%s── Character device : \"%s\"", tree_inter, initrd_files[i].name);
