@@ -141,6 +141,7 @@ void kill_task(thread_t* task, int ret);
 void task_mask_signal(thread_t* task, int sig);
 void task_unmask_signal(thread_t* task, int sig);
 void task_set_pending_signal(thread_t* task, int sig);
+void task_unset_pending_signal(thread_t* task, int sig);
 void task_queue_signal(thread_t* task, int sig);
 
 void waitpid_check_dead();

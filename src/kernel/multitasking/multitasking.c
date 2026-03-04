@@ -332,35 +332,22 @@ void task_handle_signal(thread_t* thread, int sig)
     }
 
     LOG(DEBUG, "pid %d receiving signal %d", thread->pid, sig);
+    
+    task_unset_pending_signal(thread, sig);
 
     struct sigaction* act = &thread->sig_act_array[sig];
     
     if (sig == SIGCONT)
         task_continue(thread);
     
-    if (act->sa_flags & SA_SIGINFO)
+    switch (act->sa_flags & SA_SIGINFO ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler)
     {
-        switch ((uint64_t)act->sa_sigaction)
-        {
-        case (uint64_t)SIG_DFL:
-            goto dfl;
-        case (uint64_t)SIG_IGN:
-            goto ign;
-        default:
-            goto signal;
-        }
-    }
-    else
-    {
-        switch ((uint64_t)act->sa_handler)
-        {
-        case (uint64_t)SIG_DFL:
-            goto dfl;
-        case (uint64_t)SIG_IGN:
-            goto ign;
-        default:
-            goto signal;
-        }
+    case (uint64_t)SIG_DFL:
+        goto dfl;
+    case (uint64_t)SIG_IGN:
+        goto ign;
+    default:
+        goto signal;
     }
 
 dfl:
@@ -399,8 +386,6 @@ signal:
     LOG(DEBUG, "Signal was sent to the process");
     thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
     thread->sig_pending_user_space = true;
-    if (thread == current_task)
-        switch_task();
     unlock_scheduler();
     return;
 }

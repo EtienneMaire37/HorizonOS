@@ -822,10 +822,9 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
     lock_scheduler();
     if (current_task->sig_pending_user_space)
     {
-        // * We pad the stack frame in syscall_handler
-        setup_user_signal_stack_frame__interrupt((interrupt_registers_t*)registers);
+        setup_user_signal_stack_frame__interrupt(registers);
         current_task->sig_pending_user_space = false;
-        *return_value = intret;
+        // *return_value = intret;
     }
     unlock_scheduler();
     

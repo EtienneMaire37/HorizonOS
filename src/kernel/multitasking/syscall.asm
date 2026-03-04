@@ -56,6 +56,7 @@ syscall_handler:
 
     pop rax
     mov ds, ax
+    mov es, ax
 
     pop r15
     pop r14
@@ -74,9 +75,12 @@ syscall_handler:
     pop rax
 
     add rsp, 8 + 8 ; * same here
-    add rsp, 8 * 5
-
-    mov rsp, [gs:0]
+    
+    mov rcx, [rsp + 0 * 8]
+    mov rsp, [rsp + 3 * 8]
+    
+    push r11
+    popfq
 
     swapgs
 
