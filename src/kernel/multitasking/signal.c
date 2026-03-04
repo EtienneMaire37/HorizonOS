@@ -3,6 +3,8 @@
 
 void setup_user_signal_stack_frame__interrupt(interrupt_registers_t* registers)
 {
+    LOG(TRACE, "setup_user_signal_stack_frame__interrupt(%p)", registers);
+    
     uint64_t ret_rsp = registers->rsp;
     ret_rsp -= 128;  // * skip red zone
     ret_rsp -= sizeof(interrupt_registers_t);

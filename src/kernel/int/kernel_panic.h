@@ -295,12 +295,10 @@ static inline void __attribute__((noreturn)) kernel_panic_ex(interrupt_registers
             putchar('\n');
         }
     }
-
-    if (registers)
-        log_registers();
-
+    
     if (registers)
     {
+        log_registers();
         printf("RSP=%#.16" PRIx64 " RBP=%#.16" PRIx64 "\n",
         registers->rsp, registers->rbp);
         printf("RAX=%#.16" PRIx64 " RBX=%#.16" PRIx64 " RCX=%#.16" PRIx64 " RDX=%#.16" PRIx64 "\n", registers->rax, registers->rbx, registers->rcx, registers->rdx);
@@ -308,9 +306,9 @@ static inline void __attribute__((noreturn)) kernel_panic_ex(interrupt_registers
         registers->r8, registers->r9, registers->r10, registers->r11);
         printf("R12=%#.16" PRIx64 " R13=%#.16" PRIx64 " R14=%#.16" PRIx64 " R15=%#.16" PRIx64 "\n", registers->r12, registers->r13, registers->r14, registers->r15);
         printf("RDI=%#.16" PRIx64 " RSI=%#.16" PRIx64 "\n\n", registers->rdi, registers->rsi);
-    }
-    if (registers)
+        
         print_stack_trace(registers->rip, registers->rbp, true);
+    }
     else
         print_stack_trace((uint64_t)kernel_panic_ex, get_rbp(), true);
 

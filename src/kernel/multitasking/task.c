@@ -28,7 +28,7 @@ thread_t* task_create_empty()
     thread_t* task = (thread_t*)malloc(sizeof(thread_t));
     if (!task) return NULL;
 
-    memset(task, 0, sizeof(task));
+    memset(task, 0, sizeof(*task));
 
     task->context_sp = TASK_KERNEL_STACK_BOTTOM_ADDRESS;
 

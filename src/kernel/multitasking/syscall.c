@@ -828,4 +828,6 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
         *return_value = intret;
     }
     unlock_scheduler();
+    
+    LOG(TRACE, "returning from syscall to address %p", *return_value);;
 }

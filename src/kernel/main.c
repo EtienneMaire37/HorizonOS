@@ -460,6 +460,8 @@ void _start()
     wrmsr(IA32_LSTAR_MSR, (uint64_t)syscall_handler);
     wrmsr(IA32_FMASK_MSR, (1 << 9)); // * disable interrupts
 
+    wrgsbase(rdmsr(IA32_KERNEL_GS_BASE_MSR));
+
     LOG(DEBUG, "Done setting up FS/GS segment bases");
 
     enable_interrupts();
@@ -600,8 +602,6 @@ void _start()
     LOG(DEBUG, "Starting multitasking...");
 
     log_segbase();
-
-    wrgsbase(rdmsr(IA32_KERNEL_GS_BASE_MSR));
 
     multitasking_start();
 
