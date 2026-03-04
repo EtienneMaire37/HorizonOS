@@ -85,7 +85,7 @@ bin/%.o: src/kernel/%.c GNUmakefile src/kernel/link.ld limine/limine
 	mkdir -p $(dir $@)
 	$(HOSGCC) -c $< -o $@ \
 	-MMD -MP \
-	-Wall -Werror -Wno-address-of-packed-member -fpie -fpic -fno-lto -Iroot/usr/include \
+	-Wall -Werror -Wno-address-of-packed-member -fpie -fpic -flto=auto -Iroot/usr/include \
 	-O2 -ffunction-sections -fdata-sections -mabi=sysv \
 	-std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -fstack-protector-strong -march=x86-64 \
 	-mno-red-zone \
