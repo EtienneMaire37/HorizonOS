@@ -5,9 +5,11 @@
 #include "../paging/paging.h"
 #include "../cpu/memory.h"
 
+extern bool vmm_initialized;
+
 static inline __attribute__((always_inline)) bool is_page_free(uint64_t vaddr)
 {
-    uint64_t* pml4 = (uint64_t*)(get_cr3() + PHYS_MAP_BASE);
+    uint64_t* pml4 = (uint64_t*)(get_cr3_address() + PHYS_MAP_BASE);
 
     uint64_t pte = (vaddr >> 12) & 0x1ff;
     uint64_t pde = (vaddr >> (12 + 9)) & 0x1ff;

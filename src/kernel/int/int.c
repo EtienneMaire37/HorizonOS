@@ -18,7 +18,7 @@ initrd_file_t* kernel_symbols_file = NULL;
 
 void interrupt_handler(interrupt_registers_t* registers)
 {
-    if (registers->interrupt_number == 2)       // * NMI
+    if (registers->interrupt_number == NON_MASKABLE_INTERRUPT)
     {
         LOG(TRACE, "NMI: %#x, %#x", inb(SYSTEM_CONTROL_PORT_A), inb(SYSTEM_CONTROL_PORT_B));
 
@@ -38,8 +38,8 @@ void interrupt_handler(interrupt_registers_t* registers)
 
         if (multitasking_enabled)
         {
-            if (current_task->system_task || task_count == 1 || !multitasking_enabled || registers->interrupt_number == 8 || registers->interrupt_number == 18)
-            // System task or last task or multitasking not enabled or Double Fault or Machine Check
+            if (current_task->system_task || task_count == 1 || !multitasking_enabled || 
+registers->interrupt_number == DOUBLE_FAULT || registers->interrupt_number == MACHINE_CHECK)
             {
                 disable_interrupts();
                 kernel_panic((interrupt_registers_t*)registers);
@@ -57,7 +57,7 @@ void interrupt_handler(interrupt_registers_t* registers)
         return_from_isr();
     }
 
-    if (registers->interrupt_number < 32 + 16)  // * IRQ
+    if (registers->interrupt_number < 32 + 16)  // * PIC IRQs
     {
         // uint8_t irq_number = registers->interrupt_number - 32;
 

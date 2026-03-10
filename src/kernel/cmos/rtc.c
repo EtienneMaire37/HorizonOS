@@ -15,9 +15,9 @@ void rtc_detect_mode()
     rtc_24_hour_mode = status_b & 0b10;
 }
 
+// * Assumes rtc_wait_while_updating was called just before
 void rtc_get_time()
 {
-    rtc_wait_while_updating();
     cmos_select_register(CMOS_REGISTER_SECONDS);
     system_seconds = cmos_read_register();
     cmos_select_register(CMOS_REGISTER_MINUTES);

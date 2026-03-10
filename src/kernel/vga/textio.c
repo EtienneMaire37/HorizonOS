@@ -2,10 +2,11 @@
 #include <termios.h>
 #include "constants.h"
 #include "../multitasking/multitasking.h"
+#include "textio.h"
 
-uint16_t* tty_data = NULL;
+uint16_t tty_data[MAX_TTY_X * MAX_TTY_Y];
 
-uint32_t TTY_RES_X = 0, TTY_RES_Y = 0;
+uint32_t tty_res_x = 0, tty_res_y = 0;
 
 uint32_t tty_cursor = 0;
 uint8_t tty_color;
@@ -29,13 +30,15 @@ bool tty_reading_escape_sequence = false, tty_reading_control_sequence = false;
 void tty_init()
 {
 	tty_set_window_size(framebuffer.width / 10, framebuffer.height / 20);
+    tty_color = FG_WHITE | BG_BLACK;
+	tty_clear_screen(' ');
 }
 
 void tty_clear_screen(char c)
 {
 	lock_scheduler();
-	for (uint32_t i = 0; i < TTY_RES_X * TTY_RES_Y; i++)
-		tty_data[i] = ((uint16_t)tty_color << 8) | ' ';
+	for (uint32_t i = 0; i < MAX_TTY_X * tty_res_y; i++)
+		if (i % MAX_TTY_X < tty_res_x) tty_data[i] = ((uint16_t)tty_color << 8) | ' ';
 	if (c == 0 || c == ' ')
 	{
 		srgb_t bg_color = vga_get_bg_color(tty_color);
@@ -43,9 +46,8 @@ void tty_clear_screen(char c)
 		tty_cursor = 0;
 		goto end;
 	}
-	tty_cursor = 0;
-	for (uint32_t i = 0; i < TTY_RES_X * TTY_RES_Y; i++)
-		tty_outc(c);
+	for (uint32_t i = 0; i < MAX_TTY_X * tty_res_y; i++)
+		if (i % MAX_TTY_X < tty_res_x) tty_render_character(i, c, tty_color);
 	tty_cursor = 0;
 end:
 	unlock_scheduler();
@@ -118,19 +120,19 @@ void tty_set_color(uint8_t fg_color, uint8_t bg_color)
 void tty_set_window_size(int sx, int sy)
 {
 	LOG(DEBUG, "tty_set_window_size(%d, %d)", sx, sy);
-	if (sx >= framebuffer.width || sy >= framebuffer.height)
+	if (sx > MAX_TTY_X || sy > MAX_TTY_Y || sx <= 0 || sy <= 0)
 		return;
 	lock_scheduler();
-	TTY_RES_X = sx;
-	TTY_RES_Y = sy;
-	tty_data = realloc(tty_data, TTY_RES_X * TTY_RES_Y * sizeof(tty_data[0]));
+	tty_res_x = sx;
+	tty_res_y = sy;
 	unlock_scheduler();
+	tty_refresh_screen();
 }
 
 uint32_t tty_get_character_width()
 {
 	lock_scheduler();
-	uint32_t ret = framebuffer.width / TTY_RES_X;
+	uint32_t ret = framebuffer.width / tty_res_x;
 	unlock_scheduler();
 	return ret;
 }
@@ -138,7 +140,7 @@ uint32_t tty_get_character_width()
 uint32_t tty_get_character_height()
 {
 	lock_scheduler();
-	uint32_t ret = framebuffer.height / TTY_RES_Y;
+	uint32_t ret = framebuffer.height / tty_res_y;
 	unlock_scheduler();
 	return ret;
 }
@@ -146,7 +148,7 @@ uint32_t tty_get_character_height()
 uint32_t tty_get_character_pos_x(uint32_t index)
 {
 	lock_scheduler();
-	uint32_t ret = tty_get_character_width() * (index % TTY_RES_X);
+	uint32_t ret = tty_get_character_width() * (index % tty_res_x);
 	unlock_scheduler();
 	return ret;
 }
@@ -154,7 +156,7 @@ uint32_t tty_get_character_pos_x(uint32_t index)
 uint32_t tty_get_character_pos_y(uint32_t index)
 {
 	lock_scheduler();
-	uint32_t ret = tty_get_character_height() * (index / TTY_RES_X);
+	uint32_t ret = tty_get_character_height() * (index / MAX_TTY_X);
 	unlock_scheduler();
 	return ret;
 }
@@ -162,7 +164,7 @@ uint32_t tty_get_character_pos_y(uint32_t index)
 void tty_render_character(uint32_t cursor, char c, uint8_t color)
 {
 	lock_scheduler();
-	if (cursor >= TTY_RES_X * TTY_RES_Y) 
+	if (cursor >= MAX_TTY_X * tty_res_y) 
 	{
 		unlock_scheduler();
 		return;
@@ -195,7 +197,12 @@ void tty_render_character(uint32_t cursor, char c, uint8_t color)
 void tty_render_cursor(uint32_t cursor)
 {
 	lock_scheduler();
-	if (cursor >= TTY_RES_X * TTY_RES_Y) 
+	if (cursor >= MAX_TTY_X * tty_res_y) 
+	{
+		unlock_scheduler();
+		return;
+	}
+	if (cursor % MAX_TTY_X >= tty_res_x)
 	{
 		unlock_scheduler();
 		return;
@@ -215,8 +222,8 @@ void tty_render_cursor(uint32_t cursor)
 void tty_refresh_screen()
 {
 	lock_scheduler();
-	for (uint32_t i = 0; i < TTY_RES_X * TTY_RES_Y; i++)
-		tty_render_character(i, tty_data[i], tty_data[i] >> 8);
+	for (uint32_t i = 0; i < MAX_TTY_X * tty_res_y; i++)
+		if (i % MAX_TTY_X < tty_res_x) tty_render_character(i, tty_data[i] & 0x7f, tty_data[i] >> 8);
 	if (tty_cursor_blink)
 		tty_render_cursor(tty_cursor);
 	unlock_scheduler();
@@ -270,7 +277,7 @@ void tty_ansi_H_code(uint8_t code)
 	if (code == 0)
 	{
 		uint16_t old_data = tty_data[tty_cursor];
-		tty_render_character(tty_cursor, (char)(old_data & 0xff), old_data >> 8);
+		tty_render_character(tty_cursor, old_data & 0x7f, old_data >> 8);
 
 		tty_cursor = 0;
 		if (tty_cursor_blink)
@@ -291,14 +298,14 @@ void tty_outc(char c)
 
 	lock_scheduler();
 
-	if (tty_cursor >= TTY_RES_X * TTY_RES_Y)
+	if (tty_cursor >= MAX_TTY_X * tty_res_y)
 	{
 		tty_cursor++;
 		unlock_scheduler();
 		return;
 	}
 
-	if (c == '\x1b' )	// * Escape sequence
+	if (c == '\x1b')	// * Escape sequence
 	{
 		tty_reading_escape_sequence = true;
 		tty_escape_sequence_index = 0;
@@ -384,21 +391,21 @@ void tty_outc(char c)
 
 	tty_data[tty_cursor] = c | ((uint16_t)tty_color << 8);
 
-	tty_render_character(tty_cursor, tty_data[tty_cursor], tty_data[tty_cursor] >> 8);
+	tty_render_character(tty_cursor, tty_data[tty_cursor] & 0x7f, tty_data[tty_cursor] >> 8);
 	
 	switch(c)
 	{
 	case '\n':
-		tty_cursor += TTY_RES_X;
+		tty_cursor += MAX_TTY_X;
 	case '\r':
-		tty_cursor /= TTY_RES_X;
-		tty_cursor *= TTY_RES_X;
+		tty_cursor /= MAX_TTY_X;
+		tty_cursor *= MAX_TTY_X;
 		break;
 
 	case '\t':
 	{
 		tty_render_character(tty_cursor, c, tty_color);
-		tty_cursor = ((tty_cursor - (tty_cursor / TTY_RES_X) * TTY_RES_X + TAB_LENGTH) / TAB_LENGTH) * TAB_LENGTH + (tty_cursor / TTY_RES_X) * TTY_RES_X;
+		tty_cursor = ((tty_cursor - (tty_cursor / MAX_TTY_X) * MAX_TTY_X + TAB_LENGTH) / TAB_LENGTH) * TAB_LENGTH + (tty_cursor / MAX_TTY_X) * MAX_TTY_X;
 		if (tty_cursor_blink)
 			tty_render_cursor(tty_cursor);
 		break;
@@ -413,7 +420,7 @@ void tty_outc(char c)
 		break;
 	
 	default:
-		if (tty_cursor / TTY_RES_X >= TTY_RES_Y)
+		if (tty_cursor / MAX_TTY_X >= tty_res_y)
 		{
 			tty_cursor++;
 			break;
@@ -426,18 +433,20 @@ void tty_outc(char c)
 		tty_render_cursor(tty_cursor);
 
 	bool scrolled = false;
-	while (tty_cursor / TTY_RES_X >= TTY_RES_Y)
+	while (tty_cursor / MAX_TTY_X >= tty_res_y)
 	{
 		scrolled = true;
 
-		tty_cursor -= TTY_RES_X;
+		tty_cursor -= MAX_TTY_X;
 
-		for (uint32_t i = 0; i < TTY_RES_Y - 1; i++)
-			memcpy(&tty_data[i * TTY_RES_X], &tty_data[(i + 1) * TTY_RES_X], TTY_RES_X * sizeof(uint16_t));
-
-		memset(&tty_data[(TTY_RES_Y - 1) * TTY_RES_X], 0x0f, TTY_RES_X * sizeof(uint16_t));
+		for (uint32_t i = 0; i < tty_res_y - 1; i++)
+			memcpy(&tty_data[i * MAX_TTY_X], &tty_data[(i + 1) * MAX_TTY_X], MAX_TTY_X * sizeof(uint16_t));
+		memmove(&tty_data[0], &tty_data[MAX_TTY_X], sizeof(tty_data[0]) * MAX_TTY_X);
+		memset(&tty_data[(tty_res_y - 1) * MAX_TTY_X], 0x0f, MAX_TTY_X * sizeof(tty_data[0]));
 	}
+	#ifndef DEBUG_SCREEN
 	if (scrolled)
+	#endif
 		tty_refresh_screen();
 
 	unlock_scheduler();

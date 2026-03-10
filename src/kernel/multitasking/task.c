@@ -73,9 +73,11 @@ void task_set_pgid(thread_t* task, pid_t pgid)
 
 void task_destroy(thread_t* task)
 {
+    const uint16_t tasks_left = task_count - 1;
+
     lock_scheduler();
     LOG(TRACE, "Destroying task %p: \"%s\" (pid = %d, ring = %u) (%d tasks left)", 
-        task, task->name, task->pid, task->ring, task_count - 1);
+        task, task->name, task->pid, task->ring, tasks_left);
     
     hashmap_remove_item(pid_to_task_hashmap, task->pid);
     tq_hashmap_remove(pgid_to_tq_hashmap, task->pgid, task);
@@ -93,6 +95,15 @@ void task_destroy(thread_t* task)
     task_free_vas((physical_address_t)task->cr3);
 	LOG(TRACE, "Done.");
     unlock_scheduler();
+
+    if (tasks_left == 1)    // * Idle task left
+    {
+        disable_interrupts();
+        tty_cursor_blink = true;
+        printf("\nNo tasks left, halting cpu.");
+        LOG(TRACE, "No tasks left, halting cpu.");
+        halt();
+    }
 }
 
 void task_setup_stack_ex(thread_t* task, 

@@ -1,6 +1,7 @@
 #include "hashmap.h"
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "../random/pcg.h"
 
 hashmap_t* hashmap_create(size_t cap)
@@ -9,8 +10,10 @@ hashmap_t* hashmap_create(size_t cap)
     cap *= sizeof(ll_t);
 
     hashmap_t* hmp = (hashmap_t*)malloc(sizeof(hashmap_t));
+    assert(hmp);
     hmp->items = cap / sizeof(ll_t);
     hmp->data = (ll_t*)malloc(cap);
+    assert(hmp->data);
     memset(hmp->data, 0, cap);
     
     return hmp;
@@ -18,7 +21,7 @@ hashmap_t* hashmap_create(size_t cap)
 
 void hashmap_destroy(hashmap_t* hmp)
 {
-    if (!hmp) return;
+    assert(hmp);
     for (size_t i = 0; i < hmp->items; i++)
     {
     	if (hmp->data[i])
@@ -43,7 +46,7 @@ static uint32_t hash64(uint64_t value)
 
 void hashmap_set_item(hashmap_t* hmp, uint64_t key, void* value)
 {
-	if (!hmp) return;
+	assert(hmp);
 	ll_t* ll = &hmp->data[hash64(key) % hmp->items];
 	if (!*ll)
 		goto new_item;
@@ -74,7 +77,7 @@ new_item:
 
 void hashmap_remove_item(hashmap_t* hmp, uint64_t key)
 {
-	if (!hmp) return;
+	assert(hmp);
 	ll_t* ll = &hmp->data[hash64(key) % hmp->items];
 	if (!*ll)
 		return;
@@ -94,8 +97,8 @@ void hashmap_remove_item(hashmap_t* hmp, uint64_t key)
 
 void* hashmap_get_item(hashmap_t* hmp, uint64_t key)
 {
-	// LOG(TRACE, "hashmap_get_item(%p, %#" PRIx64 ")", hmp, key);
-	if (!hmp || hmp->items == 0) return NULL;
+    assert(hmp);
+	if (hmp->items == 0) return NULL;
 	ll_t* ll = &hmp->data[hash64(key) % hmp->items];
 	if (!*ll)
 		return NULL;

@@ -2,7 +2,7 @@
 #include <stdbool.h>
 
 uint64_t PHYS_MAP_BASE = 0;
-uint8_t physical_address_width = 0; // M
+uint8_t physical_address_width = 36; // M
 bool pat_enabled = false;
 
 #include "../cpu/memory.h"
@@ -42,7 +42,7 @@ physical_address_t create_empty_pdpt_phys()
 bool is_pdpt_entry_present(const uint64_t* entry)
 {
     if (!entry) return false;
-    return ((*entry) & 1) && (((*entry) & 0xfffffffffffff000) & get_physical_address_mask());
+    return (*entry) & 1;
 }
 
 bool is_pdpt_entry_large(const uint64_t* entry)
@@ -154,8 +154,8 @@ void remap_range(uint64_t* pml4,
         uint64_t* pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pd_entry));
 
         uint64_t* pt_entry = &pt[pte];
-        // if (is_pdpt_entry_present(pt_entry))
-        //     continue;
+        if (is_pdpt_entry_present(pt_entry))
+            abort();
 
         set_pdpt_entry(pt_entry, vaddr - start_virtual_address + start_physical_address, 
             privilege, read_write,
@@ -215,7 +215,7 @@ void allocate_range(uint64_t* pml4,
 
         uint64_t* pt_entry = &pt[pte];
         if (is_pdpt_entry_present(pt_entry))
-            continue;
+            abort();
 
         set_pdpt_entry(pt_entry, pfa_allocate_physical_page(), 
             privilege, read_write,
@@ -282,6 +282,67 @@ void free_range(uint64_t* pml4,
         uint64_t address = (uint64_t)get_pdpt_entry_address(pt_entry);
         remove_pdpt_entry(pt_entry);
         pfa_free_physical_page(address);
+    }
+}
+
+void unmap_range(uint64_t* pml4, 
+    uint64_t start_virtual_address, 
+    uint64_t pages)
+{
+    if (!pml4)
+    {
+        LOG(ERROR, "unmap_range: NULL virtual address space");
+        return;
+    }
+
+    if (start_virtual_address & 0xfff)
+    {
+        LOG(CRITICAL, "unmap_range: Kernel tried to free non page aligned addresses");
+        abort();
+    }
+
+    for (uint64_t i = 0; i < pages; i++)
+    {
+        uint64_t vaddr = start_virtual_address + 0x1000 * i;
+
+        uint64_t pte = (vaddr >> 12) & 0x1ff;
+        uint64_t pde = (vaddr >> (12 + 9)) & 0x1ff;
+        uint64_t pdpte = (vaddr >> (12 + 2 * 9)) & 0x1ff;
+        uint64_t pml4e = (vaddr >> (12 + 3 * 9)) & 0x1ff;
+
+        uint64_t* pml4_entry = &pml4[pml4e];
+        if (!is_pdpt_entry_present(pml4_entry))
+        {
+            i += ((uint64_t)1 << (9 * 3)) - (pdpte << (9 * 2)) - (pde << 9) - pte - 1;
+            continue;
+        }
+
+        uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
+        
+        uint64_t* pdpt_entry = &pdpt[pdpte];
+        if (!is_pdpt_entry_present(pdpt_entry))
+        {
+            i += ((uint64_t)1 << (9 * 2)) - (pde << 9) - pte - 1;
+            continue;
+        }
+
+        uint64_t* pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pdpt_entry));
+
+        uint64_t* pd_entry = &pd[pde];
+        if (!is_pdpt_entry_present(pd_entry))
+        {
+            i += ((uint64_t)1 << 9) - pte - 1;
+            continue;
+        }
+
+        uint64_t* pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pd_entry));
+
+        uint64_t* pt_entry = &pt[pte];
+        if (!is_pdpt_entry_present(pt_entry))
+            continue;
+
+        uint64_t address = (uint64_t)get_pdpt_entry_address(pt_entry);
+        remove_pdpt_entry(pt_entry);
     }
 }
 

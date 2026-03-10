@@ -15,21 +15,21 @@
 
 extern initrd_file_t* commit_file;
 
-#define PANIC_INVAL                 0
-#define PANIC_DBG                   1
-#define PANIC_STCK_CHK_FAIL         2
-#define PANIC_OOM                   3
+#define PANIC_INVALID           0
+#define PANIC_DEBUG             1
+#define PANIC_STCK_CHK_FAIL     2
+#define PANIC_OUT_OF_MEMORY     3
 
 static inline const char* get_panic_message(int err)
 {
     switch (err)
     {
-    def_case(PANIC_INVAL)
-    def_case(PANIC_DBG)
+    def_case(PANIC_INVALID)
+    def_case(PANIC_DEBUG)
     def_case(PANIC_STCK_CHK_FAIL)
-    def_case(PANIC_OOM)
+    def_case(PANIC_OUT_OF_MEMORY)
     default:
-        return "Unknown error";
+        return "PANIC_INVALID";
     }
 }
 

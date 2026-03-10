@@ -37,7 +37,8 @@ Here's a list of the supported options:
 | -DLOG_MEMORY | N/A | Whether to log page allocation |
 | -DLOG_TO_TTY | N/A | Write logs to the screen instead of port E9 |
 | -DNO_STDOUT | N/A | Disable text output (but keep log output if LOG_TO_TTY is specified) |
-
+| -DDEBUG_ALLOCATOR | N/A | Enable a simple memory allocator (doesn't even allow for freeing pages, should never be used in practice) |
+| -DDEBUG_SCREEN | N/A | Will ALWAYS reload the full framebuffer when any character is printed to the screen|
 For example to build with LOG_LEVEL=TRACE and LOG_SYSCALLS:
 ```bash
 make USER_CFLAGS="-DLOG_LEVEL=TRACE -DLOG_SYSCALLS"

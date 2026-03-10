@@ -1,17 +1,6 @@
 bits 64
 section .sigwrap
 
-; void __attribute__((section(".sigwrap"), used)) sighandler()
-; {
-;     const char str[] = "sighandler";
-;     uint64_t r64;
-;     int ret;
-;     asm volatile ("syscall" : "=a"(ret), "=b"(r64) : "a"(SYS_WRITE), 
-;     "b"(STDOUT_FILENO), "d"(str), "S"(sizeof(str)) : "memory", "r11", "rcx");
-    
-;     asm volatile ("syscall" :: "a"(SYS_SIGRET));
-; }
-
 ; * rax = sighandler
 global sighandler
 sighandler:

@@ -76,6 +76,7 @@ int num_environ;
 #include "cpu/tsc.h"
 #include "multitasking/signal.h"
 #include "int/kernel_panic.h"
+#include "memalloc/virtual_memory_allocator.h"
 
 initrd_file_t* commit_file;
 
@@ -88,6 +89,8 @@ void _start()
     uint32_t eax, ebx, ecx, edx;
     cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
     // * CPUID is guaranteed to be present on x86_64
+    
+    fprintf(stderr, "a");
     
     if (!is_bsp()) // * SMP not supported for now
         halt();
@@ -136,7 +139,13 @@ void _start()
         physical_address_width = eax & 0xff;
     }
     else
-        physical_address_width = 64;
+    {
+    // * The MAXPHYADDR is 36 bits for processors that do not 
+    // * support CPUID leaf 80000008H, or indicated by
+    // * CPUID.80000008H:EAX[bits 7:0] for processors that support CPUID leaf 80000008H.
+    // * -> Intel manual Vol. 3A 11-8
+        physical_address_width = 36;
+    }
 
     LOG(INFO, "Physical address is %u bits long", physical_address_width);
 
@@ -171,13 +180,9 @@ void _start()
 
     tty_init();
 
-    tty_color = (FG_WHITE | BG_BLACK);
-
 // * vvv Now we can use stdout
 
     assert(LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision));
-
-    tty_clear_screen(' ');
 
     commit_file = initrd_find_file("boot/commit.txt");
 
@@ -204,18 +209,16 @@ void _start()
         printf("warning: PAT not supported (this might cause poor performance on graphical intensive programs)\n");
     }
 
-    // * Enable APIC before mapping LAPIC registers
-    apic_init();
-
     LOG(INFO, "Setting up paging...");
     printf("Setting up paging...\n");
 
     {
         global_cr3 = pfa_allocate_page();
+        assert(global_cr3);
         LOG(DEBUG, "global_cr3: %p", global_cr3);
         memset(global_cr3, 0, 4096);
 
-        uint64_t* boot_cr3 = (uint64_t*)(get_cr3() + PHYS_MAP_BASE);
+        uint64_t* boot_cr3 = (uint64_t*)(get_cr3_address() + PHYS_MAP_BASE);
 
         LOG(DEBUG, "boot_cr3: %#" PRIx64, (uint64_t)boot_cr3);
 
@@ -258,23 +261,16 @@ void _start()
             remap_range(global_cr3, ptr + PHYS_MAP_BASE, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, cache);
         }
 
-    // * If not using x2APIC, map lapic
-        if (lapic)
-        {
-            uint64_t lapic_base = rdmsr(IA32_APIC_BASE_MSR) & ~0xfffULL;
-            LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, lapic_base, lapic_base + 0x1000, (uint64_t)lapic, (uint64_t)lapic + 0x1000);
-            printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", lapic_base, lapic_base + 0x1000, (uint64_t)lapic, (uint64_t)lapic + 0x1000);
-            remap_range(global_cr3, (uintptr_t)lapic, lapic_base, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
-        }
-
-    // * signal handler wrapper function
-        printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        // * signal handler wrapper function
         LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        unmap_range(global_cr3, (uintptr_t)sighandler, 1);
         uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
         remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
     }
 
     load_cr3((uint64_t)global_cr3 - PHYS_MAP_BASE);
+    vmm_initialized = true;
 
     printf("Paging setup done\n");
     LOG(INFO, "Set up paging");
@@ -349,7 +345,7 @@ void _start()
         if (ebx & 1)    // * fsgsbase
         {
             uint64_t cr4 = get_cr4();
-            cr4 |= (1 << 16);   // * FSGSBASE
+            cr4 |= (1ULL << 16);   // * FSGSBASE
             load_cr4(cr4);
             fsgsbase = true;
 
@@ -360,6 +356,8 @@ void _start()
     }
     else
         LOG(DEBUG, "FSGSBASE is not set");
+
+    apic_init();
 
     if (lapic)
     {
@@ -433,16 +431,18 @@ void _start()
 
     printf(" | Done\n");
     LOG(INFO, "APIC enabled");
-
+    
     LOG(INFO, "Setting up the APIC timer");
     printf("Setting up the APIC timer");
     fflush(stdout);
-
+    
     apic_timer_init();
-
+    rtc_get_time();
+    time_initialized = true;
+    
     LOG(INFO, "Set up the APIC timer");
     printf(" | Done\n");
-
+    
     printf("Time: ");
 
     tty_set_color(FG_LIGHTCYAN, BG_BLACK);
@@ -466,6 +466,7 @@ void _start()
 
     enable_interrupts();
 
+    printf("Calibrating TSC...\n");
     LOG(DEBUG, "Calibrating TSC...");
     calibrate_tsc();
     LOG(INFO, "TSC clock running at approximatively %" PRIu64 " hz", tsc_cyles_per_second);
@@ -586,6 +587,8 @@ void _start()
     };
 
     LOG(DEBUG, "sizeof(thread_t): %lld", (unsigned long long)sizeof(thread_t));
+    
+    LOG(INFO, "cr4: %#" PRIx64, get_cr4());
 
     fflush(stdout);
 

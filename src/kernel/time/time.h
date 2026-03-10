@@ -12,10 +12,10 @@ extern bool time_initialized;
 
 extern volatile precise_time_t global_timer;
 
-#define GLOBAL_TIMER_FREQUENCY  1000
+#define GLOBAL_TIMER_FREQUENCY  1000ULL
 #define GLOBAL_TIMER_INCREMENT  (precise_time_ticks_per_second / GLOBAL_TIMER_FREQUENCY)
 
-static const int precise_time_ticks_per_second = 1000000;  // * microseconds
+static const uint64_t precise_time_ticks_per_second = 1000000;  // * microseconds
 
 #define PRECISE_SECONDS         precise_time_ticks_per_second
 #define PRECISE_MILLISECONDS    (precise_time_ticks_per_second / 1000)

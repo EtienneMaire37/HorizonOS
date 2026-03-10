@@ -37,4 +37,5 @@ static inline void set_rbp(uint64_t rbp)
 }
 
 extern uint64_t get_rflags();
-extern void set_eflags(uint64_t value);
+extern void set_rflags(uint64_t value);
+extern uint64_t set_rflags_if(uint64_t val);

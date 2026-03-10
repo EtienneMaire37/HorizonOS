@@ -49,11 +49,11 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
         LOG(ERROR, "vfs_initrd_do_explore: not an initrd mounted folder!!!");
         return;
     }
-    LOG(TRACE, "initrd: Exploring ");
+    // LOG(TRACE, "initrd: Exploring ");
     char* constructed_path = malloc(PATH_MAX);
     if (!constructed_path) return;
     vfs_realpath_from_folder_tnode(tnode, constructed_path);
-    CONTINUE_LOG(TRACE, "\"%s\"", constructed_path);
+    // CONTINUE_LOG(TRACE, "\"%s\"", constructed_path);
     char* prefix = malloc(PATH_MAX);
     if (!prefix) 
     {
@@ -75,7 +75,7 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
         {
             if (initrd_files[i].type != USTAR_TYPE_FILE_1 && initrd_files[i].type != USTAR_TYPE_DIRECTORY) continue;
             char* name = initrd_files[i].name;
-            LOG(TRACE, "initrd: Adding file entry \"%s\"", name);
+            // LOG(TRACE, "initrd: Adding file entry \"%s\"", name);
             for (ssize_t j = 0; name[j] != 0; j++)
             {
                 if (name[j] == '/' && name[j + 1] != 0)

@@ -9,9 +9,12 @@ static inline bool is_printable_character(char c)
     return ((unsigned char)c >= 32) && ((unsigned char)c < 128);
 }
 
-extern uint16_t* tty_data;
+#define MAX_TTY_X   1024
+#define MAX_TTY_Y   1024
 
-extern uint32_t TTY_RES_X, TTY_RES_Y;
+extern uint16_t tty_data[MAX_TTY_X * MAX_TTY_Y];
+
+extern uint32_t tty_res_x, tty_res_y;
 
 extern uint32_t tty_cursor;
 extern uint8_t tty_color;
@@ -29,6 +32,7 @@ extern uint8_t tty_escape_sequence_index;
 extern bool tty_reading_escape_sequence, tty_reading_control_sequence;
 
 void tty_init();
+void tty_refresh_screen();
 void tty_clear_screen(char c);
 void tty_set_color(uint8_t fg_color, uint8_t bg_color);
 void tty_set_window_size(int sx, int sy);

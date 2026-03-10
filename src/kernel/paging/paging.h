@@ -62,7 +62,7 @@ static inline uint64_t get_physical_address_mask()
 {
     if (physical_address_width == 0)
         abort();
-    return physical_address_width >= 64 ? 0xffffffffffffffff : (1ULL << physical_address_width) - 1;
+    return physical_address_width >= 64 ? 0xffffffffffffffff : ((1ULL << physical_address_width) - 1);
 }
 
 static inline void init_pat()
@@ -104,6 +104,9 @@ void remap_range(uint64_t* pml4,
     uint64_t start_virtual_address, uint64_t start_physical_address, 
     uint64_t pages,
     uint8_t privilege, uint8_t read_write, uint8_t cache_type);
+void unmap_range(uint64_t* pml4, 
+    uint64_t start_virtual_address, 
+    uint64_t pages);
 void allocate_range(uint64_t* pml4, 
     uint64_t start_virtual_address, 
     uint64_t pages,

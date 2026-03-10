@@ -3,6 +3,11 @@
 #include "task.h"
 #include "../util/hashmap.h"
 #include "queue.h"
+#include "../cpu/registers.h"
+
+#include <assert.h>
+
+#define SCHED_LOCK_STACK_SIZE       64
 
 extern hashmap_t *futex_tq_hashmap, 
                  *pid_to_task_hashmap, 
@@ -25,29 +30,36 @@ extern bool multitasking_enabled;
 extern pid_t task_reading_stdin;
 extern utf32_buffer_t keyboard_input_buffer;
 
-extern int task_lock_depth;
 extern bool queued_ts;
 
 extern void iretq_instruction();
 
+extern uint64_t scheduler_lock_rflags;
+extern int task_lock_depth;
+
 static inline void lock_scheduler()
 {
+    uint64_t rflags = get_rflags();
     disable_interrupts();
+    if (task_lock_depth == 0)
+        scheduler_lock_rflags = rflags;
     task_lock_depth++;
 }
 
 static inline void unlock_scheduler()
 {
     disable_interrupts();
-    if (--task_lock_depth == 0)
+    int depth = --task_lock_depth;
+    assert(depth >= 0);
+    if (depth == 0)
     {
-        if (queued_ts)
+        if (queued_ts && multitasking_enabled)
         {
             queued_ts = false;
             enable_interrupts();
             switch_task();
         }
-        enable_interrupts();
+        set_rflags_if(scheduler_lock_rflags);
     }
 }
 

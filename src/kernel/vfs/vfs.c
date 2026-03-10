@@ -399,7 +399,8 @@ void vfs_explore(vfs_folder_tnode_t* tnode)
     }
     if (tnode->inode->flags & VFS_NODE_LOADING)
     {
-        while (tnode->inode->flags & VFS_NODE_LOADING);
+        while (tnode->inode->flags & VFS_NODE_LOADING)
+            __builtin_ia32_pause();
         return;
     }
     if (tnode->inode->flags & VFS_NODE_EXPLORED)
@@ -412,7 +413,7 @@ void vfs_explore(vfs_folder_tnode_t* tnode)
     vfs_folder_tnode_t* mount_point = tnode;
     while (!(mount_point->inode->flags & VFS_NODE_MOUNTPOINT))
         mount_point = mount_point->inode->parent;
-
+        
     switch (tnode->inode->drive.type)
     {
     case DT_INITRD:
@@ -478,7 +479,7 @@ vfs_file_tnode_t* vfs_get_file_tnode(const char* path, vfs_folder_tnode_t* pwd)
     vfs_folder_inode_t* current_folder = current_folder_tnode->inode;
     while (i < path_len)
     {
-        // LOG(TRACE, "current_folder->name = %s", current_folder_tnode->name);
+//         LOG(TRACE, "current_folder->name = %s", current_folder_tnode->name);
         if (!(current_folder->flags & VFS_NODE_EXPLORED))
             vfs_explore(current_folder_tnode);
 
@@ -515,13 +516,13 @@ vfs_file_tnode_t* vfs_get_file_tnode(const char* path, vfs_folder_tnode_t* pwd)
         vfs_folder_tnode_t* current_child = current_folder->folders;
         while (current_child)
         {
-            // LOG(TRACE, "cname: %s", current_child->name);
+//             LOG(TRACE, "cname: %s", current_child->name);
             if (file_string_cmp(current_child->name, &path[i]))
             {
                 current_folder_tnode = current_child;
                 current_folder = current_child->inode;
                 i += strlen(current_child->name);
-                // LOG(TRACE, "found folder %s", current_child->name);
+//                 LOG(TRACE, "found folder %s", current_child->name);
                 break;
             }
             current_child = current_child->next;

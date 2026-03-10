@@ -104,10 +104,12 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
         {
             sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)MAP_FAILED;
+            unlock_scheduler();
             break;
         }
 
-        allocate_range((uint64_t*)(get_cr3() + PHYS_MAP_BASE), (uint64_t)addr, arg2 / 4096, PG_USER, (arg3 & PROT_WRITE) ? PG_READ_WRITE : PG_READ_ONLY, CACHE_WB);
+        allocate_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), (uint64_t)addr, arg2 / 4096, PG_USER, (arg3 & PROT_WRITE) ? PG_READ_WRITE : PG_READ_ONLY, CACHE_WB);
+
         for (size_t i = 0; i < arg2 / 4096; i++)
             invlpg(i * 4096 + (uint64_t)addr);
 
@@ -123,7 +125,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
             sc_ret_errno = EINVAL;
             break;
         }
-        free_range((uint64_t*)(get_cr3() + PHYS_MAP_BASE), (virtual_address_t)arg1, (arg2 + 0xfff) >> 12);
+        free_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), (virtual_address_t)arg1, (arg2 + 0xfff) >> 12);
         break;
     sc_case(SYS_SEEK, 3, int, off_t, int)
         SC_LOG("syscall SYS_SEEK(%d, %" PRId64 ", %d)", arg1, arg2, arg3);
@@ -828,5 +830,5 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
     }
     unlock_scheduler();
     
-    LOG(TRACE, "returning from syscall to address %p", *return_value);;
+    SC_LOG("returning from syscall to address %p", *return_value);
 }

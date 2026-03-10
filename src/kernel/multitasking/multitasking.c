@@ -29,6 +29,7 @@ pid_t task_reading_stdin = -1;
 utf32_buffer_t keyboard_input_buffer;
 
 int task_lock_depth = 0;
+uint64_t scheduler_lock_rflags;
 bool queued_ts = false;
 
 void multitasking_init()
@@ -69,7 +70,7 @@ void multitasking_add_idle_task(char* name)
 
     thread_t* task = task_create_empty();
     task_set_name(task, name);
-    task->cr3 = get_cr3();
+    task->cr3 = get_cr3_address();
 
     multitasking_add_task(task);
     task_count++;
@@ -383,9 +384,10 @@ ign:
     return;
 
 signal:
-    LOG(DEBUG, "Signal was sent to the process");
-    thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
-    thread->sig_pending_user_space = true;
+    LOG(DEBUG, "Signal was sent to the process. (ignored)");
+    // * Several problems with the current implementation, ignore signals for now
+    // thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
+    // thread->sig_pending_user_space = true;
     unlock_scheduler();
     return;
 }

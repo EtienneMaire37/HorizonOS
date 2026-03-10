@@ -68,8 +68,8 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
             break;
         }
         struct winsize* ws = arg;
-        ws->ws_col = TTY_RES_X;
-        ws->ws_row = TTY_RES_Y;
+        ws->ws_col = tty_res_x;
+        ws->ws_row = tty_res_y;
         sc_ret_errno = 0;
         break;
     }

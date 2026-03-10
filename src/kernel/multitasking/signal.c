@@ -3,7 +3,10 @@
 
 void setup_user_signal_stack_frame__interrupt(interrupt_registers_t* registers)
 {
+    assert(registers);
+
     LOG(TRACE, "setup_user_signal_stack_frame__interrupt(%p)", registers);
+    // LOG(TRACE, "Pushing return address %#" PRIx64, registers->rip);
     
     uint64_t ret_rsp = registers->rsp;
     ret_rsp -= 128;  // * skip red zone

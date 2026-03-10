@@ -28,4 +28,9 @@ static inline uint64_t get_cr3()
     return val;
 }
 
+static inline uint64_t get_cr3_address()
+{
+    return get_cr3() & ~0xfffULL;
+}
+
 #define memory_barrier()    asm volatile("" ::: "memory")

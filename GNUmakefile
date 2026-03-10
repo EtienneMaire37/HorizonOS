@@ -86,7 +86,7 @@ bin/%.o: src/kernel/%.c GNUmakefile src/kernel/link.ld limine/limine
 	$(HOSGCC) -c $< -o $@ \
 	-MMD -MP \
 	-Wall -Werror -Wno-address-of-packed-member -fpie -fpic -flto=auto -Iroot/usr/include \
-	-O2 -ffunction-sections -fdata-sections -mabi=sysv \
+	-O3 -ffunction-sections -fdata-sections -mabi=sysv \
 	-std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -fstack-protector-strong -march=x86-64 \
 	-mno-red-zone \
 	-Wno-stringop-overflow -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-unused-function -Wno-format-zero-length \
