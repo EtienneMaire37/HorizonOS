@@ -45,8 +45,8 @@ syscall_handler:
 
     sub rsp, 8 + 8  ; * see above
 
-    mov rdi, rsp
-    lea rsi, [rsp - 8]
+    mov rdi, rsp        ; * registers
+    lea rsi, [rsp - 8]  ; * return address pointer
 
     sti
     call c_syscall_handler

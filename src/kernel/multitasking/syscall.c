@@ -19,7 +19,7 @@
 
 extern void sigret();
 
-void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
+void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 {
     // SC_LOG("syscall %" PRIu64, registers->rax);
     switch (registers->rax)
@@ -802,7 +802,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
         break;
     sc_case(SYS_SIGRET, 0)
         SC_LOG("syscall SYS_SIGRET");
-        *return_value = sigret;
+        *return_address = sigret;
         break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
@@ -826,9 +826,9 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_value)
     {
         setup_user_signal_stack_frame__interrupt(registers);
         current_task->sig_pending_user_space = false;
-        // *return_value = intret;
+        // *return_address = intret;
     }
     unlock_scheduler();
     
-    SC_LOG("returning from syscall to address %p", *return_value);
+    SC_LOG("returning from syscall to address %p", *return_address);
 }

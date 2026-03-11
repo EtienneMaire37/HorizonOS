@@ -384,10 +384,10 @@ ign:
     return;
 
 signal:
-    LOG(DEBUG, "Signal was sent to the process. (ignored)");
-    // * Several problems with the current implementation, ignore signals for now
-    // thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
-    // thread->sig_pending_user_space = true;
+    LOG(DEBUG, "Signal was sent to the process.");
+    thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
+    thread->sig_pending_user_space = true;
+    thread->pending_signal_number = sig;
     unlock_scheduler();
     return;
 }

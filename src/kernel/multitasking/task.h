@@ -26,13 +26,14 @@ typedef struct thread
     sigset_t sig_pending, sig_mask;
     struct sigaction sig_act_array[NUM_SIGNALS];
     bool sig_pending_user_space;
-
+    
     uint32_t return_value;
     
     uid_t ruid, euid, suid;
     gid_t rgid, egid, sgid;
-
+    
     uint64_t pending_signal_handler;
+    int pending_signal_number;
 
     // * waitpid shenanigans
     pid_t wait_pid, waitpid_ret, pgid_on_waitpid;

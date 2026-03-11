@@ -9,7 +9,6 @@ PHDRS
     text PT_LOAD;
     rodata PT_LOAD;
     data PT_LOAD;
-    sigwrap PT_LOAD;
 }
 
 SECTIONS
@@ -33,6 +32,13 @@ SECTIONS
 
     . = ALIGN(4096);
 
+    .sigwrap :
+    {
+        *(.sigwrap)
+    } :text
+
+    . = ALIGN(4096);
+
     .rodata : 
     {
         *(.rodata .rodata.*)
@@ -49,13 +55,6 @@ SECTIONS
     {
         *(.data .data.*)
     } :data
-
-    . = ALIGN(4096);
-
-    .sigwrap : 
-    {
-        *(.sigwrap)
-    }
 
     . = ALIGN(4096);
 

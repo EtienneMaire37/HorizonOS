@@ -16,8 +16,8 @@ int num_environ;
 #include "cpu/units.h"
 
 #include "util/cfunc.h"
-
 #include "util/math.h"
+#include "util/memory.h"
 
 #include <inttypes.h>
 #include <limits.h>
@@ -264,8 +264,8 @@ void _start()
         // * signal handler wrapper function
         LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
         printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
-        unmap_range(global_cr3, (uintptr_t)sighandler, 1);
         uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
+        unmap_range(global_cr3, (uintptr_t)sighandler, 1);
         remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
     }
 
