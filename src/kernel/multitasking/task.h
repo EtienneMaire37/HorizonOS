@@ -21,7 +21,6 @@ typedef struct thread
 
     uint64_t rsp, cr3;
     uint64_t fs_base, gs_base;
-    uint64_t context_sp;
 
     sigset_t sig_pending, sig_mask;
     struct sigaction sig_act_array[NUM_SIGNALS];
@@ -112,7 +111,6 @@ uint64_t task_read_at_aligned_address_8b(thread_t* task, uint64_t address);
 uint64_t task_read_at_address_8b(thread_t* task, uint64_t address);
 
 void task_setup_stack(thread_t* task, uint64_t entry_point);
-void task_unsetup_stack(thread_t* task);
 void task_set_name(thread_t* task, const char* name);
 
 thread_t* task_create_empty();
@@ -129,9 +127,6 @@ void task_stack_push(thread_t*, uint64_t);
 void task_stack_push_auxv(thread_t* task, Elf64_auxv_t val);
 void task_stack_push_string(thread_t* task, const char* str);
 void task_stack_push_data(thread_t* task, void* data, size_t bytes);
-
-void task_context_stack_push(thread_t* task, uint64_t rsp);
-uint64_t task_context_stack_pop(thread_t* task);
 
 void cleanup_tasks();
 

@@ -30,8 +30,6 @@ thread_t* task_create_empty()
 
     memset(task, 0, sizeof(*task));
 
-    task->context_sp = TASK_KERNEL_STACK_BOTTOM_ADDRESS;
-
     task->file_table_mutex = MUTEX_INIT;
 
     task->pid = task_generate_pid();
@@ -110,13 +108,6 @@ void task_setup_stack_ex(thread_t* task,
     uint64_t entry_point, uint64_t ret_rsp, uint64_t rflags,
     uint64_t rbx, uint64_t r12, uint64_t r13, uint64_t r14, uint64_t r15, uint64_t rbp)
 {
-    task_context_stack_push(task, ret_rsp);
-
-    // LOG(DEBUG, "Pushed context:");
-    // log_context(task);
-
-    // if (task->context_sp >= TASK_KERNEL_STACK_BOTTOM_ADDRESS + 16) return;
-
     task_stack_push(task, (task->ring == 0) ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT);
     task_stack_push(task, ret_rsp);
     task_stack_push(task, rflags);
@@ -140,26 +131,6 @@ void task_setup_stack_ex(thread_t* task,
 void task_setup_stack(thread_t* task, uint64_t entry_point)
 {
     task_setup_stack_ex(task, entry_point, task->rsp, 0x202, 0, 0, 0, 0, 0, 0);
-}
-void task_unsetup_stack(thread_t* task)
-{
-    task->rsp = task_context_stack_pop(task);
-    // LOG(DEBUG, "Popped context:");
-    // log_context(task); ucontext_t
-}
-
-void task_context_stack_push(thread_t* task, uint64_t rsp)
-{
-    LOG(TRACE, "task_context_stack_push(%p, %#" PRIx64 ")", task, rsp);
-    task_write_at_address_8b(task, task->context_sp, rsp);
-    task->context_sp += 8;
-}
-uint64_t task_context_stack_pop(thread_t* task)
-{
-    task->context_sp -= 8;
-    uint64_t ret = task_read_at_address_8b(task, task->context_sp);
-    LOG(TRACE, "task_context_stack_pop(%p) = %#" PRIx64 " (%#" PRIx64 ")", task, ret, task->rsp);
-    return ret;
 }
 
 void task_set_name(thread_t* task, const char* name)
