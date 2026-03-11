@@ -60,6 +60,8 @@ HorizonOS uses the following third-party libraries and resources:
 
 - [liballoc](https://github.com/blanham/liballoc) - For libc memory allocation (Public domain)
 - [pci.ids](https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids) - List of PCI IDs (GPLv3)
+- [limine](https://codeberg.org/Limine/Limine) - Bootloader
+- [catppuccin for limine](https://github.com/catppuccin/limine) - Limine theme
 
 ## Contributing
 
