@@ -469,8 +469,8 @@ void _start()
     printf("Calibrating TSC...\n");
     LOG(DEBUG, "Calibrating TSC...");
     calibrate_tsc();
-    LOG(INFO, "TSC clock running at approximatively %" PRIu64 " hz", tsc_cyles_per_second);
-    printf("TSC clock running at approximatively %" PRIu64 " hz\n", tsc_cyles_per_second);
+    LOG(INFO, "TSC clock running at approximatively %" PRIu64 " hz", tsc_cycles_per_second);
+    printf("TSC clock running at approximatively %" PRIu64 " hz\n", tsc_cycles_per_second);
 
     LOG(INFO, "Parsing ACPI tables..");
     printf("Parsing ACPI tables...\n");

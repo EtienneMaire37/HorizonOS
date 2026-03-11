@@ -74,7 +74,7 @@ extern void syscall_handler();
 #define TASK_KERNEL_STACK_TOP_ADDRESS       TASK_STACK_BOTTOM_ADDRESS
 #define TASK_KERNEL_STACK_BOTTOM_ADDRESS    (TASK_KERNEL_STACK_TOP_ADDRESS - 0x1000 * TASK_KERNEL_STACK_PAGES)
 
-#define TASK_SWITCH_DELAY 40 // ms
+#define TASK_SWITCH_DELAY 20 // ms
 #define TASK_SWITCHES_PER_SECOND (1000 / TASK_SWITCH_DELAY)
 
 static inline int vfs_allocate_thread_file(thread_t* task)
