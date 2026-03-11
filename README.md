@@ -58,15 +58,14 @@ make run
 
 HorizonOS uses the following third-party libraries and resources:
 
-- [liballoc](https://github.com/blanham/liballoc) - For libc memory allocation (Public domain)
+- [liballoc](https://github.com/blanham/liballoc) - For memory allocation (Public domain)
 - [pci.ids](https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids) - List of PCI IDs (GPLv3)
 - [limine](https://codeberg.org/Limine/Limine) - Bootloader
-- [catppuccin for limine](https://github.com/catppuccin/limine) - Limine theme
+- [catppuccin for limine](https://github.com/catppuccin/limine) - Limine theme (MIT)
 
 ## Contributing
 
 You can submit issues [here](https://github.com/EtienneMaire37/HorizonOS-v5/issues).
-Feel free to contribute and submit pull requests !
 
 ## License
 
