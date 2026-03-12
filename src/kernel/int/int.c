@@ -49,6 +49,7 @@ registers->interrupt_number == DOUBLE_FAULT || registers->interrupt_number == MA
                 int signum = get_signal_from_exception(registers);
                 task_send_signal(current_task, signum);
                 kill_task(current_task, signum);
+                while (task_lock_depth) unlock_scheduler();
                 abort();
             }
         }

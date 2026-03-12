@@ -36,6 +36,7 @@
 #define SYS_FCNTL       31
 #define SYS_DUP3        32
 #define SYS_SIGRET      33
+#define SYS_PSELECT     34
 
 #define SYS_HOS_SET_KB_LAYOUT   100
 

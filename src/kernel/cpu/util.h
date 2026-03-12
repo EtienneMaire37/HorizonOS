@@ -16,6 +16,7 @@ extern uint64_t* global_cr3;
 #define disable_interrupts()    asm volatile ("cli")
 
 #define hlt()                   asm volatile ("hlt")
+#define ud()                    asm volatile ("ud2")
 
 #define swapgs()                asm volatile ("swapgs")
 

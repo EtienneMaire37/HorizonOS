@@ -801,8 +801,24 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         unlock_scheduler();
         break;
     sc_case(SYS_SIGRET, 0)
-        SC_LOG("syscall SYS_SIGRET");
+        SC_LOG("syscall SYS_SIGRET()");
         *return_address = sigret;
+        break;
+    sc_case(SYS_PSELECT, 6, int, fd_set*, fd_set*, fd_set*, const struct timespec*, const sigset_t*)
+        SC_LOG("syscall SYS_PSELECT(%d, %p, %p, %p, %p, %p)", arg1, arg2, arg3, arg4, arg5, arg6);
+        lock_scheduler();
+        // * sigmask
+        sigset_t saved_sigmask = current_task->sig_mask;
+        if (arg6)
+            current_task->sig_mask = *arg6;
+
+        // * Assume all fds are always ready for now
+        // * Only clear exceptional conditions
+        if (arg4)
+            FD_ZERO(arg4);
+
+        current_task->sig_mask = saved_sigmask;
+        unlock_scheduler();
         break;
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
@@ -830,5 +846,5 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
     }
     unlock_scheduler();
     
-    SC_LOG("returning from syscall to address %p", *return_address);
+    // SC_LOG("returning from syscall to address %p", *return_address);
 }

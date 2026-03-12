@@ -359,4 +359,12 @@ namespace mlibc
 		int ret;
 		return sys_ioctl(fd, TIOCSWINSZ, (struct winsize*)winsz, &ret);
 	}
+
+	int sys_pselect(int num_fds, fd_set* read_set, fd_set* write_set, fd_set* except_set, const struct timespec* timeout, const sigset_t* sigmask, int* num_events)
+	{
+		uint64_t _num_events;
+		int ret = syscall6_2(SYS_PSELECT, (uint64_t)num_fds, (uint64_t)read_set, (uint64_t)write_set, (uint64_t)except_set, (uint64_t)timeout, (uint64_t)sigmask, &_num_events);
+		*num_events = (int)_num_events;
+		return ret;
+	}
 }
