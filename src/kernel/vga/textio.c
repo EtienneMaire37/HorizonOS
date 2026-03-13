@@ -389,11 +389,11 @@ void tty_outc(char c)
 		return;
 	}
 
-	tty_data[tty_cursor] = c | ((uint16_t)tty_color << 8);
+	if (c != '\b' && c != 7) tty_data[tty_cursor] = c | ((uint16_t)tty_color << 8);
 
 	tty_render_character(tty_cursor, tty_data[tty_cursor] & 0x7f, tty_data[tty_cursor] >> 8);
 	
-	switch(c)
+	switch (c)
 	{
 	case '\n':
 		tty_cursor += MAX_TTY_X;
@@ -406,19 +406,16 @@ void tty_outc(char c)
 	{
 		tty_render_character(tty_cursor, c, tty_color);
 		tty_cursor = ((tty_cursor - (tty_cursor / MAX_TTY_X) * MAX_TTY_X + TAB_LENGTH) / TAB_LENGTH) * TAB_LENGTH + (tty_cursor / MAX_TTY_X) * MAX_TTY_X;
-		if (tty_cursor_blink)
-			tty_render_cursor(tty_cursor);
 		break;
 	}
 
 	case '\b':
-		tty_render_character(tty_cursor, c, tty_color);
 		if (tty_cursor > 0)
 			tty_cursor--;
-		if (tty_cursor_blink)
-			tty_render_cursor(tty_cursor);
 		break;
-	
+	case 7: // * DEL
+		break;
+
 	default:
 		assert(tty_cursor / MAX_TTY_X < tty_res_y);
 

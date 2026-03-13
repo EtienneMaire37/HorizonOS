@@ -6,6 +6,7 @@ thread_queue_t reapable_tasks = TQ_INIT;
 thread_queue_t waitpid_tasks = TQ_INIT;
 thread_queue_t forked_tasks = TQ_INIT;
 thread_queue_t stopped_tasks = TQ_INIT;
+thread_queue_t waiting_for_stdin_tasks = TQ_INIT;
 
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data)
 {
@@ -66,13 +67,32 @@ void move_task_to_queue(void* queue, thread_t* task)
         return;
     }
     if (task->queue == &running_tasks)
-        move_running_task_to_thread_queue(queue, task);
+    {
+        if (queue != &running_tasks)
+            move_running_task_to_thread_queue(queue, task);
+    }
     else
     {
         if (queue == &running_tasks)
             move_task_to_running_queue(task->queue, ll_find_item_by_data(task->queue, task));
         else
             move_task_from_to_thread_queue(task->queue, queue, ll_find_item_by_data(task->queue, task));
+    }
+    unlock_scheduler();
+}
+
+void move_all_tasks_to_running_queue(thread_queue_t* tq)
+{
+    lock_scheduler();
+    if (!tq) { unlock_scheduler(); return; }
+    if (!*tq) { unlock_scheduler(); return; }
+    thread_queue_item_t* it = *tq;
+    if (it)
+    {
+        do
+        {
+            move_task_to_running_queue(tq, it);
+        } while (*tq && it != *tq);
     }
     unlock_scheduler();
 }

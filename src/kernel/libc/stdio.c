@@ -139,6 +139,24 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
             offset -= 4;
         }
     }
+    void print_octal(uint64_t num, bool pad_with_zeroes, bool pad_with_spaces, uint8_t precision)
+    {
+        int8_t offset = 63;
+        bool do_print = false;
+        while (offset >= 0)
+        {
+            uint8_t digit = (num >> offset) & 0x7;
+            if (digit != 0 || offset < 3)
+                do_print = true;
+            if (pad_with_zeroes && offset < 3 * precision)
+                do_print = true;
+            if (do_print)
+                print_char('0' + digit);
+            else if (pad_with_spaces && offset < 3 * precision)
+                print_char(' ');
+            offset -= 3;
+        }
+    }
     void print_signed(int64_t num, bool leave_blank, bool plus_sign, bool pad_with_zeroes, uint8_t precision)
     {
         if (num < 0)
@@ -339,6 +357,33 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
             default:
                 unsigned int num = va_arg(args, unsigned int);
                 print_hex(num, caps, pad_with_zeroes, leave_blank, precision);
+            }
+            (*i)++;
+            break;
+        }
+        case 'o':
+        {
+            if (alternate_form)
+            {
+                print_string("0");
+            }
+            switch (length_modifier)
+            {
+            case LM_L:
+                unsigned long num_l = va_arg(args, unsigned long);
+                print_octal(num_l, pad_with_zeroes, leave_blank, precision);
+                break;
+            case LM_LL:
+                unsigned long long num_ll = va_arg(args, unsigned long long);
+                print_octal(num_ll, pad_with_zeroes, leave_blank, precision);
+                break;
+            case LM_Z:
+                size_t num_z = va_arg(args, size_t);
+                print_octal(num_z, pad_with_zeroes, leave_blank, precision);
+                break;
+            default:
+                unsigned int num = va_arg(args, unsigned int);
+                print_octal(num, pad_with_zeroes, leave_blank, precision);
             }
             (*i)++;
             break;

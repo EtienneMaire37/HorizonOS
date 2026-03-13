@@ -44,7 +44,7 @@ void ll_remove(ll_t* ll, ll_item_t* item)
     }
 
     if (item == *ll)
-        *ll = item->next;
+        *ll = item->next == item ? NULL : item->next;
 
 end:
     free(item);

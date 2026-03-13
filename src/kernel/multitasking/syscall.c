@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include "signal.h"
+#include "multitasking.h"
 
 extern void sigret();
 
@@ -41,6 +42,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         ssize_t ret;
         sc_ret_errno = (uint64_t)vfs_read(arg1, arg2, arg3, &ret);
         sc_ret(1) = (uint64_t)ret;
+        // LOG(TRACE, "val: %c", ((char*)arg2)[0]);
         break;
     sc_case(SYS_WRITE, 3, int, const void*, size_t)
         SC_LOG("syscall SYS_WRITE(%d, %p, %zu)", arg1, arg2, arg3);
@@ -50,6 +52,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret(1) = (uint64_t)-1;
             break;
         }
+        // if (arg3 == 1)
+        //     LOG(TRACE, "%c (%d)", ((char*)arg2)[0], ((char*)arg2)[0]);
         ssize_t ret;
         sc_ret_errno = vfs_write(arg1, arg2, arg3, &ret);
         sc_ret(1) = (uint64_t)ret;
@@ -146,6 +150,12 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         {
             sc_ret_errno = 0;
             sc_ret(1) = (uint64_t)((off_t)0);
+            break;
+        }
+        if (vfs_isatty(entry))
+        {
+            sc_ret_errno = ESPIPE;
+            sc_ret(1) = (uint64_t)((off_t)-1);
             break;
         }
         off_t offset = arg2;
@@ -339,7 +349,19 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret_errno = ENOTTY;
             break;
         }
+        lock_scheduler();
         tty_ts = *arg3;
+        if (arg2 == TCSAFLUSH)
+        {
+            keyboard_buffered_input_buffer.get_index = keyboard_buffered_input_buffer.put_index = 0;
+            keyboard_input_buffer.get_index = keyboard_input_buffer.put_index = 0;
+        }
+        LOG(TRACE, "TCSETATTR: .c_iflag = %#o", arg3->c_iflag);
+        LOG(TRACE, "TCSETATTR: .c_oflag = %#o", arg3->c_oflag);
+        LOG(TRACE, "TCSETATTR: .c_cflag = %#o", arg3->c_cflag);
+        LOG(TRACE, "TCSETATTR: .c_lflag = %#o", arg3->c_lflag);
+        LOG(TRACE, "TCSETATTR: .c_line = `%c`", arg3->c_line);
+        unlock_scheduler();
         sc_ret_errno = 0;
         break;
     sc_case(SYS_GETCWD, 2, char*, size_t)
@@ -812,22 +834,35 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         if (arg6)
             current_task->sig_mask = *arg6;
 
+        sc_ret_errno = 0;
+
         // * Assume all fds are always ready for now
         // * Only clear exceptional conditions and check stdin
         if (arg2)
         {
-            if (arg1 >= 1)
+            for (int i = 0; i < arg1; i++)
             {
+                if (!(vfs_isatty(get_global_file_entry(i)))) continue;
                 if (no_buffered_characters(keyboard_buffered_input_buffer))
-                    FD_CLR(0, arg2);
-                // TODO: Block process untill characters are available
-                abort();
+                {
+                    move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
+                    switch_task();
+                    unlock_scheduler();
+                    lock_scheduler();
+
+                    if (no_buffered_characters(keyboard_buffered_input_buffer))
+                    {
+                        sc_ret_errno = EINTR;
+                        for (int j = i; j < arg1; j++)
+                            FD_CLR(j, arg2);
+                        break;
+                    }
+                }
             }
         }
         if (arg4)
             FD_ZERO(arg4);
 
-        sc_ret_errno = 0;
         sc_ret(1) = 0;
         for (int i = 0; i < arg1; i++)
         {

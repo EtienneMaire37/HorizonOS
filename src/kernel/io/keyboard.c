@@ -87,7 +87,9 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     bool echo = (ts->c_lflag & ECHO) != 0;
     bool raw = (ts->c_lflag & ICANON) == 0; 
     int noncanonical_read_minimum_count = ts->c_cc[VMIN];
-    
+
+    // LOG(TRACE, "ts: %d %d %d", echo, raw, noncanonical_read_minimum_count);
+
     char ascii = utf32_to_bios_oem(character);
     if (!is_printable_character(ascii)
         && vk != VK_UP && vk != VK_RIGHT && vk != VK_DOWN && vk != VK_LEFT
@@ -227,14 +229,14 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
             }
         }
     }
-    if (((character == '\n' || character == 4) && get_buffered_characters(keyboard_input_buffer) != 0) || (raw && get_buffered_characters(keyboard_input_buffer) >= noncanonical_read_minimum_count))   // * EOL or EOF
+    if ((character == '\n' || character == 4) || (raw && get_buffered_characters(keyboard_input_buffer) >= noncanonical_read_minimum_count))   // * EOL or EOF
     {
         assert(keyboard_buffered_input_buffer.size == keyboard_input_buffer.size);
         memcpy(keyboard_buffered_input_buffer.characters, keyboard_input_buffer.characters, keyboard_input_buffer.size);
         keyboard_buffered_input_buffer.get_index = keyboard_input_buffer.get_index;
         keyboard_buffered_input_buffer.put_index = keyboard_input_buffer.put_index;
         keyboard_input_buffer.get_index = keyboard_input_buffer.put_index = 0;
-        task_reading_stdin = -1;
+        move_all_tasks_to_running_queue(&waiting_for_stdin_tasks);
     }
     unlock_scheduler();
 

@@ -582,9 +582,6 @@ void _start()
     vfs_mount_device("initrd", "/mnt", (drive_t){.type = DT_INITRD}, 0, 0);
     vfs_mount_device("dev", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
 
-    vfs_add_special("/dev", "stdin", CHR_MODE, task_chr_stdin, 0, 0);
-    vfs_add_special("/dev", "stdout", CHR_MODE, task_chr_stdout, 0, 0);
-    vfs_add_special("/dev", "stderr", CHR_MODE, task_chr_stderr, 0, 0);
     vfs_add_special("/dev", "tty", CHR_MODE, task_chr_tty, 0, 0);
     LOG(INFO, "Set up the VFS.");
 

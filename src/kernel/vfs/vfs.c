@@ -816,9 +816,9 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
         }
         if (no_buffered_characters(keyboard_buffered_input_buffer))
         {
-            task_reading_stdin = current_task->pid;
-            unlock_scheduler();
+            move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
             switch_task();
+            unlock_scheduler();
             lock_scheduler();
         }
         uint64_t ret = minint(get_buffered_characters(keyboard_buffered_input_buffer), count);

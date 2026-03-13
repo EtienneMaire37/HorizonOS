@@ -15,7 +15,7 @@ int main(int argc, char** argv)
 
     tcsetpgrp(STDIN_FILENO, getpgrp());
 
-    execvp("dash", (char*[]){"dash", (char*)NULL});
+    execvp("bash", (char*[]){"bash", (char*)NULL});
 
-    perror("init: Couldn't run `dash`");
+    perror("init: Couldn't run `bash`");
 }

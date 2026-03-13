@@ -25,7 +25,6 @@ thread_t* current_task = NULL;
 thread_t* last_task = NULL;
 bool multitasking_enabled = false;
 
-pid_t task_reading_stdin = -1;
 utf32_buffer_t keyboard_input_buffer, keyboard_buffered_input_buffer;
 
 int task_lock_depth = 0;
@@ -39,7 +38,6 @@ void multitasking_init()
 
     utf32_buffer_init(&keyboard_input_buffer);
     utf32_buffer_init(&keyboard_buffered_input_buffer);
-    task_reading_stdin = -1;
 
     futex_tq_hashmap = hashmap_create(1 * MB);
     pid_to_task_hashmap = hashmap_create(1 * MB);
@@ -150,14 +148,6 @@ void end_context_switch()
     // log_context(last_task);
 }
 
-bool task_is_blocked(thread_t* task)
-{
-    lock_scheduler();
-    if (task_reading_stdin == task->pid) return (unlock_scheduler(), true);
-    unlock_scheduler();
-    return false;
-}
-
 thread_t* find_next_task()
 {
     thread_t* start = current_task->next;
@@ -165,11 +155,10 @@ thread_t* find_next_task()
     for (task = start; task != start->prev; task = task->next)
     {
         if (task == idle_task) continue;
-        if (!task_is_blocked(task)) return task;
+        return task;
     }
 
-    if (!task_is_blocked(task)) return task;
-    return idle_task;
+    return task;
 }
 
 bool is_fd_valid(int fd)
@@ -354,7 +343,7 @@ void task_handle_signal(thread_t* thread, int sig)
 
 dfl:
     int dfl_action = sig_default_action(sig);
-    LOG(DEBUG, "Signal action defaulted to %s", 
+    LOG(TRACE, "Signal action defaulted to %s", 
         dfl_action == SIGDEF_IGN ? "\"ignore\"" :
        (dfl_action == SIGDEF_STOP ? "\"stop\"" :
        (dfl_action == SIGDEF_CONT ? "\"continue\"" :
@@ -380,15 +369,16 @@ dfl:
     return;
 
 ign:
-    LOG(DEBUG, "Signal was ignored by the process.");
+    LOG(TRACE, "Signal was ignored by the process.");
     unlock_scheduler();
     return;
 
 signal:
-    LOG(DEBUG, "Signal was sent to the process.");
+    LOG(TRACE, "Signal was sent to the process.");
     thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
     thread->sig_pending_user_space = true;
     thread->pending_signal_number = sig;
+    move_task_to_queue(&running_tasks, thread);
     unlock_scheduler();
     return;
 }

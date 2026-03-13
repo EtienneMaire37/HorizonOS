@@ -17,7 +17,6 @@ USER_CFLAGS :=
 MAKE := make
 
 override BASH_DIR := ${MAKE_DIR}/src/tasks/src/bash
-override DASH_DIR := ${MAKE_DIR}/src/tasks/src/dash
 override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no
 
 override KERNEL_SRC := $(shell find src/kernel -name '*.c')
@@ -32,7 +31,6 @@ override MLIBC_STAMP := mlibc/.built
 override NCURSES_STAMP := ncurses/.built
 
 override BASH_DL_STAMP := src/tasks/src/bash/.downloaded
-override DASH_DL_STAMP := src/tasks/src/dash/.downloaded
 
 QEMU_FLAGS := -accel kvm -cpu host -debugcon file:debug/latest.log -m 256 -drive file=horizonos.iso,index=0,media=disk,format=raw -smp 8
 
@@ -53,7 +51,7 @@ limine/limine:
 
 mlibc: $(MLIBC_STAMP)
 
-$(MLIBC_STAMP): mlibc/src/* $(HOSGCC) GNUmakefile
+$(MLIBC_STAMP): mlibc/src/* $(HOSGCC)
 	cp -r mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
 	mkdir -p mlibc/mlibc/build
 	cd mlibc/mlibc && meson \
@@ -83,7 +81,7 @@ $(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub
 	cd ncurses/ncurses-6.6 && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	touch $@
 
-bin/%.o: src/kernel/%.c GNUmakefile src/kernel/link.ld limine/limine
+bin/%.o: src/kernel/%.c src/kernel/link.ld limine/limine
 	mkdir -p $(dir $@)
 	$(HOSGCC) -c $< -o $@ \
 	-MMD -MP \
@@ -94,10 +92,10 @@ bin/%.o: src/kernel/%.c GNUmakefile src/kernel/link.ld limine/limine
 	-Wno-stringop-overflow -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-unused-function -Wno-format-zero-length \
 	-mgeneral-regs-only \
 	${USER_CFLAGS} -DBUILDING_KERNEL -I limine-protocol/include
-bin/%.asm.o: src/kernel/%.asm GNUmakefile src/kernel/link.ld
+bin/%.asm.o: src/kernel/%.asm src/kernel/link.ld
 	mkdir -p $(dir $@)
 	nasm -f elf64 $< -o $@
-$(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ) GNUmakefile
+$(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ)
 	$(HOSGCC) -nostdlib -T src/kernel/link.ld -ffreestanding -pie -static \
 	-o $@ \
 	$(KERNEL_OBJ) $(ASM_OBJ) \
@@ -147,7 +145,7 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 	cp bin/initrd_contents/sbin/init src/tasks/bin/init
 
 	rm -f bin/initrd_contents/bin/sh
-	ln -s dash bin/initrd_contents/bin/sh
+	ln -s bash bin/initrd_contents/bin/sh
 
 	mkdir -p root/boot
 	cp bin/kernel.elf bin/initrd_contents/boot/kernel.elf
@@ -172,7 +170,7 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/dash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC) GNUmakefile
+src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3 -static
 	$(CROSSSTRIP) $@
@@ -182,11 +180,8 @@ src/tasks/bin/bash: $(BASH_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC)
 	cd src/tasks/src/bash && $(MAKE) -j$(nproc)
 	cd src/tasks/src/bash && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/bash
-src/tasks/bin/dash: $(DASH_DL_STAMP) $(MLIBC_STAMP) $(HOSGCC)
-	cd src/tasks/src/dash && make
-	mv src/tasks/src/dash/dash src/tasks/bin/dash
 
-src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC) GNUmakefile
+src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3 -static
 	$(CROSSSTRIP) $@
@@ -203,15 +198,6 @@ $(BASH_DL_STAMP):
 	mkdir -p $(BASH_DIR)
 	git clone https://git.savannah.gnu.org/git/bash.git $(BASH_DIR)
 	git -C $(BASH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
-	touch $@
-$(DASH_DL_STAMP):
-	rm -rf $(DASH_DIR)
-	mkdir -p $(DASH_DIR)
-	git clone https://github.com/danishprakash/dash $(DASH_DIR)
-	cd $(DASH_DIR) && git checkout a9481f4
-	patch src/tasks/src/dash/dash.c < diffs/dash/dash.c.diff
-	rm -f $(DASH_DIR)/makefile
-	cp diffs/dash/makefile $(DASH_DIR)/makefile
 	touch $@
 
 ncurses/ncurses-6.6/config.sub:

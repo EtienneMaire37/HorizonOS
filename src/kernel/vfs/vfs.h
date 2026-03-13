@@ -168,7 +168,7 @@ ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t d
 static inline bool vfs_isatty(file_entry_t* entry)
 {
     if (!entry) return false;
-    return entry->entry_type == ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && (entry->tnode.file->inode->io_func == task_chr_stdin || entry->tnode.file->inode->io_func == task_chr_stdout || entry->tnode.file->inode->io_func == task_chr_stderr || entry->tnode.file->inode->io_func == task_chr_tty)) : false;
+    return entry->entry_type == ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && entry->tnode.file->inode->io_func == task_chr_tty) : false;
 }
 
 vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t),
