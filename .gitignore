@@ -5,6 +5,7 @@ debug/*
 bin/*
 src/tasks/bin/*
 src/tasks/src/bash
+src/tasks/src/dash
 
 root/
 

@@ -46,6 +46,7 @@ registers->interrupt_number == DOUBLE_FAULT || registers->interrupt_number == MA
             }
             else
             {
+                print_stack_trace(registers->rip, registers->rbp, false);
                 int signum = get_signal_from_exception(registers);
                 task_send_signal(current_task, signum);
                 kill_task(current_task, signum);

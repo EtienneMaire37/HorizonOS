@@ -204,7 +204,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             break;
         }
 
-        if (!(st.st_mode & S_IRUSR) && (file_table[fd].flags & O_ACCMODE) != O_WRONLY) // * Assume we're the owner of every file
+        if (false) // * Assume we're root
         {
             vfs_remove_global_file(fd);
             // release_mutex(&file_table_lock);
@@ -286,9 +286,9 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         {
             pid_t old_pid = current_task->pid;
             
-            current_task->pid = task_generate_pid();
-
-            new_task->pid = old_pid;
+            task_set_pid(current_task, task_generate_pid());
+            task_set_pid(new_task, old_pid);
+            
             new_task->ppid = current_task->ppid;
             task_set_pgid(new_task, current_task->pgid);
 
@@ -460,8 +460,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         current_task->pgid_on_waitpid = current_task->pgid;
         current_task->waitpid_flags = arg3;
         current_task->waitpid_ret = -1;
-        unlock_scheduler();
         move_running_task_to_thread_queue(&waitpid_tasks, current_task);
+        unlock_scheduler();
         waitpid_check_dead();
         assert(task_lock_depth == 0);
         switch_task();
@@ -813,9 +813,31 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             current_task->sig_mask = *arg6;
 
         // * Assume all fds are always ready for now
-        // * Only clear exceptional conditions
+        // * Only clear exceptional conditions and check stdin
+        if (arg2)
+        {
+            if (arg1 >= 1)
+            {
+                if (no_buffered_characters(keyboard_buffered_input_buffer))
+                    FD_CLR(0, arg2);
+                // TODO: Block process untill characters are available
+                abort();
+            }
+        }
         if (arg4)
             FD_ZERO(arg4);
+
+        sc_ret_errno = 0;
+        sc_ret(1) = 0;
+        for (int i = 0; i < arg1; i++)
+        {
+            if (arg2)
+                sc_ret(1) += FD_ISSET(i, arg2) ? 1 : 0;
+            if (arg3)
+                sc_ret(1) += FD_ISSET(i, arg3) ? 1 : 0;
+            if (arg4)
+                sc_ret(1) += FD_ISSET(i, arg4) ? 1 : 0;
+        }
 
         current_task->sig_mask = saved_sigmask;
         unlock_scheduler();

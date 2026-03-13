@@ -814,19 +814,17 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
             unlock_scheduler();
             return 0;
         }
-        if (no_buffered_characters(keyboard_input_buffer))
+        if (no_buffered_characters(keyboard_buffered_input_buffer))
         {
             task_reading_stdin = current_task->pid;
             unlock_scheduler();
             switch_task();
+            lock_scheduler();
         }
-        else
-            unlock_scheduler();
-        lock_scheduler();
-        uint64_t ret = minint(get_buffered_characters(keyboard_input_buffer), count);
+        uint64_t ret = minint(get_buffered_characters(keyboard_buffered_input_buffer), count);
         for (uint32_t i = 0; i < count; i++)
             // *** Only ASCII for now ***
-            buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&keyboard_input_buffer));
+            buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&keyboard_buffered_input_buffer));
         unlock_scheduler();
         return ret;
     case CHR_DIR_WRITE:

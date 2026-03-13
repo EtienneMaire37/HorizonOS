@@ -16,8 +16,9 @@ USER_CFLAGS :=
 
 MAKE := make
 
-SH_DIR := ${MAKE_DIR}/src/tasks/src/bash
-GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no
+override BASH_DIR := ${MAKE_DIR}/src/tasks/src/bash
+override DASH_DIR := ${MAKE_DIR}/src/tasks/src/dash
+override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no
 
 override KERNEL_SRC := $(shell find src/kernel -name '*.c')
 override KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
@@ -31,6 +32,7 @@ override MLIBC_STAMP := mlibc/.built
 override NCURSES_STAMP := ncurses/.built
 
 override BASH_DL_STAMP := src/tasks/src/bash/.downloaded
+override DASH_DL_STAMP := src/tasks/src/dash/.downloaded
 
 QEMU_FLAGS := -accel kvm -cpu host -debugcon file:debug/latest.log -m 256 -drive file=horizonos.iso,index=0,media=disk,format=raw -smp 8
 
@@ -145,7 +147,7 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 	cp bin/initrd_contents/sbin/init src/tasks/bin/init
 
 	rm -f bin/initrd_contents/bin/sh
-	ln -s bash bin/initrd_contents/bin/sh
+	ln -s dash bin/initrd_contents/bin/sh
 
 	mkdir -p root/boot
 	cp bin/kernel.elf bin/initrd_contents/boot/kernel.elf
@@ -170,7 +172,7 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC) GNUmakefile
+src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/dash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC) GNUmakefile
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3 -static
 	$(CROSSSTRIP) $@
@@ -180,6 +182,9 @@ src/tasks/bin/bash: $(BASH_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC)
 	cd src/tasks/src/bash && $(MAKE) -j$(nproc)
 	cd src/tasks/src/bash && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/bash
+src/tasks/bin/dash: $(DASH_DL_STAMP) $(MLIBC_STAMP) $(HOSGCC)
+	cd src/tasks/src/dash && make
+	mv src/tasks/src/dash/dash src/tasks/bin/dash
 
 src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC) GNUmakefile
 	mkdir -p src/tasks/bin
@@ -194,9 +199,17 @@ resources/pci.ids:
 	wget https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids -O resources/pci.ids
 
 $(BASH_DL_STAMP):
-	rm -rf $(SH_DIR)
-	git clone https://git.savannah.gnu.org/git/bash.git $(SH_DIR)
-	git -C $(SH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
+	rm -rf $(BASH_DIR)
+	mkdir -p $(BASH_DIR)
+	git clone https://git.savannah.gnu.org/git/bash.git $(BASH_DIR)
+	git -C $(BASH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
+	touch $@
+$(DASH_DL_STAMP):
+	rm -rf $(DASH_DIR)
+	mkdir -p $(DASH_DIR)
+	git clone https://github.com/danishprakash/dash $(DASH_DIR)
+	rm -f $(DASH_DIR)/makefile
+	cp diffs/dash/makefile $(DASH_DIR)/makefile
 	touch $@
 
 ncurses/ncurses-6.6/config.sub:

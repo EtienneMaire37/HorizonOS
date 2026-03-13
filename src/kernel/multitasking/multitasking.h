@@ -28,7 +28,7 @@ extern thread_t* last_task;
 extern bool multitasking_enabled;
 
 extern pid_t task_reading_stdin;
-extern utf32_buffer_t keyboard_input_buffer;
+extern utf32_buffer_t keyboard_input_buffer, keyboard_buffered_input_buffer;
 
 extern bool queued_ts;
 

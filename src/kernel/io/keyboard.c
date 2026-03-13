@@ -7,6 +7,8 @@
 #include "../multitasking/multitasking.h"
 #include "../vga/textio.h"
 
+#include <assert.h>
+
 const keyboard_layout_t* current_keyboard_layout = &us_qwerty;
 
 void utf32_buffer_init(utf32_buffer_t* buffer)
@@ -96,145 +98,143 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         ) 
         return;
     lock_scheduler();
-    if (task_reading_stdin != -1)
-    {            
-        thread_t* task = find_running_task_by_pid(task_reading_stdin);
-        if (!task) 
+    if (character == '\b')
+    {
+        if (raw)
         {
-            unlock_scheduler();
-            return;
+            utf32_buffer_putchar(&keyboard_input_buffer, ts->c_cc[VERASE]);
+            if (echo) printf("\b \b");
         }
-        if (character == '\b')
+        else if (!no_buffered_characters(keyboard_input_buffer))
         {
-            if (raw)
-            {
-                utf32_buffer_putchar(&keyboard_input_buffer, ts->c_cc[VERASE]);
-                if (echo) printf("\b \b");
-            }
-            else if (!no_buffered_characters(keyboard_input_buffer))
-            {
-                if (echo) printf("\b \b");
-                utf32_buffer_unputchar(&keyboard_input_buffer);
-            }
+            if (echo) printf("\b \b");
+            utf32_buffer_unputchar(&keyboard_input_buffer);
         }
-        else
-        {
-            size_t num_characters = get_buffered_characters(keyboard_input_buffer);
-            size_t max_characters = keyboard_input_buffer.size - 1;
-            size_t character_len;
+    }
+    else
+    {
+        size_t num_characters = get_buffered_characters(keyboard_input_buffer);
+        size_t max_characters = keyboard_input_buffer.size - 1;
+        size_t character_len;
 
+        switch (vk)
+        {
+        case VK_TAB:    character_len = TAB_LENGTH; break;
+
+        case VK_UP:     character_len = 3; break;
+        case VK_DOWN:   character_len = 3; break;
+        case VK_RIGHT:  character_len = 3; break;
+        case VK_LEFT:   character_len = 3; break;
+
+        case VK_HOME:   character_len = 3; break;
+        case VK_END:    character_len = 3; break;
+
+        case VK_INSERT:   character_len = 4; break;
+        case VK_DELETE:   character_len = 4; break;
+
+        case VK_PAGEUP:   character_len = 4; break;
+        case VK_PAGEDOWN: character_len = 4; break;
+
+        default:        character_len = 1 + keyboard_is_key_pressed(VK_LALT);
+        }
+
+        if ((ssize_t)num_characters < (ssize_t)max_characters - character_len)
+        {
             switch (vk)
             {
-            case VK_TAB:    character_len = TAB_LENGTH; break;
-
-            case VK_UP:     character_len = 3; break;
-            case VK_DOWN:   character_len = 3; break;
-            case VK_RIGHT:  character_len = 3; break;
-            case VK_LEFT:   character_len = 3; break;
-
-            case VK_HOME:   character_len = 3; break;
-            case VK_END:    character_len = 3; break;
-
-            case VK_INSERT:   character_len = 4; break;
-            case VK_DELETE:   character_len = 4; break;
-
-            case VK_PAGEUP:   character_len = 4; break;
-            case VK_PAGEDOWN: character_len = 4; break;
-
-            default:        character_len = 1 + keyboard_is_key_pressed(VK_LALT);
-            }
-
-            if ((ssize_t)num_characters < (ssize_t)max_characters - character_len)
-            {
-                switch (vk)
+            case VK_TAB:
+                for (uint8_t j = 0; j < TAB_LENGTH; j++)
                 {
-                case VK_TAB:
-                    for (uint8_t j = 0; j < TAB_LENGTH; j++)
+                    utf32_buffer_putchar(&keyboard_input_buffer, ' ');                    
+                    if (echo) putchar(' ');
+                }
+                break;
+            case VK_UP:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, 'A');
+                if (echo) printf("^[A");
+                break;
+            case VK_DOWN:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, 'B');
+                if (echo) printf("^[B");
+                break;
+            case VK_RIGHT:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, 'C');
+                if (echo) printf("^[C");
+                break;
+            case VK_LEFT:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, 'D');
+                if (echo) printf("^[D");
+                break;
+            case VK_HOME:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, 'H');
+                if (echo) printf("^[H");
+                break;
+            case VK_END:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, 'F');
+                if (echo) printf("^[F");
+                break;
+            case VK_INSERT:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, '2');
+                utf32_buffer_putchar(&keyboard_input_buffer, '~');
+                if (echo) printf("^[2~");
+                break;
+            case VK_DELETE:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, '3');
+                utf32_buffer_putchar(&keyboard_input_buffer, '~');
+                if (echo) printf("^[3~");
+                break;
+            case VK_PAGEUP:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, '5');
+                utf32_buffer_putchar(&keyboard_input_buffer, '~');
+                if (echo) printf("^[5~");
+                break;
+            case VK_PAGEDOWN:
+                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
+                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, '6');
+                utf32_buffer_putchar(&keyboard_input_buffer, '~');
+                if (echo) printf("^[6~");
+                break;
+            default:
+                if (ascii)
+                {
+                    if (keyboard_is_key_pressed(VK_LALT))
                     {
-                        utf32_buffer_putchar(&keyboard_input_buffer, ' ');                    
-                        if (echo) putchar(' ');
+                        utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');                    
+                        if (echo) putchar('^');
                     }
-                    break;
-                case VK_UP:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, 'A');
-                    if (echo) printf("^[A");
-                    break;
-                case VK_DOWN:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, 'B');
-                    if (echo) printf("^[B");
-                    break;
-                case VK_RIGHT:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, 'C');
-                    if (echo) printf("^[C");
-                    break;
-                case VK_LEFT:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, 'D');
-                    if (echo) printf("^[D");
-                    break;
-                case VK_HOME:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, 'H');
-                    if (echo) printf("^[H");
-                    break;
-                case VK_END:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, 'F');
-                    if (echo) printf("^[F");
-                    break;
-                case VK_INSERT:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '2');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                    if (echo) printf("^[2~");
-                    break;
-                case VK_DELETE:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '3');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                    if (echo) printf("^[3~");
-                    break;
-                case VK_PAGEUP:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                    if (echo) printf("^[5~");
-                    break;
-                case VK_PAGEDOWN:
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '6');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                    if (echo) printf("^[6~");
-                    break;
-                default:
-                    if (ascii)
-                    {
-                        if (keyboard_is_key_pressed(VK_LALT))
-                        {
-                            utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');                    
-                            if (echo) putchar('^');
-                        }
-                        utf32_buffer_putchar(&keyboard_input_buffer, character);                    
-                        if (echo) putchar(ascii);
-                    }
+                    utf32_buffer_putchar(&keyboard_input_buffer, character);                    
+                    if (echo) putchar(ascii);
                 }
             }
         }
-        if (((character == '\n' || character == 4) && get_buffered_characters(keyboard_input_buffer) != 0) || (raw && get_buffered_characters(keyboard_input_buffer) >= noncanonical_read_minimum_count))   // * EOL or EOF
-            task_reading_stdin = -1;
+    }
+    if (((character == '\n' || character == 4) && get_buffered_characters(keyboard_input_buffer) != 0) || (raw && get_buffered_characters(keyboard_input_buffer) >= noncanonical_read_minimum_count))   // * EOL or EOF
+    {
+        assert(keyboard_buffered_input_buffer.size == keyboard_input_buffer.size);
+        memcpy(keyboard_buffered_input_buffer.characters, keyboard_input_buffer.characters, keyboard_input_buffer.size);
+        keyboard_buffered_input_buffer.get_index = keyboard_input_buffer.get_index;
+        keyboard_buffered_input_buffer.put_index = keyboard_input_buffer.put_index;
+        keyboard_input_buffer.get_index = keyboard_input_buffer.put_index = 0;
+        task_reading_stdin = -1;
     }
     unlock_scheduler();
 

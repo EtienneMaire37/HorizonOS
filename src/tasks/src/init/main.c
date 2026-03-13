@@ -1,11 +1,21 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <assert.h>
 
 int main(int argc, char** argv)
 {
-	tcsetpgrp(STDIN_FILENO, getpgrp());
+    assert(open("/dev/tty", O_RDONLY) == STDIN_FILENO);
+    assert(open("/dev/tty", O_WRONLY) == STDOUT_FILENO);
+    assert(open("/dev/tty", O_WRONLY) == STDERR_FILENO);
 
-    execvp("bash", (char*[]){"bash", (char*)NULL});
+    setenv("PATH", "/sbin:/bin:/usr/bin", 0);
+    setenv("HOME", "/root", 0);
 
-    perror("init: Couldn't run `bash`");
+    tcsetpgrp(STDIN_FILENO, getpgrp());
+
+    execvp("dash", (char*[]){"dash", (char*)NULL});
+
+    perror("init: Couldn't run `dash`");
 }

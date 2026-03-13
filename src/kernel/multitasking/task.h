@@ -80,7 +80,7 @@ extern void syscall_handler();
 static inline int vfs_allocate_thread_file(thread_t* task)
 {
     acquire_mutex(&task->file_table_mutex);
-    for (int i = 3; i < OPEN_MAX; i++)
+    for (int i = 0; i < OPEN_MAX; i++)
     {
         if (task->file_table[i].index == invalid_fd)
             return (release_mutex(&task->file_table_mutex), i);
@@ -93,11 +93,11 @@ static inline int vfs_allocate_thread_file(thread_t* task)
 extern void context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds);
 void full_context_switch(thread_t* next);
 void end_context_switch();
-bool task_is_blocked(thread_t* task);
 thread_t* find_next_task();
 bool is_fd_valid(int fd);
 
 pid_t task_generate_pid();
+void task_set_pid(thread_t* task, pid_t pid);
 void task_set_pgid(thread_t* task, pid_t pgid);
 
 void multitasking_add_task(thread_t* task);

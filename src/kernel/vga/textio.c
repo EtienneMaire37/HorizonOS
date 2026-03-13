@@ -420,13 +420,14 @@ void tty_outc(char c)
 		break;
 	
 	default:
-		if (tty_cursor / MAX_TTY_X >= tty_res_y)
-		{
-			tty_cursor++;
-			break;
-		}
+		assert(tty_cursor / MAX_TTY_X < tty_res_y);
 
 		tty_cursor++;
+		if (tty_cursor % MAX_TTY_X >= tty_res_x)
+		{
+			tty_cursor += MAX_TTY_X;
+			tty_cursor -= tty_cursor % MAX_TTY_X;
+		}
 	}
 
 	if (tty_cursor_blink)

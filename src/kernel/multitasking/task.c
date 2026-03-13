@@ -18,9 +18,6 @@ void task_init_file_table(thread_t* task)
 {
     for (int i = 0; i < OPEN_MAX; i++)
         task->file_table[i].index = invalid_fd;
-    task->file_table[0] = (file_table_index_t){.index = 0, .flags = 0};    // * STDIN_FILENO
-    task->file_table[1] = (file_table_index_t){.index = 1, .flags = 0};    // * STDOUT_FILENO
-    task->file_table[2] = (file_table_index_t){.index = 2, .flags = 0};    // * STDERR_FILENO
 }
 
 thread_t* task_create_empty()
@@ -32,7 +29,7 @@ thread_t* task_create_empty()
 
     task->file_table_mutex = MUTEX_INIT;
 
-    task->pid = task_generate_pid();
+    task_set_pid(task, task_generate_pid());
     task->ppid = -1;
     task->pgid = -1;
     task_set_pgid(task, task->pid);
@@ -54,8 +51,6 @@ thread_t* task_create_empty()
 
     task_init_file_table(task);
 
-    hashmap_set_item(pid_to_task_hashmap, task->pid, task);
-
     return task;
 }
 
@@ -66,6 +61,13 @@ void task_set_pgid(thread_t* task, pid_t pgid)
         tq_hashmap_remove(pgid_to_tq_hashmap, task->pgid, task);
     task->pgid = pgid;
     tq_hashmap_push_back(pgid_to_tq_hashmap, task->pgid, task);
+    unlock_scheduler();
+}
+void task_set_pid(thread_t* task, pid_t pid)
+{
+    lock_scheduler();
+    task->pid = pid;
+    hashmap_set_item(pid_to_task_hashmap, task->pid, task);
     unlock_scheduler();
 }
 
@@ -345,7 +347,7 @@ void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
     acquire_mutex(&file_table_lock);
     acquire_mutex(&from->file_table_mutex);
     acquire_mutex(&to->file_table_mutex);
-    for (int i = 3; i < OPEN_MAX; i++)
+    for (int i = 0; i < OPEN_MAX; i++)
     {
         if (from->file_table[i].index == invalid_fd || (cloexec && (from->file_table[i].flags & FD_CLOEXEC)))
             to->file_table[i].index = invalid_fd;
@@ -378,7 +380,7 @@ void duplicate_task(thread_t* task)
 
     *new_task = *task;
 
-    new_task->pid = task->forked_pid;
+    task_set_pid(new_task, task->forked_pid);
     new_task->forked_pid = 0;
     new_task->system_task = task->system_task;
 
@@ -556,6 +558,8 @@ void kill_task(thread_t* task, int ret)
         move_task_to_queue(&reapable_tasks, task);
     else
     {
+        LOG(TRACE, "Waking parent (wait4)");
+
         move_task_to_queue(&dead_tasks, task);
         
         thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, task->ppid);

@@ -26,7 +26,7 @@ thread_t* last_task = NULL;
 bool multitasking_enabled = false;
 
 pid_t task_reading_stdin = -1;
-utf32_buffer_t keyboard_input_buffer;
+utf32_buffer_t keyboard_input_buffer, keyboard_buffered_input_buffer;
 
 int task_lock_depth = 0;
 uint64_t scheduler_lock_rflags;
@@ -38,6 +38,7 @@ void multitasking_init()
     current_task = NULL;
 
     utf32_buffer_init(&keyboard_input_buffer);
+    utf32_buffer_init(&keyboard_buffered_input_buffer);
     task_reading_stdin = -1;
 
     futex_tq_hashmap = hashmap_create(1 * MB);

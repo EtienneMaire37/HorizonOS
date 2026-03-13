@@ -80,6 +80,8 @@ int num_environ;
 
 initrd_file_t* commit_file;
 
+atomic_flag core_log_spinlock = ATOMIC_FLAG_INIT;
+
 void _start()
 {
     disable_interrupts();
@@ -90,7 +92,10 @@ void _start()
     cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
     // * CPUID is guaranteed to be present on x86_64
     
+    acquire_spinlock(&core_log_spinlock);
     fprintf(stderr, "a");
+    first_log = true;
+    release_spinlock(&core_log_spinlock);
     
     if (!is_bsp()) // * SMP not supported for now
         halt();
@@ -132,9 +137,45 @@ void _start()
     cpuid(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
     LOG(INFO, "CPUID highest extended function parameter: %#x", cpuid_highest_extended_function_parameter);
 
+    if (strcmp(manufacturer_id_string, "GenuineIntel") == 0)
+        cpu_brand = CPU_INTEL;
+    else if (strcmp(manufacturer_id_string, "AuthenticAMD") == 0)
+        cpu_brand = CPU_AMD;
+    else
+        cpu_brand = CPU_UNKNOWN;
+
+    if (cpu_brand == CPU_AMD)
+    {
+        char easter_egg_str[17];
+
+        uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+        cpuid_no_check(0x8ffffffe, eax, ebx, ecx, edx);
+
+        *(uint32_t*)&easter_egg_str[0] = eax;
+        *(uint32_t*)&easter_egg_str[4] = ebx;
+        *(uint32_t*)&easter_egg_str[8] = edx;
+        *(uint32_t*)&easter_egg_str[12] = ecx;
+        easter_egg_str[16] = 0;
+
+        if (strcmp(easter_egg_str, "") != 0)
+            LOG(INFO, "AMD Easter egg string: \"%s\"", easter_egg_str);
+
+        eax = ebx = ecx = edx = 0;
+        cpuid_no_check(0x8fffffff, eax, ebx, ecx, edx);
+
+        *(uint32_t*)&easter_egg_str[0] = eax;
+        *(uint32_t*)&easter_egg_str[4] = ebx;
+        *(uint32_t*)&easter_egg_str[8] = edx;
+        *(uint32_t*)&easter_egg_str[12] = ecx;
+        easter_egg_str[16] = 0;
+
+        if (strcmp(easter_egg_str, "") != 0)
+            LOG(INFO, "AMD Easter egg string: \"%s\"", easter_egg_str);
+    }
+
     if (cpuid_highest_extended_function_parameter >= 0x80000008)
     {
-        uint32_t eax = 0, ebx, ecx, edx; // Just so gcc doesn't complain but cant possibly be used uninitialized
+        uint32_t eax = 0, ebx, ecx, edx;
         cpuid(0x80000008, eax, ebx, ecx, edx);
         physical_address_width = eax & 0xff;
     }
@@ -594,7 +635,7 @@ void _start()
 
     multitasking_init();
 
-    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/sbin/init", NULL}, (char*[]){"PATH=/sbin:/bin:/usr/bin", NULL});
+    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/sbin/init", NULL}, (char*[]){NULL});
     if (!multitasking_add_task_from_vfs("init", "/sbin/init", 3, true, &data, vfs_root))
     {
         LOG(CRITICAL, "init task couldn't start");
