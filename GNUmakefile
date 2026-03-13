@@ -208,6 +208,8 @@ $(DASH_DL_STAMP):
 	rm -rf $(DASH_DIR)
 	mkdir -p $(DASH_DIR)
 	git clone https://github.com/danishprakash/dash $(DASH_DIR)
+	cd $(DASH_DIR) && git checkout a9481f4
+	patch src/tasks/src/dash/dash.c < diffs/dash/dash.c.diff
 	rm -f $(DASH_DIR)/makefile
 	cp diffs/dash/makefile $(DASH_DIR)/makefile
 	touch $@
