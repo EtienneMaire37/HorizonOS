@@ -442,7 +442,6 @@ void tty_outc(char c)
 
 		for (uint32_t i = 0; i < tty_res_y - 1; i++)
 			memcpy(&tty_data[i * MAX_TTY_X], &tty_data[(i + 1) * MAX_TTY_X], MAX_TTY_X * sizeof(uint16_t));
-		memmove(&tty_data[0], &tty_data[MAX_TTY_X], sizeof(tty_data[0]) * MAX_TTY_X);
 		memset(&tty_data[(tty_res_y - 1) * MAX_TTY_X], 0x0f, MAX_TTY_X * sizeof(tty_data[0]));
 	}
 	#ifndef DEBUG_SCREEN

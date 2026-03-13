@@ -558,8 +558,6 @@ void kill_task(thread_t* task, int ret)
         move_task_to_queue(&reapable_tasks, task);
     else
     {
-        LOG(TRACE, "Waking parent (wait4)");
-
         move_task_to_queue(&dead_tasks, task);
         
         thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, task->ppid);
