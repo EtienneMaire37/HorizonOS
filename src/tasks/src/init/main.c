@@ -6,6 +6,8 @@
 
 int main(int argc, char** argv)
 {
+    tcsetpgrp(STDIN_FILENO, getpgrp());
+
     assert(open("/dev/tty", O_RDONLY) == STDIN_FILENO);
     assert(open("/dev/tty", O_WRONLY) == STDOUT_FILENO);
     assert(open("/dev/tty", O_WRONLY) == STDERR_FILENO);
@@ -13,7 +15,7 @@ int main(int argc, char** argv)
     setenv("PATH", "/sbin:/bin:/usr/bin", 0);
     setenv("HOME", "/root", 0);
 
-    tcsetpgrp(STDIN_FILENO, getpgrp());
+    chdir(getenv("HOME"));
 
     execvp("bash", (char*[]){"bash", (char*)NULL});
 

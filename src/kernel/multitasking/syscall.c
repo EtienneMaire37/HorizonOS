@@ -588,14 +588,14 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret_errno = EFAULT;
             break;
         }
-        const char* str = "horizonos-pc";
+        const char* str = "hos-pc";
         const size_t len = strlen(str) + 1;
         if (arg2 <= 0)
         {
             sc_ret_errno = EINVAL;
             break;
         }
-        if (arg2 > len)
+        if (len > arg2)
         {
             sc_ret_errno = ENAMETOOLONG;
             break;
