@@ -77,11 +77,17 @@ srgb_t vga_get_color(uint8_t vga_color_code)
 
 srgb_t vga_get_bg_color(uint8_t vga_color_code)
 {
+    // * For now don't add unnecessary data to tty_data
+    if ((vga_color_code & 0xf0) == BG_BLACK)
+        return theme_primary_background;
     return vga_get_color(vga_color_code >> 4);
 }
 
 srgb_t vga_get_fg_color(uint8_t vga_color_code)
 {
+    // * Same here
+    if ((vga_color_code & 0x0f) == FG_WHITE)
+        return theme_primary_foreground;
     return vga_get_color(vga_color_code);
 }
 
