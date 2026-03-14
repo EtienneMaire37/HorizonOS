@@ -8,7 +8,7 @@
 #include "../vfs/vfs.h"
 #include "../multitasking/task.h"
 #include "../multitasking/multitasking.h"
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include "../multitasking/queue.h"
 #include "../int/kernel_panic.h"
 #include "../cpu/registers.h"

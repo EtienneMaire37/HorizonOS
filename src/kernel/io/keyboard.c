@@ -5,7 +5,7 @@
 #include "../util/math.h"
 #include "../multitasking/task.h"
 #include "../multitasking/multitasking.h"
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 
 #include <assert.h>
 

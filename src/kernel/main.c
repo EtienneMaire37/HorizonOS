@@ -57,7 +57,7 @@ int num_environ;
 
 #include "multitasking/task.h"
 #include "multitasking/loader.h"
-#include "vga/textio.h"
+#include "terminal/textio.h"
 #include "paging/paging.h"
 #include "int/int.h"
 #include "memalloc/page_frame_allocator.h"

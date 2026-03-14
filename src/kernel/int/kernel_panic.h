@@ -5,7 +5,7 @@
 #include "../debug/out.h"
 #include "../cpu/util.h"
 #include "../initrd/initrd.h"
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include "int.h"
 #include "../paging/paging.h"
 #include "../util/math.h"

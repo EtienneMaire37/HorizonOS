@@ -4,7 +4,7 @@
 #include "../cpu/memory.h"
 #include "../paging/paging.h"
 #include <fcntl.h>
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include <string.h>
 #include "queue.h"
 #include "multitasking.h"

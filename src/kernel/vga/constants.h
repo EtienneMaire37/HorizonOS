@@ -36,7 +36,3 @@
 #define BG_LIGHTMAGENTA  0xd0
 #define BG_YELLOW        0xe0
 #define BG_WHITE         0xf0
-
-#define TAB_LENGTH       4
-
-#define TTY_ANSI_BUFFER     32

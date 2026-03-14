@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include "../debug/out.h"
 
 ssize_t write(int fd, const void* buf, size_t n)

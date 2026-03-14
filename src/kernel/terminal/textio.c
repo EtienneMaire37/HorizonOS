@@ -1,6 +1,6 @@
 #include "../files/psf.h"
 #include <termios.h>
-#include "constants.h"
+#include "../vga/constants.h"
 #include "../multitasking/multitasking.h"
 #include "textio.h"
 
@@ -24,12 +24,12 @@ uint8_t tty_escape_sequence_index = 0;
 bool tty_reading_escape_sequence = false, tty_reading_control_sequence = false;
 
 #include "textio.h"
-#include "vga.h"
+#include "../vga/vga.h"
 #include "../graphics/linear_framebuffer.h"
 
 void tty_init()
 {
-	tty_set_window_size(framebuffer.width / 10, framebuffer.height / 20);
+	tty_set_window_size(framebuffer.width / 8, framebuffer.height / (8 * TTY_AR));
     tty_color = FG_WHITE | BG_BLACK;
 	tty_clear_screen(' ');
 }
@@ -121,7 +121,10 @@ void tty_set_window_size(int sx, int sy)
 {
 	LOG(DEBUG, "tty_set_window_size(%d, %d)", sx, sy);
 	if (sx > MAX_TTY_X || sy > MAX_TTY_Y || sx <= 0 || sy <= 0)
-		return;
+	{
+		sx = MAX_TTY_X;
+		sy = sx / TTY_AR;
+	}
 	lock_scheduler();
 	tty_res_x = sx;
 	tty_res_y = sy;
@@ -148,7 +151,7 @@ uint32_t tty_get_character_height()
 uint32_t tty_get_character_pos_x(uint32_t index)
 {
 	lock_scheduler();
-	uint32_t ret = tty_get_character_width() * (index % tty_res_x);
+	uint32_t ret = tty_get_character_width() * (index % MAX_TTY_X);
 	unlock_scheduler();
 	return ret;
 }
@@ -214,7 +217,9 @@ void tty_render_cursor(uint32_t cursor)
 	uint32_t x = tty_get_character_pos_x(cursor);
 	uint32_t y = tty_get_character_pos_y(cursor);
 
-	framebuffer_fill_rect(&framebuffer, x, y + (8 * height / 10), width, height / 5, 255, 255, 255);
+	srgb_t cursor_col = theme_cursor_color;
+
+	framebuffer_fill_rect(&framebuffer, x, y + (8 * height / 10), width, height / 5, cursor_col.r, cursor_col.g, cursor_col.b);
 
 	unlock_scheduler();
 }
@@ -422,8 +427,8 @@ void tty_outc(char c)
 		tty_cursor++;
 		if (tty_cursor % MAX_TTY_X >= tty_res_x)
 		{
-			tty_cursor += MAX_TTY_X;
 			tty_cursor -= tty_cursor % MAX_TTY_X;
+			tty_cursor += MAX_TTY_X;
 		}
 	}
 

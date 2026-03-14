@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 #include "../util/math.h"
 #include <fcntl.h>
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include <errno.h>
 #include "../io/keyboard.h"
 #include "../multitasking/task.h"

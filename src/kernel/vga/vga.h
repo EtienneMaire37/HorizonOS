@@ -2,6 +2,9 @@
 
 #include "../graphics/color.h"
 #include <stdlib.h>
+#include <stdint.h>
+#include "../io/io.h"
+#include "../terminal/themes.h"
 
 // ! VGA Registers are not guaranteed to work under UEFI
 
@@ -47,7 +50,7 @@
 #define VGA_REG_3D4_MODE_CONTROL              0x17
 #define VGA_REG_3D4_LINE_COMPARE              0x18
 
-srgb_t vga_colors[16] = 
+const srgb_t vga_colors[16] = 
 {
     {0x00, 0x00, 0x00}, // 0: Black
     {0x00, 0x00, 0xAA}, // 1: Blue
@@ -69,7 +72,7 @@ srgb_t vga_colors[16] =
 
 srgb_t vga_get_color(uint8_t vga_color_code)
 {
-    return vga_colors[vga_color_code & 0x0f];
+    return theme_colors[vga_color_code & 0x0f];
 }
 
 srgb_t vga_get_bg_color(uint8_t vga_color_code)

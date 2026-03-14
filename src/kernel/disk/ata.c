@@ -6,7 +6,7 @@ uint16_t connected_pci_ide_controllers = 0;
 
 #include "ata.h"
 #include "../pci/pci.h"
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include <stdlib.h>
 #include "../time/time.h"
 

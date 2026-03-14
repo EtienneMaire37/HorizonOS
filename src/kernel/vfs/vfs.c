@@ -12,7 +12,7 @@ extern int errno;
 #include <abi-bits/errno.h>
 #include <fcntl.h>
 #include "../util/math.h"
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include "../util/access.h"
 
 file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];

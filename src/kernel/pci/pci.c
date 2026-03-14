@@ -1,7 +1,7 @@
 #include "pci.h"
 #include "../util/math.h"
 #include "../disk/ata.h"
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 
 initrd_file_t* pci_ids = NULL;
 

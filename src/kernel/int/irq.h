@@ -4,7 +4,7 @@
 #include "int.h"
 #include "../pic/apic.h"
 #include "../time/ktime.h"
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include "../multitasking/multitasking.h"
 
 void handle_apic_irq(interrupt_registers_t* registers)

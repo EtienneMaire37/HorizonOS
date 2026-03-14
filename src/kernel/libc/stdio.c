@@ -8,7 +8,7 @@
 
 int errno;
 
-#include "../vga/textio.h"
+#include "../terminal/textio.h"
 #include "../debug/out.h"
 
 #define LM_NONE 0

@@ -2,15 +2,21 @@
 
 #include "../files/psf.h"
 #include <termios.h>
-#include "constants.h"
+#include "../vga/constants.h"
 
 static inline bool is_printable_character(char c)
 {
     return ((unsigned char)c >= 32) && ((unsigned char)c < 128);
 }
 
+#define TAB_LENGTH       4
+
+#define TTY_ANSI_BUFFER     32
+
 #define MAX_TTY_X   1024
 #define MAX_TTY_Y   1024
+
+#define TTY_AR      2
 
 extern uint16_t tty_data[MAX_TTY_X * MAX_TTY_Y];
 
