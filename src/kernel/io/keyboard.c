@@ -87,8 +87,10 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     bool echo = (ts->c_lflag & ECHO) != 0;
     bool raw = (ts->c_lflag & ICANON) == 0; 
     int noncanonical_read_minimum_count = ts->c_cc[VMIN];
+    int raw_timeout = ts->c_cc[VTIME];
 
-    // LOG(TRACE, "ts: %d %d %d", echo, raw, noncanonical_read_minimum_count);
+    // LOG(TRACE, "ts: echo:%d raw:%d vmin:%d vtime:%d", 
+    //     echo, raw, noncanonical_read_minimum_count, raw_timeout);
 
     char ascii = utf32_to_bios_oem(character);
     if (!is_printable_character(ascii)
@@ -96,7 +98,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         && vk != VK_HOME && vk != VK_END
         && vk != VK_INSERT && vk != VK_DELETE
         && vk != VK_PAGEUP && vk != VK_PAGEDOWN
-        && ascii != '\n' && ascii != '\t' && ascii != '\b'
+        && ascii != '\n' && ascii != '\t' && ascii != '\b' && ascii != tty_ts.c_cc[VEOF]
         ) 
         return;
     lock_scheduler();
@@ -229,7 +231,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
             }
         }
     }
-    if ((character == '\n' || character == 4) || (raw && get_buffered_characters(keyboard_input_buffer) >= noncanonical_read_minimum_count))   // * EOL or EOF
+    if ((character == '\n' || character == tty_ts.c_cc[VEOF]) || (raw && get_buffered_characters(keyboard_input_buffer) >= noncanonical_read_minimum_count))   // * EOL or EOF
     {
         assert(keyboard_buffered_input_buffer.size == keyboard_input_buffer.size);
         memcpy(keyboard_buffered_input_buffer.characters, keyboard_input_buffer.characters, keyboard_input_buffer.size);

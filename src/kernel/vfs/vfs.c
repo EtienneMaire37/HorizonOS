@@ -822,7 +822,7 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
             lock_scheduler();
         }
         uint64_t ret = minint(get_buffered_characters(keyboard_buffered_input_buffer), count);
-        for (uint32_t i = 0; i < count; i++)
+        for (uint32_t i = 0; i < ret; i++)
             // *** Only ASCII for now ***
             buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&keyboard_buffered_input_buffer));
         unlock_scheduler();
@@ -845,11 +845,6 @@ ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t
         return count;
     }
     return 0;
-}
-
-ssize_t task_chr_stderr(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
-{
-    return task_chr_stdout(entry, buf, count, direction);
 }
 
 ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)

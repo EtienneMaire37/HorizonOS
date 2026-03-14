@@ -17,6 +17,7 @@
 #include <assert.h>
 #include "signal.h"
 #include "multitasking.h"
+#include "../util/memory.h"
 
 extern void sigret();
 
@@ -42,7 +43,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         ssize_t ret;
         sc_ret_errno = (uint64_t)vfs_read(arg1, arg2, arg3, &ret);
         sc_ret(1) = (uint64_t)ret;
-        // LOG(TRACE, "val: %c", ((char*)arg2)[0]);
+        // hexdump(arg2, ret);
         break;
     sc_case(SYS_WRITE, 3, int, const void*, size_t)
         SC_LOG("syscall SYS_WRITE(%d, %p, %zu)", arg1, arg2, arg3);
@@ -356,11 +357,11 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             keyboard_buffered_input_buffer.get_index = keyboard_buffered_input_buffer.put_index = 0;
             keyboard_input_buffer.get_index = keyboard_input_buffer.put_index = 0;
         }
-        LOG(TRACE, "TCSETATTR: .c_iflag = %#o", arg3->c_iflag);
-        LOG(TRACE, "TCSETATTR: .c_oflag = %#o", arg3->c_oflag);
-        LOG(TRACE, "TCSETATTR: .c_cflag = %#o", arg3->c_cflag);
-        LOG(TRACE, "TCSETATTR: .c_lflag = %#o", arg3->c_lflag);
-        LOG(TRACE, "TCSETATTR: .c_line = `%c`", arg3->c_line);
+        // LOG(TRACE, "TCSETATTR: .c_iflag = %#o", arg3->c_iflag);
+        // LOG(TRACE, "TCSETATTR: .c_oflag = %#o", arg3->c_oflag);
+        // LOG(TRACE, "TCSETATTR: .c_cflag = %#o", arg3->c_cflag);
+        // LOG(TRACE, "TCSETATTR: .c_lflag = %#o", arg3->c_lflag);
+        // LOG(TRACE, "TCSETATTR: .c_line = `%c`", arg3->c_line);
         unlock_scheduler();
         sc_ret_errno = 0;
         break;
@@ -834,6 +835,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         if (arg6)
             current_task->sig_mask = *arg6;
 
+        bool dont_block = arg5 && arg5->tv_nsec == 0 && arg5->tv_sec == 0;
+
         sc_ret_errno = 0;
 
         // * Assume all fds are always ready for now
@@ -845,10 +848,13 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 if (!(vfs_isatty(get_global_file_entry(i)))) continue;
                 if (no_buffered_characters(keyboard_buffered_input_buffer))
                 {
-                    move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
-                    switch_task();
-                    unlock_scheduler();
-                    lock_scheduler();
+                    if (!dont_block)
+                    {
+                        move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
+                        switch_task();
+                        unlock_scheduler();
+                        lock_scheduler();
+                    }
 
                     if (no_buffered_characters(keyboard_buffered_input_buffer))
                     {
@@ -857,6 +863,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                             FD_CLR(j, arg2);
                         break;
                     }
+                    else
+                        break;
                 }
             }
         }
