@@ -76,7 +76,7 @@ $(MLIBC_STAMP): mlibc/src/* $(HOSGCC)
 	touch $@
 
 $(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub
-	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec --with-libtool-opts=-static
+	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec
 	cd ncurses/ncurses-6.6 && $(MAKE) -j$(nproc)
 	cd ncurses/ncurses-6.6 && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	touch $@
@@ -173,22 +173,22 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 
 src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC)
 	mkdir -p src/tasks/bin
-	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3 -static
+	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
 src/tasks/bin/bash: $(BASH_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC)
-	cd src/tasks/src/bash && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --enable-static-link --without-bash-malloc --disable-nls --with-curses
+	cd src/tasks/src/bash && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --without-bash-malloc --disable-nls --with-curses
 	cd src/tasks/src/bash && $(MAKE) -j$(nproc)
 	cd src/tasks/src/bash && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/bash
 
 src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC)
 	mkdir -p src/tasks/bin
-	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3 -static
+	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
 $(HOSGCC):
-	install-hos-toolchain.sh
+	./install-hos-toolchain.sh
 
 resources/pci.ids:
 	mkdir -p resources

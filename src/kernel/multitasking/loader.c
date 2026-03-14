@@ -58,11 +58,11 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         return NULL;
     }
 
-    if (header->e_type != ET_EXEC) 
-    {
-        LOG(ERROR, "Non executable ELF file (%#x)", header->e_type);
-        return NULL;
-    }
+    // if (header->e_type != ET_EXEC) 
+    // {
+    //     LOG(ERROR, "Non executable ELF file (%#x)", header->e_type);
+    //     return NULL;
+    // }
 
     thread_t* task = task_create_empty();
     if (!task) return NULL;
@@ -187,6 +187,10 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         else
             task_write_at_address_8b(task, (uint64_t)&data_cpy.cmd[i], 0);
     }
+
+    assert(!(task->rsp & 0x7));
+    if ((data->envc + data->argc + (task->rsp / 8) + 1) % 2 != 0)
+        task_stack_push(task, 0);
 
     // const int auxc = 0;
     task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_NULL, .a_un.a_val = 0});

@@ -70,9 +70,29 @@ const srgb_t vga_colors[16] =
     {0xFF, 0xFF, 0xFF}  // 15: White
 };
 
+static const uint8_t vga_to_term[16] =
+{
+    0,  // black
+    4,  // blue
+    2,  // green
+    6,  // cyan
+    1,  // red
+    5,  // magenta
+    3,  // brown -> yellow
+    7,  // light gray -> white
+    8,  // dark gray -> bright black
+    12, // light blue
+    10, // light green
+    14, // light cyan
+    9,  // light red
+    13, // light magenta
+    11, // yellow
+    15  // white
+};
+
 srgb_t vga_get_color(uint8_t vga_color_code)
 {
-    return theme_colors[vga_color_code & 0x0f];
+    return theme_colors[vga_to_term[vga_color_code & 0x0f]];
 }
 
 srgb_t vga_get_bg_color(uint8_t vga_color_code)

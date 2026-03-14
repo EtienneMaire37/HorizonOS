@@ -632,13 +632,24 @@ void _start()
 
     multitasking_init();
 
-    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/sbin/init", NULL}, (char*[]){NULL});
-    if (!multitasking_add_task_from_vfs("init", "/sbin/init", 3, true, &data, vfs_root))
+    startup_data_struct_t data = startup_data_init_from_command((char*[]){"ld.so", "/sbin/init", NULL}, (char*[]){NULL});
+    thread_t* init_task = multitasking_add_task_from_vfs("init", "/usr/lib/ld.so", 3, true, &data, vfs_root);
+    if (!init_task)
     {
         LOG(CRITICAL, "init task couldn't start");
         printf("\x1b[31merror\x1b[0m: init task couldn't start\n");
         abort();
     }
+
+    init_task->file_table[STDIN_FILENO].flags = 0;
+    init_task->file_table[STDIN_FILENO].index = 0;
+    file_table[init_task->file_table[STDIN_FILENO].index].used++;
+    init_task->file_table[STDOUT_FILENO].flags = 0;
+    init_task->file_table[STDOUT_FILENO].index = 1;
+    file_table[init_task->file_table[STDOUT_FILENO].index].used++;
+    init_task->file_table[STDERR_FILENO].flags = 0;
+    init_task->file_table[STDERR_FILENO].index = 2;
+    file_table[init_task->file_table[STDERR_FILENO].index].used++;
 
     LOG(DEBUG, "Starting multitasking...");
 
