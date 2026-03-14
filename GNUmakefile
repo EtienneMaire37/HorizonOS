@@ -125,6 +125,7 @@ bios-debug: horizonos.iso
 
 horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/boot/limine.conf limine/limine
 	rm -f $@
+	rm -rf bin/initrd_contents
 
 	mkdir -p bin/initrd_contents
 
@@ -135,7 +136,7 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 	mkdir -p bin/initrd_contents/etc
 	mkdir -p bin/initrd_contents/root
 
-	echo "root:x:0:0:root:/root:/bin/bash" > bin/initrd_contents/etc/passwd
+	cp -r src/system/* bin/initrd_contents
 
 	cp root/usr/lib/ld.so bin/initrd_contents/usr/lib/ld.so
 	cp root/usr/lib/libc.so bin/initrd_contents/usr/lib/libc.so

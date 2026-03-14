@@ -616,9 +616,23 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret_errno = EFAULT;
             break;
         }
-        bool relative_path = *arg2 != '/';
         lock_scheduler();
-        if (relative_path && !is_fd_valid(arg1))
+        file_entry_t* entry = get_global_file_entry(arg1);
+        if (arg1 != AT_FDCWD && !entry)
+        {
+            sc_ret_errno = EBADF;
+            unlock_scheduler();
+            break;
+        }
+        if (strcmp(arg2, "") == 0 && (arg3 & arg3 & AT_EMPTY_PATH))
+        {
+            *arg4 = entry->entry_type == ET_FILE ? entry->tnode.file->inode->st : entry->tnode.folder->inode->st;
+            sc_ret_errno = 0;
+            unlock_scheduler();
+            break;
+        }
+        bool relative_path = *arg2 != '/';
+        if (relative_path && !entry)
         {
             unlock_scheduler();
             sc_ret_errno = EBADF;
@@ -627,7 +641,11 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         vfs_folder_tnode_t* cwd = NULL;
         if (relative_path)
         {
-            file_entry_t* entry = get_global_file_entry(arg1);
+            if (arg1 == AT_FDCWD)
+            {
+                cwd = current_task->cwd;
+                goto fstatat_get_st;
+            }
             if (entry->entry_type != ET_FOLDER)
             {
                 sc_ret_errno = ENOTDIR;
@@ -636,7 +654,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             }
             if (entry->entry_type == ET_FOLDER)
             {
-                cwd = arg1 == AT_FDCWD ? current_task->cwd : entry->tnode.file->inode->parent;
+                cwd = entry->tnode.file->inode->parent;
                 if (*arg2 == 0) // * empty path
                 {
                     if (arg3 & AT_EMPTY_PATH)
