@@ -224,7 +224,7 @@ ncurses/ncurses-6.6/config.sub:
 	cd tmp && wget https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz
 	tar xf "tmp/ncurses-6.6.tar.gz" -C ncurses/
 	rm -rf tmp/
-	cd ncurses/ncurses-6.6 && patch config.sub < ..diffs/ncurses/ncurses.diff
+	cd ncurses/ncurses-6.6 && patch config.sub < ../diffs/ncurses/ncurses.diff
 
 $(LINUX_HEADERS_STAMP):
 	rm -rf linux-headers linux-kernel-headers
