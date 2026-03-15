@@ -210,7 +210,7 @@ $(BASH_DL_STAMP):
 	git -C $(BASH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
 	touch $@
 
-$(HOSGCC): linux-headers
+$(HOSGCC): $(LINUX_HEADERS_STAMP)
 	./install-hos-toolchain.sh
 
 resources/pci.ids:
