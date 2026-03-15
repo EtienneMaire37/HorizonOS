@@ -163,12 +163,14 @@ thread_t* find_next_task()
 
 bool is_fd_valid(int fd)
 {
+    lock_scheduler();
     if (fd < 0 || fd >= OPEN_MAX)
-        return false;
+        return (unlock_scheduler(), false);
     if (current_task->file_table[fd].index == invalid_fd)
-        return false;
+        return (unlock_scheduler(), false);
     if (current_task->file_table[fd].index < 0 || current_task->file_table[fd].index >= MAX_FILE_TABLE_ENTRIES)
-        return false;
+        return (unlock_scheduler(), false);
+    unlock_scheduler();
     return true;
 }
 

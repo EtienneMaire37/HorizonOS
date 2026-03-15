@@ -54,15 +54,6 @@ mlibc: $(MLIBC_STAMP)
 $(MLIBC_STAMP): mlibc/src/* $(HOSGCC)
 	cp -r mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
 	mkdir -p mlibc/mlibc/build
-	cd mlibc/mlibc && meson \
-		setup \
-		--cross-file=.cross_file \
-		--prefix=/usr \
-		-Ddefault_library=static \
-		build --reconfigure
-
-	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
-	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
 
 	cd mlibc/mlibc && meson \
 		setup \
@@ -140,6 +131,7 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 
 	cp root/usr/lib/ld.so bin/initrd_contents/usr/lib/ld.so
 	cp root/usr/lib/libc.so bin/initrd_contents/usr/lib/libc.so
+	cp root/usr/lib/libdl.so bin/initrd_contents/usr/lib/libdl.so
 
 	mv src/tasks/bin/init bin/initrd_contents/sbin/init
 	cp src/tasks/bin/* bin/initrd_contents/bin/ -r

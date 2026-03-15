@@ -30,11 +30,9 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 {
     LOG(INFO, "Loading ELF file \"/initrd/%s\"", path);
 
-    if (ring != 0 && ring != 3)
-    {
-        LOG(ERROR, "Invalid privilege level");
-        return NULL;
-    }
+    bool dynamic = false;
+
+    assert(ring == 0 || ring == 3);
 
     initrd_file_t* file;
     if (!(file = initrd_find_file(path))) 
@@ -58,11 +56,11 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         return NULL;
     }
 
-    // if (header->e_type != ET_EXEC) 
-    // {
-    //     LOG(ERROR, "Non executable ELF file (%#x)", header->e_type);
-    //     return NULL;
-    // }
+    if (header->e_type != ET_EXEC) 
+    {
+        LOG(ERROR, "Non executable ELF file (%#x)", header->e_type);
+        return NULL;
+    }
 
     thread_t* task = task_create_empty();
     if (!task) return NULL;
@@ -80,6 +78,8 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 
     const Elf64_Half n_ph = header->e_phnum;
 
+    uint64_t at_phdr = 0;
+
     for (Elf64_Half i = 0; i < n_ph; i++)
     {
         Elf64_Phdr* ph = (Elf64_Phdr*)&file->data[header->e_phoff + i * header->e_phentsize];
@@ -92,8 +92,14 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         LOG(DEBUG, "├── Memory size : %" PRIu64 " bytes", ph->p_memsz);
         LOG(DEBUG, "└── File size : %" PRIu64 " bytes", ph->p_filesz);
 
+        if (ph->p_type == PT_DYNAMIC)
+            dynamic = true;
+
         if (ph->p_type != PT_LOAD) 
             continue;
+
+        if (ph->p_offset == 0)
+            at_phdr = ph->p_vaddr + header->e_phoff;
 
         virtual_address_t start_address = ph->p_vaddr & ~0xfff;
         virtual_address_t end_address = ph->p_vaddr + ph->p_memsz;
@@ -135,25 +141,6 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         }
     }
 
-    const Elf64_Half n_sh = header->e_shnum;
-    const Elf64_Shdr* shstrtab = (Elf64_Shdr*)&file->data[header->e_shoff + header->e_shstrndx * header->e_shentsize];
-
-    for (Elf64_Half i = 0; i < n_sh; i++)
-    {
-        Elf64_Shdr* sh = (Elf64_Shdr*)&file->data[header->e_shoff + i * header->e_shentsize];
-        if (sh->sh_type == SHT_NULL) continue;
-
-        const char* name = (const char*)&file->data[shstrtab->sh_offset + sh->sh_name];
-
-        LOG(DEBUG, "Section header %u : ", i);
-        LOG(DEBUG, "├── Name : \"%s\"", name);
-        LOG(DEBUG, "├── Type : %#x", sh->sh_type);
-        LOG(DEBUG, "├── Address : %#" PRIx64, sh->sh_addr);
-        LOG(DEBUG, "└── Size : %" PRIu64 " bytes", sh->sh_size);
-    }
-
-
-
     startup_data_struct_t data_cpy = *data;
 
     for (int i = 0; i <= data->envc; i++)
@@ -192,10 +179,92 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
     if ((data->envc + data->argc + (task->rsp / 8) + 1) % 2 != 0)
         task_stack_push(task, 0);
 
-    // const int auxc = 0;
     task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_NULL, .a_un.a_val = 0});
-    // for (int i = 0; i < auxc; i++)
-    //     task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = , .a_un.a_val = });
+
+    Elf64_Ehdr* ld_so_header = NULL;
+    if (dynamic)
+    {
+        initrd_file_t* ld_so;
+        assert(ld_so = initrd_find_file("usr/lib/ld.so"));
+
+        ld_so_header = (Elf64_Ehdr*)ld_so->data;
+        assert(ld_so_header);
+
+        assert(memcmp("\x7f""ELF", ld_so_header->e_ident, 4) == 0);
+
+        assert(!(ld_so_header->e_ident[4] != ELFCLASS64 || 
+            ld_so_header->e_ident[5] != ELFDATA2LSB || 
+            ld_so_header->e_machine != EM_X86_64));
+
+        const Elf64_Half ld_n_ph = ld_so_header->e_phnum;
+
+        for (Elf64_Half i = 0; i < ld_n_ph; i++)
+        {
+            Elf64_Phdr* ph = (Elf64_Phdr*)&ld_so->data[ld_so_header->e_phoff + i * ld_so_header->e_phentsize];
+            if (ph->p_type == PT_NULL) continue;
+
+            LOG(DEBUG, "ld.so: Program header %u : ", i);
+            LOG(DEBUG, "├── Type : %#x", ph->p_type);
+            LOG(DEBUG, "├── Virtual address : %#" PRIx64, ph->p_vaddr);
+            LOG(DEBUG, "├── File offset : %#" PRIx64, ph->p_offset);
+            LOG(DEBUG, "├── Memory size : %" PRIu64 " bytes", ph->p_memsz);
+            LOG(DEBUG, "└── File size : %" PRIu64 " bytes", ph->p_filesz);
+
+            if (ph->p_type == PT_DYNAMIC)
+                dynamic = true;
+
+            if (ph->p_type != PT_LOAD) 
+                continue;
+
+            virtual_address_t start_address = ph->p_vaddr & ~0xfff;
+            virtual_address_t end_address = ph->p_vaddr + ph->p_memsz;
+            uint64_t num_pages = (end_address - start_address + 0xfff) >> 12;
+
+            // LOG(DEBUG, "%#" PRIx64 " : %" PRIu64 " pages", start_address, num_pages);
+
+            allocate_range((uint64_t*)(task->cr3 + PHYS_MAP_BASE), 
+                        start_address, num_pages, 
+                        ring == 0 ? PG_SUPERVISOR : PG_USER,
+                        ph->p_flags & PF_W ? PG_READ_WRITE : PG_READ_ONLY, 
+                        CACHE_WB);
+
+            uint64_t file_offset = ph->p_offset;
+            uint64_t remaining_file = ph->p_filesz;
+            uint64_t remaining_zero = ph->p_memsz;
+
+            for (uint64_t page = 0; page < num_pages; page++)
+            {
+                uint64_t page_vaddr = start_address + page * 0x1000;
+                uint8_t* phys = (uint8_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), page_vaddr);
+
+                if (!phys)
+                    continue;
+
+                size_t offset_in_page = (page == 0) ? (ph->p_vaddr & 0xfff) : 0;
+                size_t bytes_in_page = 0x1000 - offset_in_page;
+
+                size_t to_copy = (remaining_file < bytes_in_page) ? remaining_file : bytes_in_page;
+
+                memcpy(phys + offset_in_page, &ld_so->data[file_offset], to_copy);
+
+                size_t to_zero = bytes_in_page - to_copy;
+                memset(phys + offset_in_page + to_copy, 0, to_zero);
+
+                remaining_file -= to_copy;
+                remaining_zero -= bytes_in_page;
+                file_offset += to_copy;
+            }
+        }
+
+        LOG(DEBUG, "ld.so entry point: %#" PRIx64, ld_so_header->e_entry);
+
+        task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_PHDR, .a_un.a_val = at_phdr});
+        task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_PHNUM, .a_un.a_val = n_ph});
+        task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_PHENT, .a_un.a_val = header->e_phentsize});
+        task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_ENTRY, .a_un.a_val = header->e_entry});
+        task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_BASE, .a_un.a_val = 0});
+        task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_PAGESZ, .a_un.a_val = 4096});
+    }
         
     for (int i = 0; i < data->envc + 1; i++)
         task_stack_push(task, task_read_at_aligned_address_8b(task, (uint64_t)&data_cpy.environ[data->envc - i]));
@@ -203,8 +272,9 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         task_stack_push(task, task_read_at_aligned_address_8b(task, (uint64_t)&data_cpy.cmd[data->argc - i]));
 
     task_stack_push(task, (uint64_t)data_cpy.argc);
+    // * Stack is now mapped according to the SysV ABI
 
-    task_setup_stack(task, header->e_entry);
+    task_setup_stack(task, dynamic ? ld_so_header->e_entry : header->e_entry);
 
     multitasking_add_task(task);
     task_count++;

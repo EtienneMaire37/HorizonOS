@@ -562,6 +562,7 @@ void _start()
     }
 
     LOG(INFO, "Setting up the VFS...");
+    printf("Mounting initrd at root...\n");
     vfs_root = vfs_create_empty_folder_tnode("root", NULL, VFS_NODE_MOUNTPOINT | VFS_NODE_INIT, 
         0,
         S_IFDIR | 
@@ -632,8 +633,8 @@ void _start()
 
     multitasking_init();
 
-    startup_data_struct_t data = startup_data_init_from_command((char*[]){"ld.so", "/sbin/init", NULL}, (char*[]){NULL});
-    thread_t* init_task = multitasking_add_task_from_vfs("init", "/usr/lib/ld.so", 3, true, &data, vfs_root);
+    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/sbin/init", NULL}, (char*[]){NULL});
+    thread_t* init_task = multitasking_add_task_from_vfs("init", "/sbin/init", 3, true, &data, vfs_root);
     if (!init_task)
     {
         LOG(CRITICAL, "init task couldn't start");

@@ -95,14 +95,14 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         }
 
         // * Don't support file mapping/sharing shenanigans for now
-        if (arg4 != (MAP_PRIVATE | MAP_ANONYMOUS))
+        if (arg4 & ~(MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED))
         {
             sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)MAP_FAILED;
             break;
         }
 
-        void* addr = vmm_find_free_user_space_pages(arg1, arg2 / 4096);
+        void* addr = arg4 & MAP_FIXED ? arg1 : vmm_find_free_user_space_pages(arg1, arg2 / 4096);
         SC_LOG("MMAP: Found %zu free pages at %p", arg2 / 4096, addr);
 
         if (!addr)
@@ -130,7 +130,26 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret_errno = EINVAL;
             break;
         }
+        sc_ret_errno = 0;
         free_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), (virtual_address_t)arg1, (arg2 + 0xfff) >> 12);
+        break;
+    sc_case(SYS_VM_PROTECT, 3, void*, size_t, int)
+        SC_LOG("syscall SYS_VM_PROTECT(%p, %zu, %d)", arg1, arg2, arg3);
+        sc_ret_errno = 0;
+        arg2 = (arg2 + 0xfff) & ~0xfffULL;
+        if (arg2 == 0 || (uint64_t)arg1 & 0xfff)
+        {
+            sc_ret_errno = EINVAL;
+            sc_ret(1) = (uint64_t)MAP_FAILED;
+            break;
+        }
+        if (arg3 & ~(PROT_NONE | PROT_READ | PROT_WRITE | PROT_EXEC))
+        {
+            sc_ret_errno = EINVAL;
+            sc_ret(1) = (uint64_t)MAP_FAILED;
+            break;
+        }
+        // * For now completely ignore
         break;
     sc_case(SYS_SEEK, 3, int, off_t, int)
         SC_LOG("syscall SYS_SEEK(%d, %" PRId64 ", %d)", arg1, arg2, arg3);
@@ -257,10 +276,9 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         if (!is_fd_valid(arg1))
         {
             sc_ret_errno = EBADF;
-            sc_ret(1) = (uint64_t)(-1);
             break;
         }
-        vfs_close(arg1);
+        sc_ret_errno = 0;
         break;
     sc_case(SYS_IOCTL, 3, int, unsigned long, void*)
         SC_LOG("syscall SYS_IOCTL(%d, %#lx, %p)", arg1, arg2, arg3);

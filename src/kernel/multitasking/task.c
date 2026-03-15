@@ -96,14 +96,14 @@ void task_destroy(thread_t* task)
 	LOG(TRACE, "Done.");
     unlock_scheduler();
 
-    if (tasks_left == 1)    // * Idle task left
-    {
-        disable_interrupts();
-        tty_cursor_blink = true;
-        printf("\nNo tasks left, halting cpu.");
-        LOG(TRACE, "No tasks left, halting cpu.");
-        halt();
-    }
+    // if (tasks_left == 1)    // * Idle task left
+    // {
+    //     disable_interrupts();
+    //     tty_cursor_blink = true;
+    //     printf("\nNo tasks left, halting cpu.");
+    //     LOG(TRACE, "No tasks left, halting cpu.");
+    //     halt();
+    // }
 }
 
 void task_setup_stack_ex(thread_t* task, 

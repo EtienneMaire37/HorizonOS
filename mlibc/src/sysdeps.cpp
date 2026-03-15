@@ -106,6 +106,11 @@ namespace mlibc
 		return syscall2_1(SYS_VM_UNMAP, (uint64_t)addr, (uint64_t)size);
 	}
 
+	int sys_vm_protect(void* pointer, size_t size, int prot)
+	{
+		return syscall3_1(SYS_VM_PROTECT, (uint64_t)pointer, (uint64_t)size, (uint64_t)prot);
+	}
+
 	int sys_clock_get(int clock, time_t* secs, long* nanos)
 	{
 		return syscall3_1(SYS_CLOCK_GET, (uint64_t)clock, (uint64_t)secs, (uint64_t)nanos);
