@@ -123,7 +123,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
 
         switch (vk)
         {
-        case VK_TAB:    character_len = TAB_LENGTH; break;
+        case VK_TAB:    character_len = !echo ? 1 : TAB_LENGTH; break;
 
         case VK_UP:     character_len = 3; break;
         case VK_DOWN:   character_len = 3; break;
@@ -147,9 +147,12 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
             switch (vk)
             {
             case VK_TAB:
+                if (!echo)
+                    utf32_buffer_putchar(&keyboard_input_buffer, '\t');
+                else
                 for (uint8_t j = 0; j < TAB_LENGTH; j++)
                 {
-                    utf32_buffer_putchar(&keyboard_input_buffer, ' ');                    
+                    utf32_buffer_putchar(&keyboard_input_buffer, ' ');
                     if (echo) putchar(' ');
                 }
                 break;
