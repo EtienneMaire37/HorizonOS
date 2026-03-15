@@ -266,7 +266,7 @@ namespace mlibc
 			if(mlibc::sys_sysinfo) {
 				struct sysinfo info{};
 				if(mlibc::sys_sysinfo(&info) == 0)
-					return info.totalram * info.mem_unit / mlibc::page_size;
+					return info.totalram * info.mem_unit / 4096;
 			}
 #endif
 			return 1024;
@@ -275,7 +275,7 @@ namespace mlibc
 			if(mlibc::sys_sysinfo) {
 				struct sysinfo info{};
 				if(mlibc::sys_sysinfo(&info) == 0)
-					return info.freeram * info.mem_unit / mlibc::page_size;
+					return info.freeram * info.mem_unit / 4096;
 			}
 #endif
 			return 1024;

@@ -20,13 +20,14 @@ meson \
     --cross-file=../cross_file \
     --prefix=/usr \
     -Dheaders_only=true \
-    headers-build
+    headers-build  -Dlinux_kernel_headers="../../linux-kernel-headers/usr/include"
 
 DESTDIR=${TOOLCHAIN_DIR} ninja -C headers-build install
 
-cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
-
 cd ../..
+
+cp -r ${MAKE_DIR}/linux-kernel-headers/usr/include/* ${TOOLCHAIN_DIR}/usr/include
+cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
 
 rm -rf ./tmp
 mkdir -p ./tmp
@@ -97,7 +98,7 @@ meson \
     --cross-file=../cross_file \
     --prefix=/usr \
     -Ddefault_library=static \
-    build
+    build -Dlinux_kernel_headers="../../linux-kernel-headers/usr/include"
 
 DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
 cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}
@@ -107,7 +108,7 @@ meson \
     --cross-file=../cross_file \
     --prefix=/usr \
     -Ddefault_library=shared \
-    build --reconfigure
+    build --reconfigure -Dlinux_kernel_headers="../../linux-kernel-headers/usr/include"
 
 DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
 cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR}

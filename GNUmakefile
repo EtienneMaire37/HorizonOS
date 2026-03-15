@@ -1,8 +1,8 @@
-MAKE_DIR:=$(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
+export MAKE_DIR := $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
 
 export SYSROOT_DIR := ${MAKE_DIR}/root
 export TOOLCHAIN_DIR := ${MAKE_DIR}/hostoolchain
-export PATH := "$(MAKE_DIR)/pkg-config:$(SYSROOT_DIR)/usr/bin:$(SYSROOT_DIR)/usr/include:${PATH}"
+export PATH := "${PATH}:${MAKE_DIR}/pkg-config:$(SYSROOT_DIR)/usr/bin:$(SYSROOT_DIR)/usr/include"
 export PKG_CONFIG := x86_64-horizonos-pkg-config
 export PKG_CONFIG_FOR_BUILD := pkg-config
 
@@ -17,7 +17,8 @@ USER_CFLAGS :=
 MAKE := make
 
 override BASH_DIR := ${MAKE_DIR}/src/tasks/src/bash
-override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no
+override COREUTILS_DIR := ${MAKE_DIR}/src/tasks/src/coreutils
+override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no fu_cv_sys_mounted_getmntinfo=yes
 
 override KERNEL_SRC := $(shell find src/kernel -name '*.c')
 override KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
@@ -25,14 +26,18 @@ override KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
 override ASM_SRC := $(shell find src/kernel -name '*.asm')
 override ASM_OBJ := $(ASM_SRC:src/kernel/%.asm=bin/%.asm.o)
 
-override KERNEL_ELF := bin/kernel.elf
+override KERNEL_ELF := ${MAKE_DIR}/bin/kernel.elf
 
-override MLIBC_STAMP := mlibc/.built
-override NCURSES_STAMP := ncurses/.built
+override MLIBC_STAMP := ${MAKE_DIR}/mlibc/.built
+override NCURSES_STAMP := ${MAKE_DIR}/ncurses/.built
 
-override BASH_DL_STAMP := src/tasks/src/bash/.downloaded
+override BASH_DL_STAMP := $(BASH_DIR)/.downloaded
+override COREUTILS_DL_STAMP := ${MAKE_DIR}/src/tasks/src/coreutils/.downloaded
+override COREUTILS_BUILD_STAMP := ${MAKE_DIR}/src/tasks/src/coreutils/.built
 
-QEMU_FLAGS := -accel kvm -cpu host -debugcon file:debug/latest.log -m 256 -drive file=horizonos.iso,index=0,media=disk,format=raw -smp 8
+override LINUX_HEADERS_STAMP := ${MAKE_DIR}/linux-headers/.built
+
+QEMU_FLAGS := -accel kvm -cpu host -debugcon file:debug/latest.log -m 1024 -drive file=horizonos.iso,index=0,media=disk,format=raw -smp 8
 
 .PHONY: all run rmbin clean
 
@@ -60,7 +65,7 @@ $(MLIBC_STAMP): mlibc/src/* $(HOSGCC)
 		--cross-file=.cross_file \
 		--prefix=/usr \
 		-Ddefault_library=shared \
-		build --reconfigure
+		build --reconfigure  -Dlinux_kernel_headers="../../linux-kernel-headers/usr/include"
 
 	cd mlibc/mlibc && DESTDIR=${TOOLCHAIN_DIR} ninja -C build install
 	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
@@ -137,6 +142,8 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 	cp src/tasks/bin/* bin/initrd_contents/bin/ -r
 	cp bin/initrd_contents/sbin/init src/tasks/bin/init
 
+	rsync -av --exclude 'x86_64-horizonos-*' ${SYSROOT_DIR}/usr/bin/* bin/initrd_contents/bin
+
 	rm -f bin/initrd_contents/bin/sh
 	ln -s bash bin/initrd_contents/bin/sh
 
@@ -163,35 +170,52 @@ horizonos.iso: $(HOSGCC) resources/pci.ids src/tasks/bin/init $(KERNEL_ELF) src/
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* src/tasks/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC)
+src/tasks/bin/init: src/tasks/src/init/* $(COREUTILS_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
-
-src/tasks/bin/bash: $(BASH_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC)
-	cd src/tasks/src/bash && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --without-bash-malloc --disable-nls --with-curses
-	cd src/tasks/src/bash && $(MAKE) -j$(nproc)
-	cd src/tasks/src/bash && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
-	cp ${SYSROOT_DIR}/usr/bin/bash src/tasks/bin/bash
 
 src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
-$(HOSGCC):
-	./install-hos-toolchain.sh
+$(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(MLIBC_STAMP) $(HOSGCC)
+	cd $(COREUTILS_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
+	cd $(COREUTILS_DIR) && $(MAKE) -j$(nproc)
+	cd $(COREUTILS_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
+	touch $@
 
-resources/pci.ids:
-	mkdir -p resources
-	wget https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids -O resources/pci.ids
+$(COREUTILS_DL_STAMP):
+	rm -rf $(COREUTILS_DIR)
+	mkdir -p $(COREUTILS_DIR)
+	git clone git://git.sv.gnu.org/coreutils $(COREUTILS_DIR)
+	cd $(COREUTILS_DIR) && git checkout e644eea122462aa7fa98cbe9b8f93088074588a0
+	cd $(COREUTILS_DIR) && ./bootstrap
+	patch $(COREUTILS_DIR)/gnulib/build-aux/config.sub < diffs/coreutils/config.diff
+	patch $(COREUTILS_DIR)/src/tail.c < diffs/coreutils/tail.diff
+	patch $(COREUTILS_DIR)/gnulib/lib/getlocalename_l-unsafe.c < diffs/coreutils/getlocalename.diff
+	touch $@
+
+root/usr/bin/bash: $(BASH_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC)
+	cd $(BASH_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --without-bash-malloc --disable-nls --with-curses
+	cd $(BASH_DIR) && $(MAKE) -j$(nproc)
+	cd $(BASH_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 
 $(BASH_DL_STAMP):
 	rm -rf $(BASH_DIR)
 	mkdir -p $(BASH_DIR)
 	git clone https://git.savannah.gnu.org/git/bash.git $(BASH_DIR)
+	cd $(BASH_DIR) && git checkout 637f5c8696a6adc9b4519f1cd74aa78492266b7f
 	git -C $(BASH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
 	touch $@
+
+$(HOSGCC): linux-headers
+	./install-hos-toolchain.sh
+
+resources/pci.ids:
+	mkdir -p resources
+	wget https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids -O resources/pci.ids
 
 ncurses/ncurses-6.6/config.sub:
 	rm -rf ncurses
@@ -202,11 +226,17 @@ ncurses/ncurses-6.6/config.sub:
 	rm -rf tmp/
 	cd ncurses/ncurses-6.6 && patch config.sub < ..diffs/ncurses/ncurses.diff
 
+$(LINUX_HEADERS_STAMP):
+	rm -rf linux-headers linux-kernel-headers
+	git clone https://github.com/sabotage-linux/kernel-headers linux-headers
+	cd linux-headers && git checkout 22bba01
+	cd linux-headers && make ARCH=x86_64 prefix=/usr DESTDIR=${MAKE_DIR}/linux-kernel-headers install
+	touch $@
+
 rmbin:
 	rm -rf bin/*
 	rm -rf src/tasks/bin/*
 	rm -rf src/libc/lib/*
-	rm -rf initrd.tar
 	rm -f horizonos.iso
 
 clean: rmbin
@@ -219,7 +249,7 @@ clean: rmbin
 	rm -rf crosstoolchain
 	rm -rf hostoolchain
 	rm -rf debug
-	rm -rf src/tasks/src/bash
+	rm -rf $(BASH_DIR)
 	rm -rf limine
 
 -include $(KERNEL_OBJ:.o=.d)

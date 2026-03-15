@@ -1,6 +1,7 @@
 #include "initrd.h"
 
 #include <stdlib.h>
+#include <assert.h>
 
 initrd_file_t initrd_files[MAX_INITRD_FILES];
 uint8_t initrd_files_count = 0;
@@ -96,8 +97,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 
         initrd_files_count++;
 
-        if (initrd_files_count >= MAX_INITRD_FILES)
-            abort();
+        assert(initrd_files_count < MAX_INITRD_FILES);
         
     do_loop:
         initrd_offset += (file_size + USTAR_BLOCK_SIZE - 1) / USTAR_BLOCK_SIZE * USTAR_BLOCK_SIZE + USTAR_BLOCK_SIZE;

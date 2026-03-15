@@ -5,7 +5,7 @@ debug/*
 bin/*
 src/tasks/bin/*
 src/tasks/src/bash
-src/tasks/src/dash
+src/tasks/src/coreutils
 
 root/
 
@@ -29,3 +29,6 @@ ncurses/*
 .deps-obtained
 limine
 limine-protocol
+
+linux-headers
+linux-kernel-headers
