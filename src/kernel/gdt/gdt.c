@@ -1,6 +1,7 @@
-#pragma once
-
 #include "gdt.h"
+
+struct gdt_entry GDT[7];	// 5 + 2 for TSS
+struct tss_entry TSS;
 
 void setup_gdt_entry(struct gdt_entry* entry, physical_address_t base, uint32_t limit, uint8_t access_byte, uint8_t flags)
 {

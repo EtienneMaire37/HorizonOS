@@ -1,6 +1,8 @@
 #pragma once
 
-struct ustar_header
+#include <stdint.h>
+
+struct __attribute__((packed)) ustar_header
 {
     char    name[100];
     uint8_t mode[8];
@@ -47,7 +49,7 @@ struct ustar_header
 #define TOWRITE 00002 	// write by others
 #define TOEXEC 	00001 	// execute or search by other
 
-uint64_t ustar_get_number(char* str, int characters)
+static inline uint64_t ustar_get_number(char* str, int characters)
 {
     uint64_t result = 0;
     uint64_t count = 1;

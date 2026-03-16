@@ -1,393 +1,426 @@
 // #include <stdint.h>
 #include <stdbool.h>
 #include <stdatomic.h>
-#include "../libc/include/stdint.h"
-#include "../libc/include/stddef.h"
+#include <stdint.h>
+#include <stddef.h>
+#include "cpu/util.h"
 
-#include <bootboot.h>
-
-typedef uint64_t physical_address_t;
-typedef uint64_t virtual_address_t;
-
-extern BOOTBOOT bootboot;
-extern uint8_t environment[4096];
-extern uint8_t fb;
-
-uint64_t* global_cr3 = NULL;
+#include "boot/limine.h"
 
 extern char kernel_start, kernel_end;
-physical_address_t kernel_start_phys, kernel_end_phys;
-
-#define enable_interrupts()     asm volatile ("sti")
-#define disable_interrupts()    asm volatile ("cli")
-
-#define hlt()                   asm volatile ("hlt")
-
-void halt();
-
-void __attribute__((noreturn)) _halt()
-{
-    while (true)
-    {
-        disable_interrupts();
-        hlt();
-    }
-    __builtin_unreachable();
-}
-
-// * Only support 48-bit canonical addresses for now (4 level paging)
-bool is_address_canonical(uint64_t address)
-{
-    return (address < 0x0000800000000000ULL) || (address >= 0xffff800000000000ULL);
-}
-uint64_t make_address_canonical(uint64_t address)
-{
-    if (address & 0x0000800000000000ULL)
-        return address | 0xffff800000000000ULL;
-    else
-        return address & 0x00007fffffffffffULL;
-}
-
-#define KB 1024ULL
-#define MB (1024ULL * KB)
-#define GB (1024ULL * MB)
-#define TB (1024ULL * GB)
-
-#define BUILDING_C_LIB
-#define BUILDING_KERNEL
-
-#ifndef __CURRENT_FUNC__
-
-#if __STDC_VERSION__ >= 199901L
-#define __CURRENT_FUNC__    __func__
-#elif __GNUC__ >= 2
-#define __CURRENT_FUNC__    __FUNCTION__
-#else
-#define __CURRENT_FUNC__    ""
-#endif
-
-#endif
-
-#define physical_null ((physical_address_t)0)
-
-static int64_t minint(int64_t a, int64_t b);
-static int64_t maxint(int64_t a, int64_t b);
-static int64_t absint(int64_t x);
-static int imod(int a, int b);
-
-#include "../libc/include/inttypes.h"
-#include "../libc/include/limits.h"
-
-#define hex_char_to_int(ch) (ch >= '0' && ch <= '9' ? (ch - '0') : (ch >= 'a' && ch <= 'f' ? (ch - 'a' + 10) : 0))
-
-#define bcd_to_binary(bcd) (((bcd) & 0x0f) + (((bcd) >> 4) & 0x0f) * 10 + (((bcd) >> 8) & 0x0f) * 100 + (((bcd) >> 12) & 0x0f) * 1000)
+void *kernel_start_ptr, *kernel_end_ptr;
 
 char** environ = NULL;
-static int num_environ = 0;
+int num_environ;
 
-int64_t system_seconds = 0, system_minutes = 0, system_hours = 0, system_day = 0, system_month = 0;
-int64_t system_year = 0;
-int64_t system_thousands = 0;
+#include "cpu/units.h"
 
-bool time_initialized = false;
+#include "util/cfunc.h"
+#include "util/math.h"
+#include "util/memory.h"
+
+#include <inttypes.h>
+#include <limits.h>
+
+#include "time/time.h"
 
 #include "io/io.h"
 #include "cpu/cpuid.h"
 #include "cpu/msr.h"
 #include "cpu/registers.h"
 #include "multicore/spinlock.h"
-#include "../libc/src/misc.h"
 #include "graphics/linear_framebuffer.h"
 #include "cpu/cpuid.h"
 #include "fpu/sse.h"
 #include "debug/out.h"
 
-#include "../libc/include/errno.h"
-#include "../libc/include/stdio.h"
-#include "../libc/include/stdlib.h"
-#include "../libc/src/string.c"
-#include "../libc/include/string.h"
-#include "../libc/include/unistd.h"
-#include "../libc/include/termios.h"
-#include "../libc/include/assert.h"
-#include "../libc/include/sys/types.h"
-#include "../libc/include/sys/wait.h"
-#include "../libc/include/sys/stat.h"
-#include "../libc/include/fcntl.h"
-#include "../libc/include/dirent.h"
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <termios.h>
+#include <assert.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <dirent.h>
 
 #include "vfs/vfs.h"
 #include "time/ktime.h"
 #include "initrd/initrd.h"
 #include "time/gdn.h"
 #include "time/ktime.h"
-#include "time/time.h"
 #include "cmos/rtc.h"
+#include "pic/apic.h"
+
+#include "multitasking/task.h"
+#include "multitasking/loader.h"
+#include "terminal/textio.h"
+#include "paging/paging.h"
+#include "int/int.h"
+#include "memalloc/page_frame_allocator.h"
+#include "cpu/memory.h"
+#include "fpu/fpu.h"
+#include "gdt/gdt.h"
+#include "int/idt.h"
+#include "pic/pic.h"
+#include "pic/apic.h"
+#include "acpi/tables.h"
+#include "ps2/ps2.h"
+#include "ps2/keyboard.h"
+#include "pci/pci.h"
+#include "multitasking/startup_data.h"
+#include "cpu/segbase.h"
+#include "cpu/tsc.h"
+#include "multitasking/signal.h"
+#include "int/kernel_panic.h"
+#include "memalloc/virtual_memory_allocator.h"
 
 initrd_file_t* commit_file;
 
-#include "vga/textio.c"
-#include "pic/apic.c"
-#include "fpu/fpu.c"
-
-#include "../libc/src/kernel.c"
-#include "../libc/src/stdio.c"
-#include "../libc/src/stdlib.c"
-#include "../libc/src/unistd.c"
-#include "../libc/src/time.c"
-#include "gdt/gdt.c"
-#include "int/idt.c"
-#include "int/int.c"
-#include "memalloc/page_frame_allocator.c"
-#include "paging/paging.c"
-#include "multitasking/task.c"
-#include "io/keyboard.c"
-#include "ps2/keyboard.c"
-#include "ps2/ps2.c"
-#include "acpi/tables.c"
-#include "pci/pci.c"
-#include "disk/ata.c"
-#include "multitasking/loader.c"
-#include "../libc/src/startup_data.c"
-#include "vfs/vfs.c"
-#include "../liballoc/liballoc.c"
-#include "memalloc/liballoc_hooks.c"
-
-static int64_t minint(int64_t a, int64_t b)
-{
-    return a < b ? a : b;
-}
-static int64_t maxint(int64_t a, int64_t b)
-{
-    return a > b ? a : b;
-}
-static int64_t absint(int64_t x)
-{
-    return x < 0 ? -x : x;
-}
-static int imod(int a, int b)
-{
-    if (b <= 0) 
-    {
-        LOG(WARNING, "Kernel tried to compute %lld %% %lld", a, b);
-        return 0;
-    }
-    int ret = a - (a / b) * b;
-    if (ret < 0) ret += b;
-    return ret;
-}
-
-void __attribute__((noreturn)) cause_halt(const char* func, const char* file, int line)
-{
-    disable_interrupts();
-    // LOG(ERROR, "Kernel halted in function \"%s\" at line %d in file \"%s\"", func, line, file);
-    _halt();
-}
-
-void simple_cause_halt()
-{
-    disable_interrupts();
-    // LOG(ERROR, "Kernel halted");
-    _halt();
-}
-
-void __attribute__((noreturn)) halt()
-{
-    // fflush(stdout);
-    cause_halt(__CURRENT_FUNC__, __FILE__, __LINE__);
-}
-
-FILE _stdin, _stdout, _stderr;
-
-uint8_t stdin_buffer[BUFSIZ];
-uint8_t stdout_buffer[BUFSIZ];
-uint8_t stderr_buffer[BUFSIZ];
-
-#define _init_file_flags(f) { f->fd = -1; f->buffer_size = BUFSIZ; f->buffer_index = 0; f->buffer_mode = 0; f->flags = FILE_FLAGS_BF_ALLOC; f->current_flags = 0; f->buffer_end_index = 0;}
-
-void kernel_init_std()
-{
-    stdin = &_stdin;
-    stdout = &_stdout;
-    stderr = &_stderr;
-
-    stdin->buffer = stdin_buffer;
-    stdout->buffer = stdout_buffer;
-    stderr->buffer = stderr_buffer;
-
-    _init_file_flags(stdin);
-    _init_file_flags(stdout);
-    _init_file_flags(stderr);
-    
-    stdin->fd = STDIN_FILENO;
-    stdin->flags = FILE_FLAGS_READ;
-
-    stdout->fd = STDOUT_FILENO;
-    stdout->flags = FILE_FLAGS_WRITE | FILE_FLAGS_LBF;
-
-    stderr->fd = STDERR_FILENO;
-    stderr->flags = FILE_FLAGS_WRITE | FILE_FLAGS_NBF;
-}
-
-atomic_flag print_spinlock = ATOMIC_FLAG_INIT;
-atomic_bool did_init_std = false;
-
-const char* fb_type_string[] = 
-{
-    "FB_ARGB",
-    "FB_RGBA",
-    "FB_ABGR",
-    "FB_BGRA"
-};
+atomic_flag core_log_spinlock = ATOMIC_FLAG_INIT;
 
 void _start()
 {
     disable_interrupts();
+    
+    PHYS_MAP_BASE = hhdm_request.response->offset;
 
-    enable_sse();
-
-    if (!bootboot.fb_scanline) 
-        abort();
-
-    apic_init();
-    uint8_t cpu_id = apic_get_cpu_id();
-
-    if (bootboot.bspid != cpu_id) // * Only one core supported for now
+    uint32_t eax, ebx, ecx, edx;
+    cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
+    // * CPUID is guaranteed to be present on x86_64
+    
+    acquire_spinlock(&core_log_spinlock);
+    fprintf(stderr, "a");
+    first_log = true;
+    release_spinlock(&core_log_spinlock);
+    
+    if (!is_bsp()) // * SMP not supported for now
+        halt();
+    
+    LOG(DEBUG, "_start");
+    
+    kernel_start_ptr = (void*)&kernel_start;
+    kernel_end_ptr = (void*)&kernel_end;
+    
+    if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1)
         halt();
 
-    if (bootboot.bspid == cpu_id)
+    // assert(framebuffer_request.response->framebuffers[0]->memory_model == LIMINE_FRAMEBUFFER_RGB);
+    assert(framebuffer_request.response->framebuffers[0]->bpp % 8 == 0);
+    
+    framebuffer.width = framebuffer_request.response->framebuffers[0]->width;
+    framebuffer.height = framebuffer_request.response->framebuffers[0]->height;
+    framebuffer.stride = framebuffer_request.response->framebuffers[0]->pitch;
+    framebuffer.address = framebuffer_request.response->framebuffers[0]->address;
+    framebuffer.format = framebuffer_request.response->framebuffers[0]->memory_model;
+    framebuffer.bytes_per_pixel = framebuffer_request.response->framebuffers[0]->bpp / 8;
+    framebuffer.red_shift = framebuffer_request.response->framebuffers[0]->red_mask_shift;
+    framebuffer.green_shift = framebuffer_request.response->framebuffers[0]->green_mask_shift;
+    framebuffer.blue_shift = framebuffer_request.response->framebuffers[0]->blue_mask_shift;
+    
+    LOG(INFO, "Kernel booted successfully with limine (%p-%p)", kernel_start_ptr, kernel_end_ptr);
+    LOG(INFO, "Kernel is %" PRIu64 " bytes long", (uint64_t)kernel_end_ptr - (uint64_t)kernel_start_ptr);
+    LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %p", framebuffer.width, framebuffer.height, framebuffer.stride, framebuffer.address);
+            
+    LOG(INFO, "CPUID highest function parameter: %#x", cpuid_highest_function_parameter);
+    
+    *(uint32_t*)&manufacturer_id_string[0] = ebx;
+    *(uint32_t*)&manufacturer_id_string[4] = edx;
+    *(uint32_t*)&manufacturer_id_string[8] = ecx;
+    manufacturer_id_string[12] = 0;
+    
+    LOG(INFO, "CPU manufacturer id : \"%s\"", manufacturer_id_string);
+    
+    cpuid(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
+    LOG(INFO, "CPUID highest extended function parameter: %#x", cpuid_highest_extended_function_parameter);
+
+    if (strcmp(manufacturer_id_string, "GenuineIntel") == 0)
+        cpu_brand = CPU_INTEL;
+    else if (strcmp(manufacturer_id_string, "AuthenticAMD") == 0)
+        cpu_brand = CPU_AMD;
+    else
+        cpu_brand = CPU_UNKNOWN;
+
+    if (cpu_brand == CPU_AMD)
     {
-        kernel_init_std();
+        char easter_egg_str[17];
 
-        kernel_start_phys = (physical_address_t)&kernel_start;
-        kernel_end_phys = (physical_address_t)&kernel_end;
+        uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+        cpuid_no_check(0x8ffffffe, eax, ebx, ecx, edx);
 
-        LOG(INFO, "Kernel booted successfully with BOOTBOOT (%#llx-%#llx)", kernel_start_phys, kernel_end_phys);
-        LOG(INFO, "Kernel is %llu bytes long", kernel_end_phys - kernel_start_phys);
-        LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %#llx", bootboot.fb_width, bootboot.fb_height, bootboot.fb_scanline, bootboot.fb_ptr);
-        LOG(INFO, "Type: %s", fb_type_string[bootboot.fb_type]);
+        *(uint32_t*)&easter_egg_str[0] = eax;
+        *(uint32_t*)&easter_egg_str[4] = ebx;
+        *(uint32_t*)&easter_egg_str[8] = edx;
+        *(uint32_t*)&easter_egg_str[12] = ecx;
+        easter_egg_str[16] = 0;
 
-        framebuffer.width = bootboot.fb_width;
-        framebuffer.height = bootboot.fb_height;
-        framebuffer.stride = bootboot.fb_scanline;
-        framebuffer.address = (uintptr_t)bootboot.fb_ptr;
-        framebuffer.format = bootboot.fb_type;
+        if (strcmp(easter_egg_str, "") != 0)
+            LOG(INFO, "AMD Easter egg string: \"%s\"", easter_egg_str);
 
-        LOG(INFO, "LAPIC base: %p", lapic);
+        eax = ebx = ecx = edx = 0;
+        cpuid_no_check(0x8fffffff, eax, ebx, ecx, edx);
 
-        uint32_t ebx, ecx, edx;
-        cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
-        // !! Actually will cause a triple fault on CPUs that don't support CPUID but you shouldn't be running this OS on such hardware anyway
+        *(uint32_t*)&easter_egg_str[0] = eax;
+        *(uint32_t*)&easter_egg_str[4] = ebx;
+        *(uint32_t*)&easter_egg_str[8] = edx;
+        *(uint32_t*)&easter_egg_str[12] = ecx;
+        easter_egg_str[16] = 0;
 
-        LOG(INFO, "CPUID highest function parameter: 0x%x", cpuid_highest_function_parameter);
-
-        *(uint32_t*)&manufacturer_id_string[0] = ebx;
-        *(uint32_t*)&manufacturer_id_string[4] = edx;
-        *(uint32_t*)&manufacturer_id_string[8] = ecx;
-        manufacturer_id_string[12] = 0;
-
-        LOG(INFO, "CPU manufacturer id : \"%s\"", manufacturer_id_string);
-
-        cpuid(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
-        LOG(INFO, "CPUID highest extended function parameter: 0x%x", cpuid_highest_extended_function_parameter);
-
-        if (cpuid_highest_extended_function_parameter >= 0x80000008)
-        {
-            uint32_t eax = 0, ebx, ecx, edx; // Just so gcc doesn't complain but cant possibly be used uninitialized
-            cpuid(0x80000008, eax, ebx, ecx, edx);
-            physical_address_width = eax & 0xff;
-        }
-        else
-            abort();
-
-        LOG(INFO, "Physical address is %u bits long", physical_address_width);
-
-        init_pat();
-
-        atomic_store(&did_init_std, true);
+        if (strcmp(easter_egg_str, "") != 0)
+            LOG(INFO, "AMD Easter egg string: \"%s\"", easter_egg_str);
     }
 
-    while (!atomic_load(&did_init_std));
+    if (cpuid_highest_extended_function_parameter >= 0x80000008)
+    {
+        uint32_t eax = 0, ebx, ecx, edx;
+        cpuid(0x80000008, eax, ebx, ecx, edx);
+        physical_address_width = eax & 0xff;
+    }
+    else
+    {
+    // * The MAXPHYADDR is 36 bits for processors that do not 
+    // * support CPUID leaf 80000008H, or indicated by
+    // * CPUID.80000008H:EAX[bits 7:0] for processors that support CPUID leaf 80000008H.
+    // * -> Intel manual Vol. 3A 11-8
+        physical_address_width = 36;
+    }
 
-    acquire_spinlock(&print_spinlock);
+    LOG(INFO, "Physical address is %u bits long", physical_address_width);
 
-    LOG(INFO, "cpu_id : %u", cpu_id);
+    init_pat();
+    
+    LOG(INFO, "cpu_id : %u", cpuid_get_cpu_id());
 
-    release_spinlock(&print_spinlock);
+    struct limine_file* initrd = NULL;
+    for (int i = 0; i < module_request.response->module_count; i++)
+    {
+        struct limine_file* file = module_request.response->modules[i];
+        if (strcmp(initrd_module.path, file->path) == 0)
+        {
+            initrd = file;
+            break;
+        }
+    }
+    assert(initrd);
 
-    initrd_parse(bootboot.initrd_ptr, bootboot.initrd_size);
-    kernel_symbols_file = initrd_find_file("symbols.txt");
+    initrd_parse((uint64_t)initrd->address, initrd->size);
+    kernel_symbols_file = initrd_find_file("boot/symbols.txt");
 
-    tty_font = psf_font_load_from_initrd("ka8x16thin-1.psf");
+    tty_font = psf_font_load_from_initrd("boot/ka8x16thin-1.psf");
 
-    if(!tty_font.f)
+    if (!tty_font.f)
+    {
+        LOG(DEBUG, "Couldn't find psf font in initrd");
         abort();
+    }
+    
+    pfa_detect_usable_memory();
 
-// * vvv Now we can use printf
+    tty_init();
 
-    tty_clear_screen(' ');
+// * vvv Now we can use stdout
 
-    commit_file = initrd_find_file("commit.txt");
+    assert(LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision));
+
+    commit_file = initrd_find_file("boot/commit.txt");
 
     LOG(INFO, "commit hash: %s", commit_file->data);
     printf("commit hash: ");
     tty_set_color(FG_LIGHTMAGENTA, BG_BLACK);
     puts((const char*)commit_file->data);
     tty_set_color(FG_WHITE, BG_BLACK);
-
-    pfa_detect_usable_memory();
-
+    
     printf("Detected ");
     tty_set_color(FG_LIGHTBLUE, BG_BLACK);
-    printf("%llu ", allocatable_memory);
+    printf("%" PRIu64 " ", allocatable_memory);
     tty_set_color(FG_WHITE, BG_BLACK);
     printf("bytes of allocatable memory\n");
     
-    if (cpuid_highest_function_parameter < 0x0d)
+    if (pat_enabled)
     {
-        LOG(CRITICAL, "Modern FPU not supported...");
-        tty_set_color(FG_LIGHTRED, BG_BLACK);
-        printf("Modern FPU not supported...\n");
-        tty_set_color(FG_WHITE, BG_BLACK);
-        abort();
+        LOG(INFO, "PAT successfully enabled");
+        printf("PAT successfully enabled\n");
+    }
+    else
+    {
+        LOG(WARNING, "PAT not supported");
+        printf("warning: PAT not supported (this might cause poor performance on graphical intensive programs)\n");
     }
 
+    LOG(INFO, "Setting up paging...");
+    printf("Setting up paging...\n");
+
+    {
+        global_cr3 = pfa_allocate_page();
+        assert(global_cr3);
+        LOG(DEBUG, "global_cr3: %p", global_cr3);
+        memset(global_cr3, 0, 4096);
+
+        uint64_t* boot_cr3 = (uint64_t*)(get_cr3_address() + PHYS_MAP_BASE);
+
+        LOG(DEBUG, "boot_cr3: %#" PRIx64, (uint64_t)boot_cr3);
+
+        printf("Copying mapping of range %p-%p from limine\n", kernel_start_ptr, kernel_end_ptr);
+        LOG(DEBUG, "Copying mapping of range %p-%p from limine", kernel_start_ptr, kernel_end_ptr);
+
+        copy_mapping(boot_cr3, global_cr3, (uintptr_t)kernel_start_ptr, (uint64_t)((uintptr_t)kernel_end_ptr - (uintptr_t)kernel_start_ptr) >> 12);
+                
+        for (int i = 0; i < mmap_request.response->entry_count; i++) 
+        {
+            struct limine_memmap_entry* entry = mmap_request.response->entries[i];
+
+            if (entry->type == LIMINE_MEMMAP_RESERVED || entry->type == LIMINE_MEMMAP_BAD_MEMORY)
+                continue;
+            if (entry->base & 0xfff)
+                continue;
+            if (entry->length & 0xfff)
+                continue;
+
+            uint64_t ptr = entry->base;
+            uint64_t len = entry->length;
+
+            if (ptr >= MAX_MEMORY)
+                continue;
+            if (len > MAX_MEMORY - ptr)
+                len = MAX_MEMORY - ptr;
+            
+            // ? Write-combining cache for the framebuffer
+            // ? Write-back for usable memory
+            // ? Uncacheable for MMIO and SMBIOS
+            int cache = (entry->type == LIMINE_MEMMAP_USABLE || 
+                entry->type == LIMINE_MEMMAP_EXECUTABLE_AND_MODULES ||
+                entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE ||
+                entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE) ? CACHE_WB
+             : (entry->type == LIMINE_MEMMAP_FRAMEBUFFER ? CACHE_WC
+             : CACHE_UC);
+
+            LOG(DEBUG, "Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64, ptr, ptr + len, ptr + PHYS_MAP_BASE, ptr + len + PHYS_MAP_BASE);
+            printf("Mapping range %#" PRIx64 "-%#" PRIx64 " to %#" PRIx64 "-%#" PRIx64 "\n", ptr, ptr + len, ptr + PHYS_MAP_BASE, ptr + len + PHYS_MAP_BASE);
+            remap_range(global_cr3, ptr + PHYS_MAP_BASE, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, cache);
+        }
+
+        // * signal handler wrapper function
+        LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
+        uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
+        unmap_range(global_cr3, (uintptr_t)sighandler, 1);
+        remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
+    }
+
+    load_cr3((uint64_t)global_cr3 - PHYS_MAP_BASE);
+    vmm_initialized = true;
+
+    printf("Paging setup done\n");
+    LOG(INFO, "Set up paging");
+    
     if (cpuid_highest_function_parameter >= 1)
     {
-        uint32_t eax, ebx, ecx = 0, edx; // same as above
+        uint32_t eax = 0, ebx, ecx = 0, edx;
+
         cpuid(1, eax, ebx, ecx, edx);
-        if (((ecx >> 26) & 1) && ((ecx >> 28) & 1)) // * AVX and XSAVE supported
+        fxsave_supported = (edx & (1 << 24)) != 0;
+        if (!fxsave_supported)
+            xsave_supported = false;
+        else
+            xsave_supported = (ecx & (1 << 26)) != 0;
+    }
+    else
+        xsave_supported = false;
+
+    if (fxsave_supported)
+    {
+        if (xsave_supported)
         {
-            LOG(INFO, "Enabling AVX");
-            enable_avx();
-            LOG(DEBUG, "Setting up FPU support");
-            fpu_init_defaults();
+            LOG(INFO, "Detecting FPU");
+
+            if (cpuid_highest_function_parameter >= 0x0d)
+            {
+                uint32_t eax = 0, ebx, ecx = 0, edx;
+                cpuid_with_ecx(0x0d, 1, eax, ebx, ecx, edx);
+
+                xsave_instruction = 
+                    // ((eax & (1 << 3)) ? XSAVES : 
+                    ((eax & (1 << 0)) ? XSAVEOPT : 
+                    ((eax & (1 << 1)) ? XSAVEC : XSAVE));
+            }
+            else
+                xsave_instruction = XSAVE;
         }
         else
         {
-            LOG(CRITICAL, "Modern FPU not supported...");
+            LOG(WARNING, "XSAVE isn't supported: Defaulting to using FXSAVE");
             tty_set_color(FG_LIGHTRED, BG_BLACK);
-            printf("Modern FPU not supported...\n");
+            printf("XSAVE isn't supported: Defaulting to using FXSAVE\n");
             tty_set_color(FG_WHITE, BG_BLACK);
-            abort();
+
+            fpu_state_component_bitmap = 0;
+            xsave_instruction = FXSAVE;
         }
     }
+    else
+    {
+        LOG(WARNING, "FXSAVE isn't supported: Defaulting to using FSAVE");
+        tty_set_color(FG_LIGHTRED, BG_BLACK);
+        printf("FXSAVE isn't supported: Defaulting to using FSAVE\n");
+        tty_set_color(FG_WHITE, BG_BLACK);
 
-    LOG(INFO, "XSAVE area is %u bytes", xsave_area_size);
-    printf("XSAVE area is %u bytes\n", xsave_area_size);
+        fpu_state_component_bitmap = 0;
+        xsave_instruction = FSAVE;
+    }
 
-    printf("LAPIC base: %p\n", lapic);
+    LOG(INFO, "Enabling FPU");
+    enable_fpu();
+    LOG(DEBUG, "Setting up FPU support");
+    fpu_init_defaults();
 
-    printf("%u core%s running\n", bootboot.numcores, bootboot.numcores == 1 ? "" : "s");
-    LOG(INFO, "%u core%s running", bootboot.numcores, bootboot.numcores == 1 ? "" : "s");
+    LOG(INFO, "Using the %s FPU family of instructions", fpu_get_save_instruction_name(xsave_instruction));
+    printf("Using the %s FPU family of instructions\n", fpu_get_save_instruction_name(xsave_instruction));
+
+    if (cpuid_highest_function_parameter >= 7)
+    {
+        uint32_t eax, ebx = 0, ecx, edx;
+        cpuid_with_ecx(7, 0, eax, ebx, ecx, edx);
+        if (ebx & 1)    // * fsgsbase
+        {
+            uint64_t cr4 = get_cr4();
+            cr4 |= (1ULL << 16);   // * FSGSBASE
+            load_cr4(cr4);
+            fsgsbase = true;
+
+            LOG(DEBUG, "FSGSBASE is set");
+        }
+        else
+            LOG(DEBUG, "FSGSBASE is not set");
+    }
+    else
+        LOG(DEBUG, "FSGSBASE is not set");
+
+    apic_init();
+
+    if (lapic)
+    {
+        printf("Using xAPIC; LAPIC base: %p\n", lapic);
+        LOG(INFO, "Using xAPIC; LAPIC base: %p", lapic);
+    }
+    else
+    {
+        printf("Using x2APIC\n");
+        LOG(INFO, "Using x2APIC");
+    }
+
+    printf("%" PRIu64 " core%s running\n", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
+    LOG(INFO, "%" PRIu64 " core%s running", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
 
     printf("CPU manufacturer id : ");
     tty_set_color(FG_LIGHTRED, BG_BLACK);
     printf("\"%s\"\n", manufacturer_id_string);
     tty_set_color(FG_WHITE, BG_BLACK);
 
-    printf("CPUID highest function parameter: 0x%x\n", cpuid_highest_function_parameter);
-    printf("CPUID highest extended function parameter: 0x%x\n", cpuid_highest_extended_function_parameter);
+    printf("CPUID highest function parameter: %#x\n", cpuid_highest_function_parameter);
+    printf("CPUID highest extended function parameter: %#x\n", cpuid_highest_extended_function_parameter);
 
     printf("Physical address is ");
     tty_set_color(FG_LIGHTBLUE, BG_BLACK);
@@ -402,8 +435,8 @@ void _start()
     memset(&GDT[0], 0, sizeof(struct gdt_entry));       // NULL Descriptor
     setup_gdt_entry(&GDT[1], 0, 0xfffff, 0x9A, 0xA);    // Kernel mode code segment
     setup_gdt_entry(&GDT[2], 0, 0xfffff, 0x92, 0xC);    // Kernel mode data segment
-    setup_gdt_entry(&GDT[3], 0, 0xfffff, 0xFA, 0xA);    // User mode code segment
-    setup_gdt_entry(&GDT[4], 0, 0xfffff, 0xF2, 0xC);    // User mode data segment
+    setup_gdt_entry(&GDT[3], 0, 0xfffff, 0xF2, 0xC);    // User mode data segment
+    setup_gdt_entry(&GDT[4], 0, 0xfffff, 0xFA, 0xA);    // User mode code segment
 
     memset(&TSS, 0, sizeof(struct tss_entry));
     TSS.rsp0 = TASK_KERNEL_STACK_TOP_ADDRESS;
@@ -439,122 +472,46 @@ void _start()
 
     printf(" | Done\n");
     LOG(INFO, "APIC enabled");
-
+    
     LOG(INFO, "Setting up the APIC timer");
     printf("Setting up the APIC timer");
     fflush(stdout);
-
-    {
-        rtc_wait_while_updating();
-
-        lapic->divide_configuration_register = 3;
-        lapic->initial_count_register = 0xffffffff;
-
-        rtc_get_time();
-
-        lapic->lvt_timer_register = 0x10000;    // mask it
-
-        uint32_t ticks_in_1_sec = 0xffffffff - lapic->current_count_register;
-
-        lapic->lvt_timer_register = APIC_TIMER_INT | 0x20000; // APIC_TIMER_INT | PERIODIC
-        lapic->divide_configuration_register = 3;
-        lapic->initial_count_register = ticks_in_1_sec / GLOBAL_TIMER_FREQUENCY;
-
-        time_initialized = true;
-    }
-
+    
+    apic_timer_init();
+    rtc_get_time();
+    time_initialized = true;
+    
     LOG(INFO, "Set up the APIC timer");
     printf(" | Done\n");
-
+    
     printf("Time: ");
 
     tty_set_color(FG_LIGHTCYAN, BG_BLACK);
-    printf("%llu-%llu-%llu %llu:%llu:%llu\n", system_year, system_month, system_day, system_hours, system_minutes, system_seconds);
+    printf("%" PRIu64 "-%" PRIu64 "-%" PRIu64 " %" PRIu64 ":%" PRIu64 ":%" PRIu64 "\n", system_year, system_month, system_day, system_hours, system_minutes, system_seconds);
     tty_set_color(FG_WHITE, BG_BLACK);
 
-    enable_interrupts(); 
+    LOG(DEBUG, "Setting up FS/GS segment bases");
 
-    if (pat_enabled)
-    {
-        LOG(INFO, "PAT successfully enabled");
-        printf("PAT successfully enabled\n");
-    }
-    else
-    {
-        LOG(WARNING, "PAT not supported");
-        printf("warning: PAT not supported (this might cause poor performance only graphical intensive programs)\n");
-    }
+    sc_data.kernel_rsp = TASK_KERNEL_STACK_TOP_ADDRESS;
+    wrmsr(IA32_KERNEL_GS_BASE_MSR, (uint64_t)&sc_data);
 
-    LOG(INFO, "Setting up paging...");
-    printf("Setting up paging...\n");
+    wrmsr(IA32_EFER_MSR, rdmsr(IA32_EFER_MSR) | 1); // * enable syscalls
+    // * In Long Mode, userland CS will be loaded from STAR 63:48 + 16 and userland SS from STAR 63:48 + 8 on SYSRET.
+    wrmsr(IA32_STAR_MSR, ((uint64_t)(KERNEL_DATA_SEGMENT | 3) << 48) | ((uint64_t)KERNEL_CODE_SEGMENT << 32));
+    wrmsr(IA32_LSTAR_MSR, (uint64_t)syscall_handler);
+    wrmsr(IA32_FMASK_MSR, (1 << 9)); // * disable interrupts
 
-    // LOG(DEBUG, "%s", bootboot.arch.x86_64.acpi_ptr);
+    wrgsbase(rdmsr(IA32_KERNEL_GS_BASE_MSR));
 
-    precise_time_t paging_start_time = global_timer;
+    LOG(DEBUG, "Done setting up FS/GS segment bases");
 
-    {
-        global_cr3 = create_empty_virtual_address_space();
+    enable_interrupts();
 
-        uint64_t* bootboot_cr3 = (uint64_t*)get_cr3();
-
-    // * "When the kernel gains control, the memory mapping looks like this:"
-    // *  -128M         "mmio" area           (0xFFFFFFFFF8000000)
-    // *   -64M         "fb" framebuffer      (0xFFFFFFFFFC000000)
-    // *    -2M         "bootboot" structure  (0xFFFFFFFFFFE00000)
-    // *    -2M+1page   "environment" string  (0xFFFFFFFFFFE01000)
-    // *    -2M+2page.. code segment   v      (0xFFFFFFFFFFE02000)
-    // *     ..0        stack          ^      (0x0000000000000000)
-    // *    0-16G       RAM identity mapped   (0x0000000400000000)
-
-    // * bootboot + environment + code segment + stack
-        printf("Copying mapping of range %#llx-%#llx from bootboot\n", 0xFFFFFFFFFFE00000, 0ULL);
-
-        LOG(DEBUG, "Copying mapping of range %#llx-%#llx from bootboot", 0xFFFFFFFFFFE00000, 0ULL);
-        copy_mapping(bootboot_cr3, global_cr3, 0xFFFFFFFFFFE00000, (uint64_t)(-0xFFFFFFFFFFE00000) >> 12);
-
-        for (MMapEnt* mmap_ent = &bootboot.mmap; (uintptr_t)mmap_ent < (uintptr_t)&bootboot + (uintptr_t)bootboot.size; mmap_ent++)
-        {
-            uint64_t ptr = MMapEnt_Ptr(mmap_ent) & 0xfffffffffffff000;
-            uint64_t len = ((MMapEnt_Size(mmap_ent) + 0xfff) / 0x1000) * 0x1000 + 0x1000;
-
-            if (!MMapEnt_IsFree(mmap_ent))
-                continue;
-
-            if (ptr >= 1 * TB)
-                continue;
-            if (ptr + len >= 1 * TB)
-                len = 1 * TB - ptr;
-                
-            LOG(DEBUG, "Identity mapping range %#llx-%#llx", ptr, ptr + len);
-            printf("Identity mapping range %#llx-%#llx\n", ptr, ptr + len);
-            remap_range(global_cr3, ptr, ptr, len >> 12, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-        }
-
-    // * LAPIC registers
-        printf("Identity mapping range %#llx-%#llx\n", lapic, (uint64_t)lapic + 0x1000);
-        LOG(DEBUG, "Identity mapping range %#llx-%#llx", lapic, (uint64_t)lapic + 0x1000);
-        remap_range(global_cr3, (uint64_t)lapic, (uint64_t)lapic, 1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WT);
-
-    // * Framebuffer
-        printf("Identity mapping range %#llx-%#llx\n", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000);
-        LOG(DEBUG, "Identity mapping range %#llx-%#llx", framebuffer.address, ((framebuffer.address + framebuffer.stride * framebuffer.height + 0xfff) / 0x1000) * 0x1000);
-        
-    // ? Write-combining cache
-        remap_range(global_cr3, (uint64_t)framebuffer.address, (uint64_t)framebuffer.address, (framebuffer.stride * framebuffer.height + 0xfff) / 0x1000, 
-            PG_SUPERVISOR, PG_READ_WRITE, CACHE_WC);
-
-    // * initrd
-        printf("Identity mapping range %#llx-%#llx\n", bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-        LOG(DEBUG, "Identity mapping range %#llx-%#llx", bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_ptr & 0xfffffffffffff000) + ((bootboot.initrd_size + 0x1fff) / 0x1000) * 0x1000);
-        remap_range(global_cr3, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (uint64_t)bootboot.initrd_ptr & 0xfffffffffffff000, (bootboot.initrd_size + 0x1fff) / 0x1000, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-    }
-
-    uint64_t paging_milliseconds = precise_time_to_milliseconds(global_timer - paging_start_time);
-
-    printf("Paging setup done in %llu.%llu%llu%llu seconds\n", paging_milliseconds / 1000, (paging_milliseconds / 100) % 10, (paging_milliseconds / 10) % 10, paging_milliseconds % 10);
-    LOG(INFO, "Set up paging");
-
-    load_cr3((uint64_t)global_cr3);
+    printf("Calibrating TSC...\n");
+    LOG(DEBUG, "Calibrating TSC...");
+    calibrate_tsc();
+    LOG(INFO, "TSC clock running at approximatively %" PRIu64 " hz", tsc_cycles_per_second);
+    printf("TSC clock running at approximatively %" PRIu64 " hz\n", tsc_cycles_per_second);
 
     LOG(INFO, "Parsing ACPI tables..");
     printf("Parsing ACPI tables...\n");
@@ -605,23 +562,28 @@ void _start()
     }
 
     LOG(INFO, "Setting up the VFS...");
-    vfs_root = vfs_create_empty_folder_tnode("root", NULL, VFS_NODE_EXPLORED, 
-        0, 
+    printf("Mounting initrd at root...\n");
+    vfs_root = vfs_create_empty_folder_tnode("root", NULL, VFS_NODE_MOUNTPOINT | VFS_NODE_INIT, 
+        0,
         S_IFDIR | 
         S_IRUSR | S_IXUSR |
         S_IRGRP | S_IXGRP |
         S_IROTH | S_IXOTH, 
         0, 0,
-        (drive_t){.type = DT_VIRTUAL});
+        (drive_t){.type = DT_INITRD});
+    if (!vfs_root) 
+    {
+        LOG(DEBUG, "Couldn't create VFS root");
+        abort();
+    }
     vfs_root->inode->parent = vfs_root;
-    if (!vfs_root) abort();
-    vfs_mount_device("initrd", (drive_t){.type = DT_INITRD}, 0, 0);
-    vfs_mount_device("devices", (drive_t){.type = DT_VIRTUAL}, 0, 0);
-    vfs_get_folder_tnode("/devices", NULL)->inode->flags |= VFS_NODE_EXPLORED;
+    vfs_explore(vfs_root);
 
-    vfs_add_special("/devices", "stdin", CHR_MODE, task_chr_stdin, 0, 0);
-    vfs_add_special("/devices", "stdout", CHR_MODE, task_chr_stdout, 0, 0);
-    vfs_add_special("/devices", "stderr", CHR_MODE, task_chr_stderr, 0, 0);
+    vfs_mount_device("mnt", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
+    vfs_mount_device("initrd", "/mnt", (drive_t){.type = DT_INITRD}, 0, 0);
+    vfs_mount_device("dev", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
+
+    vfs_add_special("/dev", "tty", CHR_MODE, task_chr_tty, 0, 0);
     LOG(INFO, "Set up the VFS.");
 
     LOG(INFO, "Scanning PCI buses...");
@@ -663,30 +625,36 @@ void _start()
         }
     };
 
-    // TODO: Find out how to use efi_ptr (System Table) to get access to runtime uefi functions
-
-    // asm volatile("div rcx" :: "c"(0));
+    LOG(DEBUG, "sizeof(thread_t): %lld", (unsigned long long)sizeof(thread_t));
+    
+    LOG(INFO, "cr4: %#" PRIx64, get_cr4());
 
     fflush(stdout);
 
     multitasking_init();
 
-    // {
-    //     uint64_t rsp;
-    //     asm volatile("mov rax, rsp" : "=a"(rsp));
-    //     LOG(DEBUG, "rsp: %#llx", rsp);
-    //     LOG(DEBUG, "%llu bytes left", 1024 + rsp);
-    //     while (true);
-    // }
-
-    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/initrd/bin/init.elf", NULL}, (char*[]){"PATH=/initrd/bin/", NULL});
-    if (!multitasking_add_task_from_vfs("init", "/initrd/bin/init.elf", 0, true, &data, vfs_root))
+    startup_data_struct_t data = startup_data_init_from_command((char*[]){"/sbin/init", NULL}, (char*[]){NULL});
+    thread_t* init_task = multitasking_add_task_from_vfs("init", "/sbin/init", 3, true, &data, vfs_root);
+    if (!init_task)
     {
         LOG(CRITICAL, "init task couldn't start");
+        printf("\x1b[31merror\x1b[0m: init task couldn't start\n");
         abort();
     }
 
-    // multitasking_add_task_from_function("test", test_func);
+    init_task->file_table[STDIN_FILENO].flags = 0;
+    init_task->file_table[STDIN_FILENO].index = 0;
+    file_table[init_task->file_table[STDIN_FILENO].index].used++;
+    init_task->file_table[STDOUT_FILENO].flags = 0;
+    init_task->file_table[STDOUT_FILENO].index = 1;
+    file_table[init_task->file_table[STDOUT_FILENO].index].used++;
+    init_task->file_table[STDERR_FILENO].flags = 0;
+    init_task->file_table[STDERR_FILENO].index = 2;
+    file_table[init_task->file_table[STDERR_FILENO].index].used++;
+
+    LOG(DEBUG, "Starting multitasking...");
+
+    log_segbase();
 
     multitasking_start();
 

@@ -1,11 +1,31 @@
-#pragma once
+#include <stdint.h>
+#include <string.h>
+#include "defs.h"
+#include "../cpu/util.h"
+#include <stdbool.h>
+#include <limine.h>
+
+struct rsdp_table* rsdp;
+struct rsdt_table* rsdt;
+struct xsdt_table* xsdt;
+
+struct fadt_table* fadt;
+struct madt_table* madt;
+
+uint8_t preferred_power_management_profile;
+
+acpi_revision_t acpi_revision = 0xff;
+uint32_t sdt_count;
+
+#include "../boot/limine.h"
 
 #include "tables.h"
 
 #include "../paging/paging.h"
 #include "../cpu/memory.h"
+#include "../ps2/ps2.h"
 
-bool acpi_table_valid(physical_address_t table_address)
+bool acpi_table_valid(void* table_address)
 {
     uint8_t sum = 0;
     struct sdt_header* hdr = (struct sdt_header*)table_address;
@@ -15,149 +35,105 @@ bool acpi_table_valid(physical_address_t table_address)
     return sum == 0;
 }
 
-void map_table_in_current_vas(uint64_t address, uint8_t privilege, uint8_t read_write)
-{
-    LOG(DEBUG, "Mapping table at address %#llx in memory", address);
-
-    uint64_t* current_cr3 = (uint64_t*)get_cr3();
-
-    uint64_t aligned_address = address & 0xfffffffffffff000;
-    struct sdt_header* hdr = (struct sdt_header*)address;
-    uint32_t* length_ptr = &(hdr->length);
-    
-    uint64_t aligned_len_address = ((uint64_t)length_ptr) & 0xfffffffffffff000;
-
-    remap_range(current_cr3, 
-        aligned_len_address, aligned_len_address,
-        1, privilege, read_write, CACHE_WB);
-    invlpg(aligned_len_address);
-
-    uint64_t mapping_offset = aligned_len_address != aligned_address ? 0 : 1;
-
-    if ((((uint64_t)length_ptr) & 0xfff) > 0x1000 - 4)
-    {
-        mapping_offset = (mapping_offset == 1 ? 2 : 0);
-        remap_range(current_cr3, 
-            aligned_len_address + 0x1000, aligned_len_address + 0x1000,
-            1, privilege, read_write, CACHE_WB);
-        invlpg(aligned_len_address + 0x1000);
-    }
-
-    uint32_t length = *length_ptr;
-
-    uint64_t last_address = (address + length - 1);
-
-    uint64_t pages_to_map = (last_address - aligned_address + 0xfff) / 0x1000 - mapping_offset;
-    remap_range(current_cr3, 
-        aligned_address + 0x1000 * mapping_offset, aligned_address,
-        pages_to_map, privilege, read_write, CACHE_WB);
-
-    for (uint64_t i = mapping_offset; i < pages_to_map; i++)
-        invlpg(aligned_address + 0x1000 * i);
-}
-
 void acpi_find_tables()
 {
-    rsdt_address = bootboot.arch.x86_64.acpi_ptr;
+    rsdp = rsdp_request.response->address;
+
     rsdt = NULL;
     xsdt = NULL;
     fadt = NULL;
+    madt = NULL;
 
-    acpi_10 = false;
-
-    if (!rsdt_address)
+    if (!rsdp)
     {
         LOG(ERROR, "Invalid ACPI setup");
         printf("Invalid ACPI setup\n");
         return;
     }
 
-    {
-        struct sdt_header* sdt = (struct sdt_header*)rsdt_address;
-        map_table_in_current_vas(rsdt_address, PG_SUPERVISOR, PG_READ_ONLY);
+    acpi_revision = rsdp->revision;
 
-        if (memcmp(sdt->signature, "RSDT", 4) == 0)
-        {
-            acpi_10 = true;
-            rsdt = (struct rsdt_table*)rsdt_address;
-            sdt_count = (rsdt->header.length - sizeof(struct sdt_header)) / 4;
-        }
-        else if (memcmp(sdt->signature, "XSDT", 4) == 0)
-        {
-            xsdt = (struct xsdt_table*)rsdt_address;
-            sdt_count = (xsdt->header.length - sizeof(struct sdt_header)) / 8;
-        }
-        else
-        {
-            LOG(ERROR, "Invalid ACPI setup");
-            printf("Invalid ACPI setup\n");
-            return;
-        }
+    switch (acpi_revision)
+    {
+    case ACPI_1_0:
+        LOG(INFO, "ACPI version: 1.0");
+        rsdt = (struct rsdt_table*)(rsdp->rsdt_address + PHYS_MAP_BASE);
+        sdt_count = (rsdt->header.length - sizeof(struct sdt_header)) / 4;
+        break;
+    case ACPI_2_0_PLUS:
+        LOG(INFO, "ACPI version: 2.0+");
+        xsdt = (struct xsdt_table*)(rsdp->xsdt_address + PHYS_MAP_BASE);
+        sdt_count = (xsdt->header.length - sizeof(struct sdt_header)) / 8;
+        break;
+    default:
+        LOG(ERROR, "Unknow ACPI revision");
+        printf("Unknown ACPI revision\n");
+        return;
     }
 
-    LOG(INFO, "%u SDT tables detected", sdt_count);
+    LOG(INFO, "ACPI: %u SDT tables detected", sdt_count);
 
     for (uint32_t i = 0; i < sdt_count; i++)
     {
-        physical_address_t address = read_rsdt_ptr(i);
-        LOG(INFO, "\tFound table at address %#llx", address);
-        map_table_in_current_vas(address, PG_SUPERVISOR, PG_READ_ONLY);
+        void* address = read_rsdt_ptr(i);
+        LOG(INFO, "\tFound table at address %p", address);
 
+        if (acpi_table_valid(address))
         {
-            if (acpi_table_valid(address))
+            struct sdt_header* sdt = (struct sdt_header*)address;
+            uint32_t signature = *(uint64_t*)&sdt->signature;
+            char signature_text[5] = { (char)signature, (char)(signature >> 8), (char)(signature >> 16), (char)(signature >> 24), 0 };
+            LOG(INFO, "\t\tSignature: %s (%#x)", signature_text, signature);
+            printf("Signature: %s (%#x)\n", signature_text, signature);
+            switch (signature)
             {
-                struct sdt_header* sdt = (struct sdt_header*)address;
-                uint32_t signature = *(uint64_t*)&sdt->signature;
-                char signature_text[5] = { (char)signature, (char)(signature >> 8), (char)(signature >> 16), (char)(signature >> 24), 0 };
-                LOG(INFO, "\t\tSignature: %s (0x%x)", signature_text, signature);
-                printf("Signature: %s (0x%x)\n", signature_text, signature);
-                switch (signature)
-                {
-                case 0x50434146:    // FACP : FADT
-                    LOG(INFO, "\t\tValid FADT");
-                    fadt = (struct fadt_table*)address;
-                    break;
-                case 0x43495041:    // APIC : MADT
-                    LOG(INFO, "\t\tValid MADT");
-                    madt = (struct madt_table*)address;
-                    break;
-                // case 0x54445344:    // DSDT : DSDT
-                //     LOG(INFO, "\t\tValid DSDT");
-                //     // dsdt_address = address;
-                //     break;
-                // case 0x54445353:    // SSDT : SSDT
-                //     LOG(INFO, "\t\tValid SSDT");
-                //     // ssdt_address = address;
-                //     break;
-                default:
-                    LOG(INFO, "\t\tUnkwown table");
-                }
+            case 0x50434146:    // FACP : FADT
+                LOG(INFO, "\t\tValid FADT");
+                fadt = (struct fadt_table*)address;
+                break;
+            case 0x43495041:    // APIC : MADT
+                LOG(INFO, "\t\tValid MADT");
+                madt = (struct madt_table*)address;
+                break;
+            // case 0x54445344:    // DSDT : DSDT
+            //     LOG(INFO, "\t\tValid DSDT");
+            //     // dsdt_address = address;
+            //     break;
+            // case 0x54445353:    // SSDT : SSDT
+            //     LOG(INFO, "\t\tValid SSDT");
+            //     // ssdt_address = address;
+            //     break;
+            default:
+                LOG(INFO, "\t\tUnkwown table");
             }
         }
     }
 }
 
-physical_address_t read_rsdt_ptr(uint32_t index)
+void* read_rsdt_ptr(uint32_t index)
 {
     if (index >= sdt_count)
     {
         LOG(CRITICAL, "Kernel tried to read an invalid SDT (%u / %u)", index + 1, sdt_count);
         abort();
-        return physical_null;
+        return NULL;
     }
 
-    if (acpi_10)    // ACPI 1.0
+    switch (acpi_revision)
     {
-        physical_address_t sdt_ptr_start = sizeof(struct sdt_header) + rsdt_address;
-        return *(uint32_t*)(sdt_ptr_start + 4 * index);
-    }
-    else
+    case ACPI_1_0:
     {
-        physical_address_t sdt_ptr_start = sizeof(struct sdt_header) + rsdt_address;
-        return *(uint64_t*)(sdt_ptr_start + 8 * index);
+        uint32_t* sdt_ptr_start = (uint32_t*)(sizeof(struct sdt_header) + (uint64_t)rsdt);
+        return (void*)(sdt_ptr_start[index] + PHYS_MAP_BASE);
     }
-
-    return physical_null;
+    case ACPI_2_0_PLUS:
+    {
+        uint64_t* sdt_ptr_start = (uint64_t*)(sizeof(struct sdt_header) + (uint64_t)xsdt);
+        return (void*)(sdt_ptr_start[index] + PHYS_MAP_BASE);
+    }
+    default:
+        return NULL;
+    }
 }
 
 void fadt_extract_data()
@@ -173,7 +149,8 @@ void fadt_extract_data()
 
     LOG(DEBUG, "Extracting data from the FADT");
 
-    ps2_controller_connected = acpi_10 ? true : (fadt->boot_architecture_flags & 0b10) == 0b10;
+    ps2_controller_connected = acpi_revision == ACPI_1_0 ? true : (fadt->boot_architecture_flags & 0b10) == 0b10;
+    LOG(TRACE, "FADT: Boot architecture flags: %#x", fadt->boot_architecture_flags);
 
     uint8_t _preferred_power_management_profile = fadt->preferred_power_management_profile;
 

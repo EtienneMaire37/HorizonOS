@@ -1,10 +1,6 @@
 bits 64
 section .text
 
-gdtr: 
-    dw 0
-    dq 0
-
 global load_gdt
 load_gdt:
     mov word [gdtr], di
@@ -31,3 +27,9 @@ load_tss:
 	mov ax, 0x28 
 	ltr ax
 	ret
+
+section .data
+
+gdtr: 
+    dw 0
+    dq 0

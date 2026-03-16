@@ -1,45 +1,65 @@
-#pragma once
+#include "../initrd/initrd.h"
+#include <stddef.h>
+
+initrd_file_t* kernel_symbols_file = NULL;
+
+#include <sys/wait.h>
 
 #include "../multitasking/vas.h"
 #include "../multitasking/syscall.h"
 #include "int.h"
 #include "irq.h"
+#include "nmi.h"
+#include "../multitasking/signal.h"
 
 #include "kernel_panic.h"
 
-#define return_from_isr() return
+#define return_from_isr() { if (multitasking_enabled) { lock_scheduler(); if (current_task->sig_pending_user_space && registers->cs != KERNEL_CODE_SEGMENT) { setup_user_signal_stack_frame__interrupt(registers); current_task->sig_pending_user_space = false; } unlock_scheduler(); } return; }
 
 void interrupt_handler(interrupt_registers_t* registers)
 {
-    if (registers->interrupt_number < 32)       // * Fault
+    if (registers->interrupt_number == NON_MASKABLE_INTERRUPT)
     {
-        LOG(WARNING, multitasking_enabled ? "[task \"%s\" (pid %u)]: " : "", __CURRENT_TASK.name, __CURRENT_TASK.pid);
-        CONTINUE_LOG(WARNING, "Fault : Exception number : %llu ; Error : %s ; Error code = %#llx ; cr2 = %#llx ; cr3 = %#llx ; rip = %#llx", 
-            registers->interrupt_number, get_error_message(registers->interrupt_number, registers->error_code), 
-            registers->error_code, registers->cr2, registers->cr3, registers->rip);
-        
-        if (__CURRENT_TASK.system_task || task_count == 1 || !multitasking_enabled || registers->interrupt_number == 8 || registers->interrupt_number == 18)
-        // System task or last task or multitasking not enabled or Double Fault or Machine Check
-        {
-            disable_interrupts();
-            kernel_panic((interrupt_registers_t*)registers);
-        }
-        else
-        {
-            log_registers();
-            __CURRENT_TASK.return_value = WSIGNALBIT;
-            if (registers->interrupt_number == 14)
-                __CURRENT_TASK.return_value |= SIGSEGV;
-            else
-                __CURRENT_TASK.return_value |= SIGILL;
-            __CURRENT_TASK.is_dead = true;
-            switch_task();
-        }
+        LOG(TRACE, "NMI: %#x, %#x", inb(SYSTEM_CONTROL_PORT_A), inb(SYSTEM_CONTROL_PORT_B));
 
         return_from_isr();
     }
+    if (registers->interrupt_number < 32)       // * Fault
+    {
+        if (multitasking_enabled)
+            LOG(WARNING, "[task \"%s\" (pid %u)]: ", current_task->name, current_task->pid);
+        
+        CONTINUE_LOG(WARNING, "Fault : Exception number : %" PRIu64 " ; Error : %s ; Error code = %#" PRIx64 " ; cr2 = %#" PRIx64 " ; cr3 = %#" PRIx64 " ; rip = %#" PRIx64, 
+            registers->interrupt_number, get_error_message(registers->interrupt_number, registers->error_code), 
+            registers->error_code, registers->cr2, registers->cr3, registers->rip);
+        
+        LOG(WARNING, "CS: %#.16" PRIx64 " DS: %#.16" PRIx64 " SS: %#.16" PRIx64, registers->cs, registers->ds, registers->ss);
+        log_segbase();
 
-    if (registers->interrupt_number < 32 + 16)  // * IRQ
+        if (multitasking_enabled)
+        {
+            if (current_task->system_task || task_count == 1 || !multitasking_enabled || 
+registers->interrupt_number == DOUBLE_FAULT || registers->interrupt_number == MACHINE_CHECK)
+            {
+                disable_interrupts();
+                kernel_panic((interrupt_registers_t*)registers);
+            }
+            else
+            {
+                print_stack_trace(registers->rip, registers->rbp, false);
+                int signum = get_signal_from_exception(registers);
+                task_send_signal(current_task, signum);
+                kill_task(current_task, signum);
+                while (task_lock_depth) unlock_scheduler();
+                abort();
+            }
+        }
+        else
+            kernel_panic((interrupt_registers_t*)registers);
+        return_from_isr();
+    }
+
+    if (registers->interrupt_number < 32 + 16)  // * PIC IRQs
     {
         // uint8_t irq_number = registers->interrupt_number - 32;
 
@@ -55,15 +75,6 @@ void interrupt_handler(interrupt_registers_t* registers)
         // pic_send_eoi(irq_number);
 
         // * Already disabled the PIC so only spurious interrupts can happen
-
-        return_from_isr();
-    }
-    if (registers->interrupt_number == 0xf0)    // * System call
-    // TODO: Switch to using the syscall/sysret instructions
-    {
-        if (!multitasking_enabled || first_task_switch) return_from_isr();
-
-        handle_syscall(registers);
 
         return_from_isr();
     }

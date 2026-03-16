@@ -1,0 +1,118 @@
+diff -uraN gcc-15.2.0/config.sub "gcc-15.2.0 copy/config.sub"
+--- gcc-15.2.0/config.sub	2025-08-08 08:51:39.866337996 +0200
++++ "gcc-15.2.0 copy/config.sub"	2026-01-17 20:35:20.759562004 +0100
+@@ -1719,7 +1719,7 @@
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+ 	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+-	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
++	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* | horizonos* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+ 	     | hiux* | abug | nacl* | netware* | windows* \
+diff -uraN gcc-15.2.0/fixincludes/mkfixinc.sh "gcc-15.2.0 copy/fixincludes/mkfixinc.sh"
+--- gcc-15.2.0/fixincludes/mkfixinc.sh	2025-08-08 08:51:39.912338764 +0200
++++ "gcc-15.2.0 copy/fixincludes/mkfixinc.sh"	2026-01-17 20:45:36.825203245 +0100
+@@ -11,6 +11,8 @@
+ 
+ # Check for special fix rules for particular targets
+ case $machine in
++    *-horizonos* | \
++    *-*-horizonos* | \
+     i?86-*-cygwin* | \
+     *-mingw32* | \
+     powerpc-*-eabisim* | \
+diff -uraN gcc-15.2.0/gcc/config/horizonos.h "gcc-15.2.0 copy/gcc/config/horizonos.h"
+--- gcc-15.2.0/gcc/config/horizonos.h	1970-01-01 01:00:00.000000000 +0100
++++ "gcc-15.2.0 copy/gcc/config/horizonos.h"	2026-01-17 20:39:59.380461683 +0100
+@@ -0,0 +1,24 @@
++#undef TARGET_HORIZONOS
++#define TARGET_HORIZONOS 1
++
++#undef LIB_SPEC
++#define LIB_SPEC "-lc"
++
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "crt0.o%s crti.o%s crtbegin.o%s"
++
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
++
++#undef LINK_SPEC
++#define LINK_SPEC "%{shared:-shared} %{static:-static} %{!shared: %{!static: %{rdynamic:-export-dynamic}}}"
++
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()      \
++  do {                                \
++    builtin_define ("__horizonos__");      \
++    builtin_define ("__unix__");      \
++    builtin_assert ("system=horizonos");   \
++    builtin_assert ("system=unix");   \
++    builtin_assert ("system=posix");   \
++  } while(0);
+\ No newline at end of file
+diff -uraN gcc-15.2.0/gcc/config.gcc "gcc-15.2.0 copy/gcc/config.gcc"
+--- gcc-15.2.0/gcc/config.gcc	2025-08-08 08:51:40.435347488 +0200
++++ "gcc-15.2.0 copy/gcc/config.gcc"	2026-01-17 20:38:53.487322342 +0100
+@@ -885,6 +885,13 @@
+   rust_target_objs="${rust_target_objs} fuchsia-rust.o"
+   target_has_targetrustm=yes
+   ;;
++*-*-horizonos*)
++  extra_options="$extra_options gnu-user.opt"
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  use_gcc_stdint=provide
++  ;;
+ *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-gnu* | *-*-kopensolaris*-gnu | *-*-uclinuxfdpiceabi)
+   extra_options="$extra_options gnu-user.opt"
+   gas=yes
+@@ -1186,6 +1193,12 @@
+ esac
+ 
+ case ${target} in
++i[34567]86-*-horizonos*)
++	tm_file="${tm_file} i386/unix.h i386/att.h elfos.h glibc-stdint.h i386/i386elf.h horizonos.h gnu-user.h"
++	;;
++x86_64-*-horizonos*)
++	tm_file="${tm_file} i386/unix.h i386/att.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h horizonos.h gnu-user.h"
++	;;
+ aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
+ 	tm_file="${tm_file} elfos.h newlib-stdint.h"
+ 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-errata.h aarch64/aarch64-elf-raw.h"
+diff -uraN gcc-15.2.0/libgcc/config.host "gcc-15.2.0 copy/libgcc/config.host"
+--- gcc-15.2.0/libgcc/config.host	2025-08-08 08:51:44.833420855 +0200
++++ "gcc-15.2.0 copy/libgcc/config.host"	2026-01-17 20:43:43.260267924 +0100
+@@ -767,6 +767,14 @@
+ x86_64-*-fuchsia*)
+ 	tmake_file="$tmake_file t-libgcc-pic"
+ 	;;
++i[34567]86-*-horizonos*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtbeginT.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
++x86_64-*-horizonos*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtbeginT.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
+ i[34567]86-*-dragonfly*)
+ 	tmake_file="${tmake_file} i386/t-dragonfly i386/t-crtstuff"
+ 	md_unwind_header=i386/dragonfly-unwind.h
+diff -uraN gcc-15.2.0/libstdc++-v3/crossconfig.m4 "gcc-15.2.0 copy/libstdc++-v3/crossconfig.m4"
+--- gcc-15.2.0/libstdc++-v3/crossconfig.m4	2025-08-08 08:51:45.691435169 +0200
++++ "gcc-15.2.0 copy/libstdc++-v3/crossconfig.m4"	2026-01-17 20:42:12.626737601 +0100
+@@ -141,6 +141,13 @@
+     AC_SUBST(SECTION_FLAGS)
+     ;;
+ 
++  *-horizonos*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
++
+   *-hpux*)
+     SECTION_FLAGS='-ffunction-sections -fdata-sections'
+     AC_SUBST(SECTION_FLAGS)

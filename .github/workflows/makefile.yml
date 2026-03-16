@@ -15,21 +15,8 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        sudo apt-get update
         sudo apt update
-        sudo apt-get install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
-        sudo apt install -y nasm xorriso mtools mkbootimg util-linux dosfstools mtools qemu-utils unzip autoconf2.69
-
-    - name: Cache cross-compiler
-      uses: actions/cache@v3
-      id: compiler-cache
-      with:
-        path: ./crossgcc
-        key: ${{ runner.os }}-compiler-${{ hashFiles('install-cross-compiler.sh') }}-binutils-2.44-gcc-15.1.0-x86_64
-
-    - name: Install cross-compiler
-      if: steps.compiler-cache.outputs.cache-hit != 'true'
-      run: sh install-cross-compiler.sh
+        sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo nasm xorriso mkbootimg util-linux dosfstools mtools qemu-system qemu-utils unzip autoconf2.69 zip meson aptitude autopoint gperf
 
     - name: Build
       run: make all

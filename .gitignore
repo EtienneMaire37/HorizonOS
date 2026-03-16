@@ -4,15 +4,16 @@ horizonos.vdi
 debug/*
 bin/*
 src/tasks/bin/*
-src/libc/lib/*
+src/tasks/src/bash
+src/tasks/src/coreutils
 
 root/
 
-bootboot
-dir2fat32/
-
-crossgcc/
-custom-toolchain/
+crosstoolchain/
+hostoolchain/
+mlibc/mlibc/
+mlibc/bmlibc/
+mlibc/headers-build/
 tmp/
 
 pci.ids
@@ -22,4 +23,12 @@ pci.ids
 
 data.txt
 
-TODO
+mlibc/.built
+ncurses/*
+
+.deps-obtained
+limine
+limine-protocol
+
+linux-headers
+linux-kernel-headers

@@ -1,0 +1,11 @@
+--- coreutils/gnulib/lib/getlocalename_l-unsafe.c	2026-03-15 17:27:43.027061328 +0100
++++ coreutils/gnulib/lib/getlocalename_l-unsafe-copy.c	2026-03-15 17:29:53.326317672 +0100
+@@ -578,7 +578,7 @@
+       const char *name = ((struct __locale_t *) locale)->categories[category];
+ # endif
+       return (struct string_with_storage) { name, STORAGE_OBJECT };
+-#elif defined __HAIKU__
++#elif defined __HAIKU__ || defined __horizonos__
+ # if HAVE_GETLOCALENAME_L
+       /* Haiku revision hrev59293 (2026-01-07) or newer.  */
+ #  undef getlocalename_l

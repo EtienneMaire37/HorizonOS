@@ -1,6 +1,17 @@
-#pragma once
+#include <stdint.h>
+#include "ata_defs.h"
+
+pci_ide_controller_data_t pci_ide_controller[IDE_MAX];
+uint16_t connected_pci_ide_controllers = 0;
 
 #include "ata.h"
+#include "../pci/pci.h"
+#include "../terminal/textio.h"
+#include <stdlib.h>
+#include "../time/time.h"
+
+// !!!! DEPRECATED:
+// TODO: Implement more modern AHCI/NVMe drivers
 
 void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
 {
@@ -88,7 +99,7 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
             for (uint16_t k = 0; k < 256; k++)
             {
                 ((uint16_t*)ide_buf)[k] = inw(pci_ide_controller[connected_pci_ide_controllers].channels[i].base_address + ATA_REG_DATA);
-                // LOG(TRACE, "IDE IDENTIFY data word %u : 0x%x", k, ((uint16_t*)ide_buf)[k]);
+                // LOG(TRACE, "IDE IDENTIFY data word %u : %#x", k, ((uint16_t*)ide_buf)[k]);
             }
 
             pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].connected = 1;
@@ -117,6 +128,8 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                 pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model[last_char_index] = 0;
             else
                 pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model[40] = 0;
+
+            pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].lock = MUTEX_INIT;
         }
     }
 
@@ -137,16 +150,19 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                 }
                 if (magnitude_value >= 1024)
                     magnitude++;
-                LOG(INFO, "Found drive \"%s\" (%llu bytes) [%llu.%llu%llu %s]", 
+                if (magnitude == 0)
+                    magnitude_value *= 1024;
+                    
+                LOG(INFO, "Found drive \"%s\" (%" PRIu64 " bytes) [%" PRIu64 ".%" PRIu64 "%" PRIu64 " %s]", 
                     pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model, 
                    bytes, magnitude_value / 1024, (magnitude_value * 10 / 1024) % 10, (magnitude_value * 100 / 1024) % 10, magnitude_text[magnitude]);
                 printf("Found drive ");
                 tty_set_color(FG_LIGHTGREEN, BG_BLACK);
                 printf("\"%s\" ", pci_ide_controller[connected_pci_ide_controllers].channels[i].devices[j].model);
                 tty_set_color(FG_WHITE, BG_BLACK);
-                printf("(%llu bytes) [", bytes);
+                printf("(%" PRIu64 " bytes) [", bytes);
                 tty_set_color(FG_LIGHTCYAN, BG_BLACK);
-                printf("%llu.%llu%llu ", magnitude_value / 1024, (magnitude_value * 10 / 1024) % 10, (magnitude_value * 100 / 1024) % 10);
+                printf("%" PRIu64 ".%" PRIu64 "%" PRIu64 " ", magnitude_value / 1024, (magnitude_value * 10 / 1024) % 10, (magnitude_value * 100 / 1024) % 10);
                 tty_set_color(FG_WHITE, BG_BLACK);
                 printf("%s]\n", magnitude_text[magnitude]);
             }
@@ -170,7 +186,7 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                     LOG(TRACE, "First sector of primary master drive:");
                     for (int i = 0; i < 512; i++)
                     {
-                        LOG(TRACE, "0x%x: 0x%x", i, ((uint8_t*)buffer)[i]);
+                        LOG(TRACE, "%#x: %#x", i, ((uint8_t*)buffer)[i]);
                     }
                 #endif
                 }
@@ -178,28 +194,27 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
         }
     }
 
-    // * Create block special files
-    if (IDE_MAX >= 10) abort();
-    for (uint8_t i = 0; i < 2; i++)
-    {
-        for (uint8_t j = 0; j < 2; j++)
-        {
-            if (pci_ide_controller[connected_pci_ide_controllers - 1].channels[i].devices[j].connected) 
-            {
-                const int bufsiz = (3 + 1) + 1 + 1 + (1);
-                char file_name[bufsiz];
+    // // * Create block special files
+    // for (uint8_t i = 0; i < 2; i++)
+    // {
+    //     for (uint8_t j = 0; j < 2; j++)
+    //     {
+    //         if (pci_ide_controller[connected_pci_ide_controllers - 1].channels[i].devices[j].connected) 
+    //         {
+    //             const int bufsiz = (3 + 1) + 1 + 1 + (1);
+    //             char file_name[bufsiz];
 
-                snprintf(file_name, bufsiz, "ata%u_%u", connected_pci_ide_controllers - 1, i * 2 + j);
+    //             snprintf(file_name, bufsiz, "ata%u_%u", connected_pci_ide_controllers - 1, i * 2 + j);
 
-                vfs_file_tnode_t* tnode = vfs_add_special("/devices", file_name, BLK_MODE, ata_iofunc, 0, 0);
-                if (!tnode)
-                    continue;
-                tnode->inode->file_data.ide.ide_idx = connected_pci_ide_controllers - 1;
-                tnode->inode->file_data.ide.ata_idx = j + 2 * i;
-                tnode->inode->st.st_size = 512 * pci_ide_controller[connected_pci_ide_controllers - 1].channels[i].devices[j].size;
-            }
-        }
-    }
+    //             vfs_file_tnode_t* tnode = vfs_add_special("/dev", file_name, BLK_MODE, ata_iofunc, 0, 0);
+    //             if (!tnode)
+    //                 continue;
+    //             tnode->inode->file_data.ide.ide_idx = connected_pci_ide_controllers - 1;
+    //             tnode->inode->file_data.ide.ata_idx = j + 2 * i;
+    //             tnode->inode->st.st_size = 512 * pci_ide_controller[connected_pci_ide_controllers - 1].channels[i].devices[j].size;
+    //         }
+    //     }
+    // }
 
     LOG(INFO, "Partitions on connected drives:");
     for (uint8_t i = 0; i < 2; i++)
@@ -216,15 +231,15 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
                 {
                     if (data->partition_table[k].partition_type != 0)
                     {
-                        LOG(INFO, "    Partition %u: Type 0x%x | Start LBA : %u | Size : %lluB%s", 
+                        LOG(INFO, "    Partition %u: Type %#x | Start LBA : %u | Size : %" PRIu64 "B%s", 
                             k + 1, 
-                            data->partition_table[k].partition_type, data->partition_table[k].start_lba, data->partition_table[k].size_in_sectors * 512ULL,
+                            data->partition_table[k].partition_type, data->partition_table[k].start_lba, (uint64_t)(data->partition_table[k].size_in_sectors * 512ULL),
                             data->partition_table[k].drive_attributes & 0x80 ? " [Bootable]" : "");
-                        printf("  Partition %u: Type 0x%x | Start LBA : %u | Size : ", 
+                        printf("  Partition %u: Type %#x | Start LBA : %u | Size : ", 
                             k + 1, 
                             data->partition_table[k].partition_type, data->partition_table[k].start_lba);
                         tty_set_color(FG_LIGHTCYAN, BG_BLACK);
-                        printf("%llu", data->partition_table[k].size_in_sectors * 512ULL);
+                        printf("%" PRIu64, (uint64_t)(data->partition_table[k].size_in_sectors * 512ULL));
                         tty_set_color(FG_WHITE, BG_BLACK);
                         printf("B");
                         if (data->partition_table[k].drive_attributes & 0x80)
@@ -245,11 +260,11 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
     LOG(DEBUG, "    %s mode on primary channel", pci_ide_controller[connected_pci_ide_controllers - 1].channels[0].compatibility_mode ? "Compatibility" : "Native");
     LOG(DEBUG, "    %s mode on secondary channel", pci_ide_controller[connected_pci_ide_controllers - 1].channels[1].compatibility_mode ? "Compatibility" : "Native");
 
-    LOG(DEBUG, "    Primary channel base address : 0x%x | Control base address : 0x%x | IRQ : %u",
+    LOG(DEBUG, "    Primary channel base address : %#x | Control base address : %#x | IRQ : %u",
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[0].base_address,
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[0].ctrl_base_address,
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[0].irq);
-    LOG(DEBUG, "    Secondary channel base address : 0x%x | Control base address : 0x%x | IRQ : %u",
+    LOG(DEBUG, "    Secondary channel base address : %#x | Control base address : %#x | IRQ : %u",
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[1].base_address,
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[1].ctrl_base_address,
         pci_ide_controller[connected_pci_ide_controllers - 1].channels[1].irq);
@@ -321,6 +336,8 @@ bool ata_pio_read_sectors(pci_ide_controller_data_t* controller, uint8_t channel
         sector_count = controller->channels[channel].devices[drive].size - lba;
     }
 
+    acquire_mutex(&controller->channels[channel].devices[drive].lock);
+
     ata_write_command_block_register(controller, channel, ATA_REG_HDDEVSEL, 0xe0 | (drive << 4) | ((lba >> 24) & 0x0f));
     // ata_write_command_block_register(controller, channel, ATA_REG_FEATURES, 0);
 
@@ -334,11 +351,16 @@ bool ata_pio_read_sectors(pci_ide_controller_data_t* controller, uint8_t channel
     for (uint8_t i = 0; i < sector_count; i++)
     {
         if (!ata_poll(controller, channel))
+        {
+            release_mutex(&controller->channels[channel].devices[drive].lock);
             return false;
+        }
 
         for (uint16_t j = 0; j < 256; j++)
             buffer[i * 256 + j] = inw(controller->channels[channel].base_address + ATA_REG_DATA);
     }
+
+    release_mutex(&controller->channels[channel].devices[drive].lock);
 
     return true;
 }
@@ -377,6 +399,8 @@ bool ata_pio_read_bytes(pci_ide_controller_data_t* controller, uint8_t channel, 
         sector_count = controller->channels[channel].devices[drive].size - lba;
     }
 
+    acquire_mutex(&controller->channels[channel].devices[drive].lock);
+
     ata_write_command_block_register(controller, channel, ATA_REG_HDDEVSEL, 0xe0 | (drive << 4) | ((lba >> 24) & 0x0f));
     // ata_write_command_block_register(controller, channel, ATA_REG_FEATURES, 0);
 
@@ -392,7 +416,10 @@ bool ata_pio_read_bytes(pci_ide_controller_data_t* controller, uint8_t channel, 
     for (uint8_t i = 0; i < sector_count; i++)
     {
         if (!ata_poll(controller, channel))
+        {
+            release_mutex(&controller->channels[channel].devices[drive].lock);
             return false;
+        }
 
         for (uint16_t j = 0; j < 256; j++)
         {
@@ -406,18 +433,7 @@ bool ata_pio_read_bytes(pci_ide_controller_data_t* controller, uint8_t channel, 
         }
     }
 
+    release_mutex(&controller->channels[channel].devices[drive].lock);
+
     return true;
-}
-
-ssize_t ata_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
-{
-    if (direction == CHR_DIR_READ)
-    {
-        ide_descriptor_t ide = entry->tnode.file->inode->file_data.ide;
-        if (!ata_pio_read_bytes(&pci_ide_controller[ide.ide_idx], ide.ata_idx / 2, ide.ata_idx % 2, entry->position, count, buf))
-            return 0;
-        return count;
-    }
-
-    return 0;
 }

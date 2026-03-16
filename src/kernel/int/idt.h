@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include "../cpu/util.h"
+
 #define ISR_INTERRUPT_GATE_64   0b1110 
 #define ISR_TRAP_GATE_64        0b1111
 
@@ -15,10 +18,9 @@ struct idt_entry
     uint8_t present              : 1;
     uint64_t offset_hi           : 48;
     uint32_t reserved1           : 32;
-} __attribute__((__packed__));
+} __attribute__((packed));
 
-struct idt_entry IDT[256] __attribute__((aligned(8)));  // "The base addresses of the IDT should be aligned on an 8-byte boundary to maximize performance of cache line fills."
-                                                        // -- Intel manual vol 3A 7.10
+extern struct idt_entry IDT[256];
 
 extern void load_idt(uint16_t limit, uint64_t address);
 extern uint64_t interrupt_table[256];  // ptrs to the isrs

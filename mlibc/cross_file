@@ -1,0 +1,14 @@
+[host_machine]
+system = 'horizonos'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+[binaries]
+c = 'x86_64-horizonos-gcc'
+cpp = 'x86_64-horizonos-g++'
+ar = 'x86_64-horizonos-ar'
+strip = 'x86_64-horizonos-strip'
+ld = 'x86_64-horizonos-ld'
+[built-in options]
+c_args = ['-march=x86-64']
+cpp_args = ['-march=x86-64']

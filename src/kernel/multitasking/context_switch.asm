@@ -4,45 +4,24 @@ bits 64
 extern task_rsp_offset
 extern task_cr3_offset
 
-extern STATE_COMPONENT_BITMAP
-
-; void __attribute__((sysv_abi)) context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds, uint8_t* old_fpu_state, uint8_t* next_fpu_state)
+; * void context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds);
+    ; $rdi = (uint64_t)old_tcb
+    ; $rsi = (uint64_t)next_tcb
+    ; $rdx = ds
 global context_switch
 context_switch:
-; * RDI, RSI, RDX, RCX, R8 are arguments (they are caller saved so no need to push them)
-    push rax
+; * If the callee wishes to use registers RBX, RSP, RBP, and R12–R15, 
+; * it must restore their original values before returning control to the caller. 
+; * All other registers must be saved by the caller if it wishes to preserve their values.
     push rbx
-    push rdx
-    push r9
-    push r10
-    push r11
     push r12
     push r13
     push r14
     push r15
     push rbp
 
-    mov rax, [STATE_COMPONENT_BITMAP]
-    mov rdx, 0
-    ; $edx:$eax = all currently supported features
-
-; * The implicit EDX:EAX register pair specifies a 64-bit instruction mask. 
-; * The specific state components saved correspond to the bits set in the requested-feature bitmap (RFBM), 
-; * the logicalAND of EDX:EAX and the logical-OR of XCR0 with the IA32_XSS MSR. 
-
-    ; $rcx = old_fpu_state
-    xsave [rcx]
-
-    ; $r8 = next_fpu_state
-    xrstor [r8]
-
     mov rbx, qword [rel task_rsp_offset]
-    ; $rdi = (uint64_t)old_tcb
     mov [rdi + rbx], rsp                ; rdi->rsp = $rsp
-
-    ; $rsi = (uint64_t)next_tcb
-
-    ; $rdx = ds
 
     mov rsp, [rsi + rbx]                ; $rsp = rsi->rsp
 
@@ -62,12 +41,7 @@ context_switch:
     pop r14
     pop r13
     pop r12
-    pop r11
-    pop r10
-    pop r9
-    pop rdx
     pop rbx
-    pop rax
 
     mov ds, dx
     mov es, dx

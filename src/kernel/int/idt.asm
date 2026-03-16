@@ -1,10 +1,6 @@
 bits 64
 section .text
 
-idtr:
-    dw 0
-    dq 0
-
 global load_idt
 ; void load_idt()
 load_idt:
@@ -86,6 +82,11 @@ interrupt_table:
 
 extern interrupt_handler
 _interrupt_handler:
+    cmp word [rsp + 24], 0x08
+	je .dont_swapgs1
+	swapgs
+.dont_swapgs1:
+
     push rax
     push rcx
     push rdx
@@ -109,8 +110,6 @@ _interrupt_handler:
     mov ax, 0x10
     mov ds, ax
     mov es, ax
-    mov fs, ax
-    mov gs, ax
     mov ss, ax
 
     mov rax, cr2
@@ -120,20 +119,23 @@ _interrupt_handler:
     push rax
     
     mov rdi, rsp
+
+    ; * "The common recommendation is to use interrupt gates so that the assembly part of the interrupt handler 
+    ; * can fully save all necessary registers to the stack before conditionally enabling interrupts 
+    ; * (if "enough" stack space is left for the kernel, for some measure of "enough"). 
+    ; * This way, interrupts are enabled most of the time."
+    ; * -> nullplan
+    sti
     call interrupt_handler
-    
-    ; mov rdi, 'A'
-    ; call putchar
-    ; mov rdi, 10
-    ; call putchar
+global intret
+intret:
+    cli
     
     add rsp, 8 + 8  ; skip cr2 and cr3
 
     pop rax
     mov ds, ax
     mov es, ax
-    mov fs, ax
-    mov gs, ax
 
     pop r15
     pop r14
@@ -150,8 +152,20 @@ _interrupt_handler:
     pop rdx
     pop rcx
     pop rax
-    
+
     add rsp, 8 + 8  ; skip error code and interrupt number
+
 global iretq_instruction
 iretq_instruction:
+    cmp word [rsp + 8], 0x08
+	je .dont_swapgs2
+	swapgs
+
+.dont_swapgs2:
     iretq
+
+section .data
+
+idtr:
+    dw 0
+    dq 0

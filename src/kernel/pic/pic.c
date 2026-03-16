@@ -1,6 +1,5 @@
-#pragma once
-
 #include "pic.h"
+#include "../io/io.h"
 
 void pic_send_eoi(uint8_t irq)
 {

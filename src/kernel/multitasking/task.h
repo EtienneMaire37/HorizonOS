@@ -1,30 +1,51 @@
 #pragma once
 
 #include "../io/keyboard.h"
+#include "../vfs/vfs.h"
+#include <limits.h>
+#include "../gdt/gdt.h"
+#include "../cpu/segbase.h"
+#include <signal.h>
+#include <elf.h>
+
+#include "mutex.h"
 
 #define THREAD_NAME_MAX 64
+#define NUM_SIGNALS     (SIGRTMAX + 1)
+
+typedef struct thread thread_t;
 
 typedef struct thread
 {
     char name[THREAD_NAME_MAX];
 
     uint64_t rsp, cr3;
+    uint64_t fs_base, gs_base;
 
-    utf32_buffer_t input_buffer;
-    bool reading_stdin, is_dead;
-
+    sigset_t sig_pending, sig_mask;
+    struct sigaction sig_act_array[NUM_SIGNALS];
+    bool sig_pending_user_space;
+    
     uint32_t return_value;
+    
+    uid_t ruid, euid, suid;
+    gid_t rgid, egid, sgid;
+    
+    uint64_t pending_signal_handler;
+    int pending_signal_number;
 
-    pid_t wait_pid;
+    // * waitpid shenanigans
+    pid_t wait_pid, waitpid_ret, pgid_on_waitpid;
+    int waitpid_flags;
     uint32_t wstatus;
-
-    bool to_reap;
 
     pid_t forked_pid;
 
+    void* queue;
+
     uint8_t ring;
-    pid_t pid, parent, pgid;    // TODO: rename parent to ppid
-    bool system_task;    // system_task: cause kernel panics
+    pid_t pid, ppid, pgid;
+    bool system_task;    // * Allow causing kernel panics
 
     vfs_folder_tnode_t* cwd;
 
@@ -33,14 +54,17 @@ typedef struct thread
     uint16_t stored_cpu_ticks, current_cpu_ticks;   // * In milliseconds
 
     file_table_index_t file_table[OPEN_MAX];
+    mutex_t file_table_mutex;
+
+    // * We still have to keep them here to fix the case 
+    // * where the current process is blocked before context switching
+    thread_t *prev, *next;
 } thread_t;
 
-#define __CURRENT_TASK      tasks[current_task_index]
+extern const uint64_t task_rsp_offset;
+extern const uint64_t task_cr3_offset;
 
-uint8_t global_cpu_ticks = 0;
-
-const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
-const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
+extern void syscall_handler();
 
 #define TASK_STACK_PAGES            0x400       // * 4MB
 #define TASK_KERNEL_STACK_PAGES     0x20        // * 128KB
@@ -50,120 +74,70 @@ const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
 #define TASK_KERNEL_STACK_TOP_ADDRESS       TASK_STACK_BOTTOM_ADDRESS
 #define TASK_KERNEL_STACK_BOTTOM_ADDRESS    (TASK_KERNEL_STACK_TOP_ADDRESS - 0x1000 * TASK_KERNEL_STACK_PAGES)
 
-#define MAX_TASKS 256
-
-thread_t tasks[MAX_TASKS];    // TODO : Implement a dynamic array
-uint16_t task_count;
-
-#define TASK_SWITCH_DELAY 40 // ms
+#define TASK_SWITCH_DELAY 20 // ms
 #define TASK_SWITCHES_PER_SECOND (1000 / TASK_SWITCH_DELAY)
 
-uint64_t multitasking_counter = TASK_SWITCH_DELAY;
-
-uint16_t current_task_index = 0;
-bool multitasking_enabled = false;
-volatile bool first_task_switch = true;
-
-extern void iretq_instruction();
-void task_kill(uint16_t index);
-
-void apic_enable();
-void apic_disable();
-
-atomic_flag task_queue_spinlock;
-
-void lock_task_queue()
+static inline int vfs_allocate_thread_file(thread_t* task)
 {
-    // lapic_disable();
-    acquire_spinlock(&task_queue_spinlock);
-}
-
-void unlock_task_queue()
-{
-    // lapic_enable();
-    release_spinlock(&task_queue_spinlock);
-}
-
-int vfs_allocate_thread_file(int index)
-{
-    for (int i = 3; i < OPEN_MAX; i++)
+    acquire_mutex(&task->file_table_mutex);
+    for (int i = 0; i < OPEN_MAX; i++)
     {
-        if (tasks[index].file_table[i] == invalid_fd)
-            return i;
+        if (task->file_table[i].index == invalid_fd)
+            return (release_mutex(&task->file_table_mutex), i);
     }
+    release_mutex(&task->file_table_mutex);
     return -1;
 }
 
-extern void __attribute__((sysv_abi)) context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds, uint8_t* old_fpu_state, uint8_t* next_fpu_state);
-void full_context_switch(uint16_t next_task_index)
-{
-    int last_index = current_task_index;
-    current_task_index = next_task_index;
-    TSS.rsp0 = TASK_KERNEL_STACK_TOP_ADDRESS;
-    
-    context_switch(&tasks[last_index], &__CURRENT_TASK, __CURRENT_TASK.ring == 0 ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT,
-    tasks[last_index].fpu_state, __CURRENT_TASK.fpu_state);
-}
+// !!! Assumes task queue is locked
+extern void context_switch(thread_t* old_tcb, thread_t* next_tcb, uint64_t ds);
+void full_context_switch(thread_t* next);
+void end_context_switch();
+thread_t* find_next_task();
+bool is_fd_valid(int fd);
 
-bool task_is_blocked(uint16_t index)
-{
-    if (tasks[index].is_dead) return true;
-    if (tasks[index].reading_stdin) return true;
-    if (tasks[index].forked_pid) return true;
-    if (tasks[index].wait_pid != -1) return true;
-    return false;
-}
+pid_t task_generate_pid();
+void task_set_pid(thread_t* task, pid_t pid);
+void task_set_pgid(thread_t* task, pid_t pgid);
 
-uint16_t find_next_task_index() 
-{
-    uint16_t index = current_task_index;
-    do 
-    {
-        index = (index + 1) % task_count;
-        if (index == 0) continue;
-        if (index == current_task_index) return task_is_blocked(index) ? 0 : index;
-    }
-    while (task_is_blocked(index)); // Skip blocked tasks
-    return index;
-}
-
-bool is_fd_valid(int fd)
-{
-    if (fd < 0 || fd >= OPEN_MAX)
-        return false;
-    if (__CURRENT_TASK.file_table[fd] == invalid_fd)
-        return false;
-    return true;
-}
-
-pid_t task_generate_pid()
-{
-    static pid_t current = 0;
-    return current++;
-}
+void multitasking_add_task(thread_t* task);
+void multitasking_remove_task(thread_t* task);
 
 void task_write_at_address_1b(thread_t* task, uint64_t address, uint8_t value);
 void task_write_at_aligned_address_8b(thread_t* task, uint64_t address, uint64_t value);
 void task_write_at_address_8b(thread_t* task, uint64_t address, uint64_t value);
+uint8_t task_read_at_address_1b(thread_t* task, uint64_t address);
+uint64_t task_read_at_aligned_address_8b(thread_t* task, uint64_t address);
+uint64_t task_read_at_address_8b(thread_t* task, uint64_t address);
 
-void task_setup_stack(thread_t* task, uint64_t entry_point, uint16_t code_seg, uint16_t data_seg);
+void task_setup_stack(thread_t* task, uint64_t entry_point);
 void task_set_name(thread_t* task, const char* name);
 
+thread_t* task_create_empty();
 void task_destroy(thread_t* task);
 void switch_task();
 void multitasking_init();
 void multitasking_start();
-void task_kill(uint16_t index);
 void multitasking_add_idle_task();
 
-thread_t* find_task_by_pid(pid_t pid);
-
-void task_copy_file_table(uint16_t from, uint16_t to, bool cloexec);
+void task_init_file_table(thread_t* task);
+void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec);
 
 void task_stack_push(thread_t*, uint64_t);
+void task_stack_push_auxv(thread_t* task, Elf64_auxv_t val);
+void task_stack_push_string(thread_t* task, const char* str);
+void task_stack_push_data(thread_t* task, void* data, size_t bytes);
 
 void cleanup_tasks();
 
-void idle_main();
-
 void tasks_log();
+
+void kill_task(thread_t* task, int ret);
+
+void task_mask_signal(thread_t* task, int sig);
+void task_unmask_signal(thread_t* task, int sig);
+void task_set_pending_signal(thread_t* task, int sig);
+void task_unset_pending_signal(thread_t* task, int sig);
+void task_queue_signal(thread_t* task, int sig);
+
+void waitpid_check_dead();

@@ -1,0 +1,11 @@
+--- coreutils-base/src/tail.c   2026-03-15 17:22:03.566247444 +0100
++++ coreutils/src/tail.c        2026-03-15 16:40:59.708305995 +0100
+@@ -956,6 +956,8 @@
+ static bool
+ fremote (int fd, struct File_spec const *f)
+ {
++  (void)fd;
++  (void)f;
+   bool remote = true;           /* be conservative (poll by default).  */
+ 
+ #if HAVE_FSTATFS && HAVE_STRUCT_STATFS_F_TYPE \

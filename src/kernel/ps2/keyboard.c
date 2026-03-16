@@ -1,4 +1,36 @@
-#pragma once
+#include "ps2.h"
+#include "../io/keyboard.h"
+#include "../debug/out.h"
+#include "keyboard.h"
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include "../vfs/vfs.h"
+#include "../multitasking/task.h"
+#include "../multitasking/multitasking.h"
+#include "../terminal/textio.h"
+#include "../multitasking/queue.h"
+#include "../int/kernel_panic.h"
+#include "../cpu/registers.h"
+
+uint8_t ps2_keyboard_state[256] = 
+{
+    0
+};
+uint8_t ps2_keyboard_state_e0[256] = 
+{
+    0
+};
+
+bool ps2_kb_caps_lock[2] = { false, false }, ps2_kb_num_lock[2] = { false, false }, ps2_kb_scroll_lock[2] = { false, false };
+
+typedef struct ps2_full_scancode ps2_full_scancode_t;
+
+ps2_full_scancode_t current_ps2_keyboard_scancodes[2] = { { 0, 0, 0 }, { 0, 0, 0 } };
+
+bool enable_ps2_kb_input;
+
+uint8_t ps2_kb_1_scancode_set, ps2_kb_2_scancode_set;
 
 void ps2_kb_get_scancode_set()
 {
@@ -120,8 +152,10 @@ utf32_char_t ps2_scancode_to_unicode(ps2_full_scancode_t scancode, uint8_t port)
     return base_char;
 }
 
-void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode)   // port is 1-2
+void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_switch, bool* send_sigint)   // port is 1-2
 {
+    assert(task_switch && send_sigint);
+
     if (port == 1)
     {
         if (ps2_kb_1_scancode_set != 2)
@@ -177,33 +211,64 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode)   // port is 1
                     ;
                 }
 
-                // LOG(TRACE, "PS/2 keyboard scancode : 0x%x %s", current_ps2_keyboard_scancodes[port_index].scancode, current_ps2_keyboard_scancodes[port_index].extended ? "(extended)" : "");
+                // LOG(TRACE, "PS/2 keyboard scancode : %#x %s", current_ps2_keyboard_scancodes[port_index].scancode, current_ps2_keyboard_scancodes[port_index].extended ? "(extended)" : "");
             }
 
             // ps2_kb_update_leds(port);
 
             utf32_char_t character = ps2_scancode_to_unicode(current_ps2_keyboard_scancodes[port_index], port);
-            if (keyboard_is_key_pressed(VK_LCONTROL) && keyboard_is_key_pressed(VK_LSHIFT))
+            if (keyboard_is_key_pressed(VK_LCONTROL))
             {
-            switch(vk)
-            {
-            case VK_V:
-                vfs_log_tree(vfs_root, 0);
-                break;
-            case VK_P:
-                tasks_log();
-                break;
-            default:
-                goto key;
-            }
+                if (keyboard_is_key_pressed(VK_LSHIFT) && keyboard_is_key_pressed(VK_LALT))
+                {
+                    switch (vk)
+                    {
+                    case VK_V:
+                        vfs_log_tree(vfs_root, 0);
+                        break;
+                    case VK_P:
+                        tasks_log();
+                        break;
+                    case VK_T:
+                        print_stack_trace((uint64_t)ps2_handle_keyboard_scancode, get_rbp(), false);
+                        break;
+                    case VK_F:
+                    	LOG(DEBUG, "Futex hashmap:");
+                    	hashmap_log(futex_tq_hashmap);
+						break;
+                    default:
+                        goto key;
+                    }
+                }
+                else if (!keyboard_is_key_pressed(VK_LSHIFT))
+                {
+                    switch(vk)
+                    {
+                    case VK_C:
+                        if (tty_ts.c_lflag & ISIG)
+                        {
+                            lock_scheduler();
+                            if (!multitasking_is_pgrp_empty(tty_foreground_pgrp))
+                            {
+                                printf("^C");
+                                fflush(stdout);
+                                *send_sigint = true;
+                            }
+                            unlock_scheduler();
+                            return;
+                        }
+                        break;
+                    case VK_D:
+                        character = tty_ts.c_cc[VEOF];
+                        goto key;
+                    default:
+                    }
+                }
             }
             else
             {
             key:
-                keyboard_handle_character(character, vk, 
-                (tty_ts.c_lflag & ECHO) != 0, 
-                (tty_ts.c_lflag & ICANON) == 0, 
-                tty_ts.c_cc[VMIN]);
+                keyboard_handle_character(character, vk, &tty_ts);
             }
         }
 

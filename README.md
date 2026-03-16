@@ -19,22 +19,32 @@ These instructions assume a Debian-like environment. Feel free to adapt those in
 
 Install dependencies:
 ```bash
-sudo apt-get install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
-sudo apt install -y nasm xorriso mtools mkbootimg util-linux dosfstools mtools qemu-utils unzip autoconf2.69
+sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo nasm xorriso mkbootimg util-linux dosfstools mtools qemu-system qemu-utils unzip autoconf2.69 zip meson aptitude autopoint gperf
+sudo aptitude install ovmf -y
 ```
 
 ### Building
 
-Simply run: 
+run:
 ```bash
-make all
+make USER_CFLAGS="${options}"
 ```
-To build without logs. 
-Or:
+Here's a list of the supported options:
+| Option | Value   | Description |
+| ------ | ------- | ----------- |
+| -DLOG_LEVEL | ={TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL} | Level from which logs are written to port 0xe9 |
+| -DLOG_SYSCALLS | N/A | Whether to log syscalls |
+| -DLOG_MEMORY | N/A | Whether to log page allocation |
+| -DLOG_TO_TTY | N/A | Write logs to the screen instead of port E9 |
+| -DNO_STDOUT | N/A | Disable text output (but keep log output if LOG_TO_TTY is specified) |
+| -DDEBUG_ALLOCATOR | N/A | Enable a simple memory allocator (doesn't even allow for freeing pages, should never be used in practice) |
+| -DDEBUG_SCREEN | N/A | Will ALWAYS reload the full framebuffer when any character is printed to the screen |
+
+For example to build with LOG_LEVEL=TRACE and LOG_SYSCALLS:
 ```bash
-make all USER_CFLAGS=-DLOGLEVEL=INFO
+make USER_CFLAGS="-DLOG_LEVEL=TRACE -DLOG_SYSCALLS"
 ```
-To build with E9 port logs. 
+
 A `horizonos.iso` disk image file will be created in the root of the repository.
 
 ### Running HorizonOS
@@ -48,27 +58,15 @@ make run
 
 HorizonOS uses the following third-party libraries and resources:
 
-- [liballoc](https://github.com/blanham/liballoc) - For libc memory allocation (Public domain)
-- [BOOTBOOT](https://gitlab.com/bztsrc/bootboot) - A UEFI bootloader (MIT license)
+- [liballoc](https://github.com/blanham/liballoc) - For memory allocation (Public domain)
 - [pci.ids](https://raw.githubusercontent.com/pciutils/pciids/refs/heads/master/pci.ids) - List of PCI IDs (GPLv3)
-
-## Memory map
-
-| Range     | Mapping         |
-| --------- | --------------- |
-| 0-1TB     | Identity mapped |
-| 1TB-128TB | Process segments, heap and stack    |
-| 128TB-[-128TB] | Noncanonical addresses |
-| [-128TB]-[-512GB] | Unused addresses |
-| [-512GB]-[-128MB] | Hole |
-| [-128MB]-0 | mmio, framebuffer, bootboot data and kernel code segment |
+- [limine](https://codeberg.org/Limine/Limine) - Bootloader
+- [catppuccin for limine](https://github.com/catppuccin/limine) - Limine theme (MIT)
 
 ## Contributing
 
 You can submit issues [here](https://github.com/EtienneMaire37/HorizonOS-v5/issues).
-Feel free to contribute and submit pull requests !
 
 ## License
 
 HorizonOS is licensed under the GNU GPLv3 License. See the `LICENSE` file for more details.
-BOOTBOOT (downloaded upon build) is licensed under the MIT license. See the `bootboot/LICENSE` file for more details.

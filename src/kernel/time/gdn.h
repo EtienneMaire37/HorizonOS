@@ -1,9 +1,12 @@
 #pragma once
 
-#define GDN_EPOCH 719162
-// typedef uint32_t time_t;
+#include <time.h>
+#include <stdlib.h>
+#include "../debug/out.h"
 
-uint32_t year_to_gdn(uint16_t year, bool* leap) 
+#define GDN_EPOCH 719162
+
+static inline uint32_t year_to_gdn(uint16_t year, bool* leap) 
 {
     if (year >= (uint32_t)(-1) / 146097)
     {
@@ -22,7 +25,7 @@ uint32_t year_to_gdn(uint16_t year, bool* leap)
     return (uint32_t)146097 * cycle + 36524 * century + 1461 * group + 365* year_in_group;
 }
 
-uint32_t time_to_gdn(uint16_t year, uint8_t month, uint8_t day)
+static inline uint32_t time_to_gdn(uint16_t year, uint8_t month, uint8_t day)
 {
     month -= 1;
     bool leap;
@@ -33,7 +36,7 @@ uint32_t time_to_gdn(uint16_t year, uint8_t month, uint8_t day)
     return gdn;
 }
 
-time_t time_to_unix(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second)
+static inline time_t time_to_unix(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second)
 {
     uint32_t gdn = time_to_gdn(year, month, day);
     return (gdn - GDN_EPOCH) * 86400LL + hour * 3600 + minute * 60 + second;
