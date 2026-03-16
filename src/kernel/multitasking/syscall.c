@@ -533,10 +533,12 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         unlock_scheduler();
         assert(task_lock_depth == 0);
         switch_task();
+        lock_scheduler();
         if (current_task->pid == forked_pid)
             sc_ret(1) = 0;
         else
             sc_ret(1) = forked_pid;
+        unlock_scheduler();
         break;
     sc_case(SYS_SIGACTION, 3, int, const struct sigaction*, struct sigaction*)
         SC_LOG("syscall SYS_SIGACTION(%d, %p, %p)", arg1, arg2, arg3);
@@ -1036,6 +1038,10 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         current_task->sig_mask = saved_sigmask;
         unlock_scheduler();
         break;
+    sc_case(SYS_FADVISE, 4, int, off_t, off_t, int)
+        SC_LOG("syscall SYS_FADVISE(%d, %ld, %ld, %d)", arg1, arg2, arg3, arg4);
+        break;
+
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
         if (arg1 >= 1 && arg1 <= NUM_KB_LAYOUTS)

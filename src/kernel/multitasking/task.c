@@ -29,9 +29,10 @@ thread_t* task_create_empty()
 
     task->file_table_mutex = MUTEX_INIT;
 
-    task_set_pid(task, task_generate_pid());
+    task->pid = -1;
     task->ppid = -1;
     task->pgid = -1;
+    task_set_pid(task, task_generate_pid());
     task_set_pgid(task, task->pid);
 
     task->ruid = task->euid = task->suid = 0;
@@ -56,6 +57,7 @@ thread_t* task_create_empty()
 
 void task_set_pgid(thread_t* task, pid_t pgid)
 {
+    assert(task);
     lock_scheduler();
     if (task->pgid != -1)
         tq_hashmap_remove(pgid_to_tq_hashmap, task->pgid, task);
@@ -65,7 +67,11 @@ void task_set_pgid(thread_t* task, pid_t pgid)
 }
 void task_set_pid(thread_t* task, pid_t pid)
 {
+    LOG(TRACE, "task_set_pid(%p, %d)", task, pid);
+    assert(task);
     lock_scheduler();
+    if (task->pid != -1)
+        hashmap_remove_item(pid_to_task_hashmap, task->pid);
     task->pid = pid;
     hashmap_set_item(pid_to_task_hashmap, task->pid, task);
     unlock_scheduler();
@@ -93,17 +99,9 @@ void task_destroy(thread_t* task)
     }
     fpu_state_destroy(&task->fpu_state);
     task_free_vas((physical_address_t)task->cr3);
+    free(task);
 	LOG(TRACE, "Done.");
     unlock_scheduler();
-
-    // if (tasks_left == 1)    // * Idle task left
-    // {
-    //     disable_interrupts();
-    //     tty_cursor_blink = true;
-    //     printf("\nNo tasks left, halting cpu.");
-    //     LOG(TRACE, "No tasks left, halting cpu.");
-    //     halt();
-    // }
 }
 
 void task_setup_stack_ex(thread_t* task, 
@@ -304,36 +302,17 @@ void switch_task()
 
 thread_t* find_running_task_by_pid(pid_t pid)
 {
-    if (pid < 0) return NULL;
-    thread_t* cur_running = running_tasks;
-    do
-    {
-        if (cur_running->pid == pid)
-            return cur_running;
-        cur_running = cur_running->next;
-    } while (cur_running != running_tasks);
-    return NULL;
+    return find_task_by_pid_in_queue(&running_tasks, pid);
 }
 
-thread_t* find_task_by_pid_in_queue(thread_queue_t* queue, pid_t pid)
+thread_t* find_task_by_pid_in_queue(void* queue, pid_t pid)
 {
-    if (pid < 0) return NULL;
-    lock_scheduler();
-    if (!queue) return (unlock_scheduler(), NULL);
-    if (!*queue) return (unlock_scheduler(), NULL);
-    thread_queue_item_t* it = *queue;
-    do
-    {
-        thread_t* thread = (thread_t*)it->data;
-        if (thread->pid == pid)
-        {
-            unlock_scheduler();
-            return thread;
-        }
-        it = it->next;
-    } while (it != *queue);
-    unlock_scheduler();
-    return NULL;
+    // !! Assumes a task can only be in one queue at a time
+
+    thread_t* ret = find_task_by_pid_anywhere(pid);
+    if (!ret || ret->queue != queue)
+        return NULL;
+    return ret;
 }
 
 thread_t* find_task_by_pid_anywhere(pid_t pid)
@@ -364,7 +343,7 @@ void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
     unlock_scheduler();
 }
 
-void duplicate_task(thread_t* task)
+void fork_task(thread_t* task)
 {
     if (!task)
         return;
@@ -379,6 +358,8 @@ void duplicate_task(thread_t* task)
     }
 
     *new_task = *task;
+
+    new_task->pid = -1;
 
     task_set_pid(new_task, task->forked_pid);
     new_task->forked_pid = 0;
@@ -425,7 +406,7 @@ void cleanup_tasks()
             if (task_to_fork != current_task)
             {
                 move_task_to_running_queue(&forked_tasks, cur_forked_task);
-                duplicate_task(task_to_fork);
+                fork_task(task_to_fork);
             }
         }
         while (forked_tasks && cur_forked_task != forked_tasks);

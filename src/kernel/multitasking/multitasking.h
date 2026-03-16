@@ -125,7 +125,7 @@ void multitasking_add_task(thread_t* task);
 void multitasking_remove_task(thread_t* task);
 
 thread_t* find_running_task_by_pid(pid_t pid);
-thread_t* find_task_by_pid_in_queue(thread_queue_t* queue, pid_t pid);
+thread_t* find_task_by_pid_in_queue(void* queue, pid_t pid);
 thread_t* find_task_by_pid_anywhere(pid_t pid);
 
 void task_send_signal_to_pgrp(int sig, pid_t pgrp);

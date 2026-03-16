@@ -416,4 +416,9 @@ namespace mlibc
 		int ret = sys_getresuid(&ruid, &euid, &suid);
 		return euid;
 	}
+
+	int sys_fadvise(int fd, off_t offset, off_t length, int advice)
+	{
+		return syscall4_1(SYS_FADVISE, (uint64_t)fd, (uint64_t)offset, (uint64_t)length, (uint64_t)advice);
+	}
 }
