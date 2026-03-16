@@ -27,17 +27,17 @@ void vfs_init_file_table()
         else        file_table[i].used = 0;
     }
     
-    file_table[0].entry_type = ET_FILE;
+    file_table[0].entry_type = VFS_ET_FILE;
     file_table[0].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[0].position = 0;
     file_table[0].flags = O_RDONLY;
 
-    file_table[1].entry_type = ET_FILE;
+    file_table[1].entry_type = VFS_ET_FILE;
     file_table[1].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[1].position = 0;
     file_table[1].flags = O_WRONLY;
 
-    file_table[2].entry_type = ET_FILE;
+    file_table[2].entry_type = VFS_ET_FILE;
     file_table[2].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[2].position = 0;
     file_table[2].flags = O_WRONLY;
@@ -47,6 +47,8 @@ void vfs_init_file_table()
 
 int vfs_allocate_global_file()
 {
+    // !!! ASAP
+    // TODO: Implement a more general "atomic lock" which can be used for several things and not just the scheduler
 	lock_scheduler();
     acquire_mutex(&file_table_lock);
     for (int i = 3; i < MAX_FILE_TABLE_ENTRIES; i++)
@@ -623,8 +625,8 @@ int vfs_fstat(int fd, vfs_folder_tnode_t* pwd, struct stat* st)
 
     switch (entry->entry_type)
     {
-    case ET_FILE: *st = entry->tnode.file->inode->st; return 0;
-    case ET_FOLDER: *st = entry->tnode.folder->inode->st; return 0;
+    case VFS_ET_FILE: *st = entry->tnode.file->inode->st; return 0;
+    case VFS_ET_FOLDER: *st = entry->tnode.folder->inode->st; return 0;
     default:
     }
 
@@ -732,7 +734,7 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
         return EBADF;
     }
 
-    if (get_global_file_entry(fd)->entry_type == ET_FILE)
+    if (get_global_file_entry(fd)->entry_type == VFS_ET_FILE)
     {
         mode_t mode = get_global_file_entry(fd)->tnode.file->inode->st.st_mode;
         *bytes_read = get_global_file_entry(fd)->tnode.file->inode->io_func(get_global_file_entry(fd), buffer, num_bytes, CHR_DIR_READ);
@@ -757,7 +759,7 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
         *bytes_written = -1;
         return EBADF;
     }
-    if (get_global_file_entry(fd)->entry_type == ET_FILE)
+    if (get_global_file_entry(fd)->entry_type == VFS_ET_FILE)
     {
         mode_t mode = get_global_file_entry(fd)->tnode.file->inode->st.st_mode;
         *bytes_written = get_global_file_entry(fd)->tnode.file->inode->io_func(get_global_file_entry(fd), (unsigned char*)buffer, bytes_to_write, CHR_DIR_WRITE);

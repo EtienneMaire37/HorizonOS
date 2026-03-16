@@ -204,14 +204,13 @@ namespace mlibc
 
 	int sys_stat(fsfd_target fsfdt, int fd, const char* path, int flags, struct stat* statbuf)
 	{
-		if (fsfdt == fsfd_target::none)
-			return EINVAL;
-		else if (fsfdt == fsfd_target::path)
+		// * from linux
+		if (fsfdt == fsfd_target::path)
 			fd = AT_FDCWD;
 		else if (fsfdt == fsfd_target::fd)
 			flags |= AT_EMPTY_PATH;
-		else 
-			return ENOSYS;
+		else
+			__ensure(fsfdt == fsfd_target::fd_path);
 
 		return syscall4_1(SYS_FSTATAT, (uint64_t)fd, (uint64_t)path, (uint64_t)flags, (uint64_t)statbuf);
 	}
@@ -370,6 +369,21 @@ namespace mlibc
 		uint64_t _num_events;
 		int ret = syscall6_2(SYS_PSELECT, (uint64_t)num_fds, (uint64_t)read_set, (uint64_t)write_set, (uint64_t)except_set, (uint64_t)timeout, (uint64_t)sigmask, &_num_events);
 		*num_events = (int)_num_events;
+		return ret;
+	}
+
+	int sys_open_dir(const char* path, int* handle)
+	{
+		uint64_t _handle;
+		int ret = syscall1_2(SYS_OPEN_DIR, (uint64_t)path, &_handle);
+		*handle = (int)_handle;
+		return ret;
+	}
+	int sys_read_entries(int handle, void* buffer, size_t max_size, size_t* bytes_read)
+	{
+		uint64_t _bytes_read;
+		int ret = syscall3_2(SYS_READ_ENTRIES, (uint64_t)handle, (uint64_t)buffer, (uint64_t)max_size, &_bytes_read);
+		*bytes_read = (size_t)_bytes_read;
 		return ret;
 	}
 }

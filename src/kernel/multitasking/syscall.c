@@ -18,6 +18,8 @@
 #include "signal.h"
 #include "multitasking.h"
 #include "../util/memory.h"
+#include "../vfs/entries.h"
+#include <dirent.h>
 
 extern void sigret();
 
@@ -63,6 +65,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         SC_LOG("syscall SYS_EXIT(%d)", arg1);
         kill_task(current_task, ((uint16_t)arg1 & 0x7f) << 8);
         abort();
+        break;
     sc_case(SYS_ISATTY, 1, int)
         SC_LOG("syscall SYS_ISATTY(%d)", arg1);
         if (!is_fd_valid(arg1))
@@ -166,7 +169,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             break;
         }
         file_entry_t* entry = get_global_file_entry(arg1);
-        if (entry->entry_type != ET_FILE)
+        if (entry->entry_type != VFS_ET_FILE)
         {
             sc_ret_errno = 0;
             sc_ret(1) = (uint64_t)((off_t)0);
@@ -211,12 +214,12 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         // * Only supported flags for now
         if (arg2 & ~(O_CLOEXEC | O_ACCMODE))
         {
-            sc_ret_errno = ENOSYS;
+            sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)(-1);
             break;
         }
 
-        // acquire_mutex(&file_table_lock);
+        lock_scheduler();
 
         int fd = vfs_allocate_global_file();
 
@@ -228,7 +231,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         if (stat_ret != 0)
         {
             vfs_remove_global_file(fd);
-            // release_mutex(&file_table_lock);
+            unlock_scheduler();
             sc_ret_errno = stat_ret;
             sc_ret(1) = (uint64_t)(-1);
             break;
@@ -237,27 +240,30 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         if (false) // * Assume we're root
         {
             vfs_remove_global_file(fd);
-            // release_mutex(&file_table_lock);
+            unlock_scheduler();
             sc_ret_errno = EACCES;
             sc_ret(1) = (uint64_t)(-1);
             break;
         }
 
-        file_table[fd].entry_type = S_ISDIR(stat_ret) ? ET_FOLDER : ET_FILE;
+        file_table[fd].entry_type = S_ISDIR(stat_ret) ? VFS_ET_FOLDER : VFS_ET_FILE;
 
         file_table[fd].tnode.file = NULL;
         file_table[fd].tnode.folder = NULL;
 
-        if (file_table[fd].entry_type == ET_FILE)
+        if (file_table[fd].entry_type == VFS_ET_FILE)
             file_table[fd].tnode.file = vfs_get_file_tnode(arg1, current_task->cwd);
-        if (file_table[fd].entry_type == ET_FOLDER)
+        if (file_table[fd].entry_type == VFS_ET_FOLDER)
             file_table[fd].tnode.folder = vfs_get_folder_tnode(arg1, current_task->cwd);
+
+        file_table[fd].file_data.folder_child.str = NULL;
+        file_table[fd].file_data.folder_child.done_reading = false;
 
         int ret = vfs_allocate_thread_file(current_task);
         if (ret == -1)
         {
             vfs_remove_global_file(fd);
-            // release_mutex(&file_table_lock);
+            unlock_scheduler();
 
             sc_ret_errno = EMFILE;
             sc_ret(1) = (uint64_t)(-1);
@@ -266,19 +272,120 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         {
             current_task->file_table[ret].index = fd;
             current_task->file_table[ret].flags = (arg2 & O_CLOEXEC) ? FD_CLOEXEC : 0;
-            // release_mutex(&file_table_lock);
+            unlock_scheduler();
             sc_ret_errno = 0;
             sc_ret(1) = (uint64_t)ret;
         }
         break;
     sc_case(SYS_CLOSE, 1, int)
         SC_LOG("syscall SYS_CLOSE(%d)", arg1);
+        lock_scheduler();
         if (!is_fd_valid(arg1))
         {
+            unlock_scheduler();
             sc_ret_errno = EBADF;
             break;
         }
+        vfs_remove_global_file(current_task->file_table[arg1].index);
+        current_task->file_table[arg1].index = invalid_fd;
+        unlock_scheduler();
         sc_ret_errno = 0;
+        break;
+    sc_case(SYS_OPEN_DIR, 1, const char*)
+        SC_LOG("syscall SYS_OPEN_DIR(\"%s\")", arg1);
+        if (!arg1 || !strcmp(arg1, ""))
+        {
+            sc_ret_errno = ENOENT;
+            sc_ret(1) = -1;
+            break;
+        }
+
+        lock_scheduler();
+
+        vfs_folder_tnode_t* tnode = vfs_get_folder_tnode(arg1, current_task->cwd);
+        if (!tnode)
+        {
+            unlock_scheduler();
+            sc_ret_errno = ENOENT;
+            sc_ret(1) = -1;
+            break;
+        }
+
+        int fd = vfs_allocate_global_file();
+
+        file_table[fd].entry_type = VFS_ET_FOLDER;
+
+        file_table[fd].tnode.file = NULL;
+        file_table[fd].tnode.folder = tnode;
+
+        file_table[fd].file_data.folder_child.str = NULL;
+        file_table[fd].file_data.folder_child.done_reading = false;
+
+        int ret = vfs_allocate_thread_file(current_task);
+        if (ret == -1)
+        {
+            vfs_remove_global_file(fd);
+            unlock_scheduler();
+
+            sc_ret_errno = EMFILE;
+            sc_ret(1) = (uint64_t)(-1);
+        }
+        else
+        {
+            current_task->file_table[ret].index = fd;
+            current_task->file_table[ret].flags = 0;
+            unlock_scheduler();
+            sc_ret_errno = 0;
+            sc_ret(1) = (uint64_t)ret;
+        }
+        break;
+    sc_case(SYS_READ_ENTRIES, 3, int, void*, size_t)
+        SC_LOG("syscall SYS_READ_ENTRIES(%d, %p, %zu)", arg1, arg2, arg3);
+        if (!is_fd_valid(arg1))
+        {
+            sc_ret_errno = EBADF;
+            sc_ret(1) = 0;
+            break;
+        }
+        lock_scheduler();
+        file_entry_t* entry = get_global_file_entry(arg1);
+        assert(entry);
+        if (entry->entry_type != VFS_ET_FOLDER)
+        {
+            unlock_scheduler();
+            sc_ret_errno = ENOTDIR;
+            sc_ret(1) = 0;
+            break;
+        }
+        sc_ret_errno = 0;
+        if (entry->file_data.folder_child.done_reading)
+        {
+            sc_ret(1) = 0;
+            entry->file_data.folder_child.done_reading = false;
+            unlock_scheduler();
+            break;
+        }
+        struct dirent64 dir_entry;
+        size_t bytes_read = 0;
+        while (true)
+        {
+            if (bytes_read + sizeof(dir_entry) > arg3)
+            {
+                if (bytes_read == 0)
+                    sc_ret_errno = EINVAL;
+                break;
+            }
+            dir_entry = vfs_find_new_child_entry(entry);
+            if (dir_entry.d_name[0] == 0)
+            {
+                entry->file_data.folder_child.done_reading = true;
+                break;
+            }
+            memcpy((void*)((char*)arg2 + bytes_read), &dir_entry, sizeof(dir_entry));
+            bytes_read += sizeof(dir_entry);
+        }
+        sc_ret(1) = bytes_read;
+        unlock_scheduler();
         break;
     sc_case(SYS_IOCTL, 3, int, unsigned long, void*)
         SC_LOG("syscall SYS_IOCTL(%d, %#lx, %p)", arg1, arg2, arg3);
@@ -642,15 +749,15 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             unlock_scheduler();
             break;
         }
-        if (strcmp(arg2, "") == 0 && (arg3 & arg3 & AT_EMPTY_PATH))
+        if (strcmp(arg2, "") == 0 && (arg3 & AT_EMPTY_PATH))
         {
-            *arg4 = entry->entry_type == ET_FILE ? entry->tnode.file->inode->st : entry->tnode.folder->inode->st;
+            *arg4 = entry->entry_type == VFS_ET_FILE ? entry->tnode.file->inode->st : entry->tnode.folder->inode->st;
             sc_ret_errno = 0;
             unlock_scheduler();
             break;
         }
         bool relative_path = *arg2 != '/';
-        if (relative_path && !entry)
+        if (relative_path && !entry && arg1 != AT_FDCWD)
         {
             unlock_scheduler();
             sc_ret_errno = EBADF;
@@ -664,13 +771,13 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 cwd = current_task->cwd;
                 goto fstatat_get_st;
             }
-            if (entry->entry_type != ET_FOLDER)
+            if (entry->entry_type != VFS_ET_FOLDER)
             {
                 sc_ret_errno = ENOTDIR;
                 unlock_scheduler();
                 break;
             }
-            if (entry->entry_type == ET_FOLDER)
+            if (entry->entry_type == VFS_ET_FOLDER)
             {
                 cwd = entry->tnode.file->inode->parent;
                 if (*arg2 == 0) // * empty path
@@ -698,8 +805,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 unlock_scheduler();
                 break;
             }
-            sc_ret_errno = ENOSYS;
-            break;
+            abort();
         }
         else
         {
@@ -854,7 +960,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             break;
         default:
             LOG(DEBUG, "Unknown fcntl request");
-            task_send_signal(current_task, SIGILL);
+            // task_send_signal(current_task, SIGILL);
             sc_ret_errno = ENOSYS;
         }
         unlock_scheduler();
@@ -934,7 +1040,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
     }
     default:
         LOG(DEBUG, "syscall %" PRIu64 " not implemented", registers->rax);
-        task_send_signal(current_task, SIGILL);
+        // task_send_signal(current_task, SIGILL);
         sc_ret_errno = ENOSYS;
     }
 

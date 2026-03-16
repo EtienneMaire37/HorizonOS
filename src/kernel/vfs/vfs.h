@@ -63,7 +63,7 @@ typedef struct vfs_file_inode
     union
     {
         initrd_file_t* initrd;
-        ide_descriptor_t ide;
+        const char* folder_child;
     } file_data;
 
     ssize_t (*io_func)(file_entry_t*, uint8_t* buf, size_t count, uint8_t direction);
@@ -107,11 +107,17 @@ typedef struct vfs_folder_tnode
 
 // * Open file descriptor data
 
-#define ET_FILE     1
-#define ET_FOLDER   2
+#define VFS_ET_FILE     1
+#define VFS_ET_FOLDER   2
 
 #define CHR_MODE    (S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 #define BLK_MODE    (S_IFBLK | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+
+struct folder_child_data
+{
+    const char* str;
+    bool done_reading;
+};
 
 typedef struct file_entry
 {
@@ -119,6 +125,10 @@ typedef struct file_entry
     int flags;
     off_t position;
     uint8_t entry_type;
+    union
+    {
+        struct folder_child_data folder_child;
+    } file_data;
     union
     {
         vfs_file_tnode_t* file;
@@ -168,7 +178,7 @@ ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t d
 static inline bool vfs_isatty(file_entry_t* entry)
 {
     if (!entry) return false;
-    return entry->entry_type == ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && entry->tnode.file->inode->io_func == task_chr_tty) : false;
+    return entry->entry_type == VFS_ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && entry->tnode.file->inode->io_func == task_chr_tty) : false;
 }
 
 vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t),

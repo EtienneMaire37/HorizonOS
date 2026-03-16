@@ -64,7 +64,12 @@ static inline void unlock_scheduler()
 
 static inline file_entry_t* get_global_file_entry(int fd)
 {
-    return &file_table[current_task->file_table[fd].index];
+    acquire_mutex(&file_table_lock);
+    if (!is_fd_valid(fd))
+        return (release_mutex(&file_table_lock), NULL);
+    file_entry_t* entry = &file_table[current_task->file_table[fd].index];
+    release_mutex(&file_table_lock);
+    return entry;
 }
 
 static inline void vfs_close(int fd)

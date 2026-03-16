@@ -10,6 +10,9 @@ uint16_t connected_pci_ide_controllers = 0;
 #include <stdlib.h>
 #include "../time/time.h"
 
+// !!!! DEPRECATED:
+// TODO: Implement more modern AHCI/NVMe drivers
+
 void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
 {
     if (connected_pci_ide_controllers >= IDE_MAX)
@@ -191,27 +194,27 @@ void pci_connect_ide_controller(uint8_t bus, uint8_t device, uint8_t function)
         }
     }
 
-    // * Create block special files
-    for (uint8_t i = 0; i < 2; i++)
-    {
-        for (uint8_t j = 0; j < 2; j++)
-        {
-            if (pci_ide_controller[connected_pci_ide_controllers - 1].channels[i].devices[j].connected) 
-            {
-                const int bufsiz = (3 + 1) + 1 + 1 + (1);
-                char file_name[bufsiz];
+    // // * Create block special files
+    // for (uint8_t i = 0; i < 2; i++)
+    // {
+    //     for (uint8_t j = 0; j < 2; j++)
+    //     {
+    //         if (pci_ide_controller[connected_pci_ide_controllers - 1].channels[i].devices[j].connected) 
+    //         {
+    //             const int bufsiz = (3 + 1) + 1 + 1 + (1);
+    //             char file_name[bufsiz];
 
-                snprintf(file_name, bufsiz, "ata%u_%u", connected_pci_ide_controllers - 1, i * 2 + j);
+    //             snprintf(file_name, bufsiz, "ata%u_%u", connected_pci_ide_controllers - 1, i * 2 + j);
 
-                vfs_file_tnode_t* tnode = vfs_add_special("/dev", file_name, BLK_MODE, ata_iofunc, 0, 0);
-                if (!tnode)
-                    continue;
-                tnode->inode->file_data.ide.ide_idx = connected_pci_ide_controllers - 1;
-                tnode->inode->file_data.ide.ata_idx = j + 2 * i;
-                tnode->inode->st.st_size = 512 * pci_ide_controller[connected_pci_ide_controllers - 1].channels[i].devices[j].size;
-            }
-        }
-    }
+    //             vfs_file_tnode_t* tnode = vfs_add_special("/dev", file_name, BLK_MODE, ata_iofunc, 0, 0);
+    //             if (!tnode)
+    //                 continue;
+    //             tnode->inode->file_data.ide.ide_idx = connected_pci_ide_controllers - 1;
+    //             tnode->inode->file_data.ide.ata_idx = j + 2 * i;
+    //             tnode->inode->st.st_size = 512 * pci_ide_controller[connected_pci_ide_controllers - 1].channels[i].devices[j].size;
+    //         }
+    //     }
+    // }
 
     LOG(INFO, "Partitions on connected drives:");
     for (uint8_t i = 0; i < 2; i++)
@@ -433,17 +436,4 @@ bool ata_pio_read_bytes(pci_ide_controller_data_t* controller, uint8_t channel, 
     release_mutex(&controller->channels[channel].devices[drive].lock);
 
     return true;
-}
-
-ssize_t ata_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
-{
-    if (direction == CHR_DIR_READ)
-    {
-        ide_descriptor_t ide = entry->tnode.file->inode->file_data.ide;
-        if (!ata_pio_read_bytes(&pci_ide_controller[ide.ide_idx], ide.ata_idx / 2, ide.ata_idx % 2, entry->position, count, buf))
-            return 0;
-        return count;
-    }
-
-    return 0;
 }

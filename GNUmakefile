@@ -39,7 +39,7 @@ override LINUX_HEADERS_STAMP := ${MAKE_DIR}/linux-headers/.built
 
 QEMU_FLAGS := -accel kvm -cpu host -debugcon file:debug/latest.log -m 1024 -drive file=horizonos.iso,index=0,media=disk,format=raw -smp 8
 
-.PHONY: all run rmbin clean
+.PHONY: all run bios-run uefi-run debug bios-debug uefi-debug rmbin clean
 
 all: horizonos.iso
 
@@ -98,8 +98,8 @@ $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ)
 	-lgcc
 # 	$(CROSSSTRIP) $@
 
-run:	uefi-run
-debug: 	uefi-debug
+run:	bios-run
+debug: 	bios-debug
 
 uefi-run:	horizonos.iso
 	mkdir debug -p
