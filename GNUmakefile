@@ -39,7 +39,7 @@ override LINUX_HEADERS_STAMP := ${MAKE_DIR}/linux-headers/.built
 
 QEMU_FLAGS := -accel kvm -cpu host -debugcon file:debug/latest.log -m 1024 -drive file=horizonos.iso,index=0,media=disk,format=raw -smp 8
 
-.PHONY: all run bios-run uefi-run debug bios-debug uefi-debug rmbin clean
+.PHONY: all run bios-run uefi-run debug bios-debug uefi-debug rmbin rmkernelbin clean
 
 all: horizonos.iso
 
@@ -233,11 +233,13 @@ $(LINUX_HEADERS_STAMP):
 	cd linux-headers && make ARCH=x86_64 prefix=/usr DESTDIR=${MAKE_DIR}/linux-kernel-headers install
 	touch $@
 
-rmbin:
+rmkernelbin:
 	rm -rf bin/*
+	rm -f horizonos.iso
+
+rmbin: rmkernelbin
 	rm -rf src/tasks/bin/*
 	rm -rf src/libc/lib/*
-	rm -f horizonos.iso
 
 clean: rmbin
 	# rm -f horizonos.vdi

@@ -498,18 +498,8 @@ void tasks_log()
 {
     LOG(DEBUG, "%u tasks: (Total CPU usage: %u.%u)", task_count, (1000 - idle_task->stored_cpu_ticks) / 10,  (1000 - idle_task->stored_cpu_ticks) % 10);
     lock_scheduler();
-    thread_t* task = running_tasks;
-    do
-    {
-        LOG(DEBUG, "%s── task \"%s\" [pid %d, ppid %d, pgid %d] | CPU Usage: %u.%u%s", task->next == running_tasks ? "└" : "├",
-            task->name, task->pid, task->ppid, task->pgid, task->stored_cpu_ticks / 10, task->stored_cpu_ticks % 10,
-            task->pgid == tty_foreground_pgrp ? " (foreground)" : " (background)");
-
-        task = task->next;
-    }
-    while (task != running_tasks);
     LOG(DEBUG, "pid to thread hashmap:");
-    hashmap_log(pid_to_task_hashmap);
+    thread_hashmap_log(pid_to_task_hashmap);
     LOG(DEBUG, "pgid to thread queue hashmap:");
     tq_hashmap_log(pgid_to_tq_hashmap);
     LOG(DEBUG, "pid to children hashmap:");

@@ -64,11 +64,40 @@ static inline void tq_hashmap_log(hashmap_t* hmp)
                 {
                     do
                     {
-                        CONTINUE_LOG(DEBUG, "%p%s", tq_it->data, tq_it->next == *tq ? "" : ", ");
+                        thread_t* thread = tq_it->data;
+                        CONTINUE_LOG(DEBUG, "%p", thread);
+                        if (thread)
+                            CONTINUE_LOG(DEBUG, " : { .name = \"%s\", .pid = %d, .ppid = %d, .pgid = %d }", thread->name, thread->pid, thread->ppid, thread->pgid);
+                        CONTINUE_LOG(DEBUG, "%s", tq_it->next == *tq ? "" : ", ");
                         tq_it = tq_it->next;
                     } while (tq_it != *tq);
                 }
                 CONTINUE_LOG(DEBUG, "}, ");
+				it = it->next;
+			} while (it != hmp->data[i]);
+		}
+	}
+end:
+	LOG(DEBUG, "}");
+}
+
+static inline void thread_hashmap_log(hashmap_t* hmp)
+{
+    LOG(DEBUG, "{");
+	if (!hmp) goto end;
+	for (size_t i = 0; i < hmp->items; i++)
+	{
+		if (hmp->data[i])
+		{
+			ll_item_t* it = hmp->data[i];
+			do
+			{
+				hashmap_item_t* item = (hashmap_item_t*)it->data;
+				LOG(DEBUG, "\t%#" PRIx64, item->key);
+                thread_t* thread = item->value;
+                if (thread)
+                    CONTINUE_LOG(DEBUG, ": { .name = \"%s\", .pid = %d, .ppid = %d, .pgid = %d }", thread->name, thread->pid, thread->ppid, thread->pgid);
+                CONTINUE_LOG(DEBUG, ",");
 				it = it->next;
 			} while (it != hmp->data[i]);
 		}
