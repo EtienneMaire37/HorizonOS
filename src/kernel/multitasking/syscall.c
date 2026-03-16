@@ -515,7 +515,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret_errno = vfs_get_file_tnode(arg1, current_task->cwd) ? ENOTDIR : ENOENT;
             break;
         }
-        if (vfs_access(arg1, current_task->cwd, X_OK))
+        if (vfs_access(arg1, current_task->cwd, X_OK) != 0)
         {
             sc_ret_errno = EACCES;
             break;
@@ -829,6 +829,15 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             unlock_scheduler();
             break;
         }
+        break;
+    sc_case(SYS_ACCESS, 2, const char*, int)
+        SC_LOG("syscall SYS_ACCESS(\"%s\", %d)", arg1, arg2);
+        if (arg2 & ~(R_OK | W_OK | X_OK)) // * F_OK is 0
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        sc_ret_errno = vfs_access(arg1, current_task->cwd, arg2);
         break;
     sc_case(SYS_GETPGID, 1, pid_t)
         SC_LOG("syscall SYS_GETPGID(%d)", arg1);

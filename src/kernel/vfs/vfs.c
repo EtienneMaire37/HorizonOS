@@ -633,91 +633,15 @@ int vfs_fstat(int fd, vfs_folder_tnode_t* pwd, struct stat* st)
     return ENOENT;
 }
 
-int vfs_access(const char* path, vfs_folder_tnode_t* pwd, mode_t mode)
+int vfs_access(const char* path, vfs_folder_tnode_t* pwd, int mode)
 {
     if (mode == 0) return 0;
     struct stat st;
     int ret = vfs_stat(path, pwd, &st);
     if (ret)
         return ret;
-    // * Assume we're the owner of every file for now
-    if ((mode & R_OK) && ((st.st_mode & S_IRUSR) == 0))
-        return EACCES;
-    if ((mode & W_OK) && ((st.st_mode & S_IWUSR) == 0))
-        return EACCES;
-    if ((mode & X_OK) && ((st.st_mode & S_IXUSR) == 0))
-        return EACCES;
+    // * Assume we're the root for now
     return 0;
-}
-
-struct dirent* vfs_readdir(struct dirent* dirent, DIR* dirp)
-{
-    // vfs_folder_tnode_t* folder_tnode = vfs_get_folder_tnode(dirp->path, NULL);
-    // if (!folder_tnode)
-    // {
-    //     errno = ENOENT;
-    //     return NULL;
-    // }
-
-    // if (!(folder_tnode->inode->flags & VFS_NODE_EXPLORED))
-    //     vfs_explore(folder_tnode);
-
-    // if (strcmp(dirp->current_entry, "") == 0)
-    // {
-    //     strcpy(dirp->current_entry, ".");
-    //     memcpy(dirent->d_name, dirp->current_entry, 2);
-    //     dirent->d_ino = folder_tnode->inode->st.st_ino;
-    //     errno = 0;
-    //     return dirent;
-    // }
-
-    // if (strcmp(dirp->current_entry, ".") == 0)
-    // {
-    //     strcpy(dirp->current_entry, "..");
-    //     memcpy(dirent->d_name, dirp->current_entry, 3);
-    //     dirent->d_ino = folder_tnode->inode->parent->inode->st.st_ino;
-    //     errno = 0;
-    //     return dirent;
-    // }
-
-    // bool found_last_entry = strcmp(dirp->current_entry, "..") == 0;
-
-    // vfs_folder_tnode_t* current_folder = folder_tnode->inode->folders;
-
-    // while (current_folder)
-    // {
-    //     if (found_last_entry)
-    //     {
-    //         memcpy(dirp->current_entry, current_folder->name, PATH_MAX);
-    //         memcpy(dirent->d_name, dirp->current_entry, PATH_MAX);
-    //         dirent->d_ino = current_folder->inode->st.st_ino;
-    //         errno = 0;
-    //         return dirent;
-    //     }
-    //     if (strcmp(dirp->current_entry, current_folder->name) == 0)
-    //         found_last_entry = true;
-    //     current_folder = current_folder->next;
-    // }
-
-    // vfs_file_tnode_t* current_file = folder_tnode->inode->files;
-
-    // while (current_file)
-    // {
-    //     if (found_last_entry)
-    //     {
-    //         memcpy(dirp->current_entry, current_file->name, PATH_MAX);
-    //         memcpy(dirent->d_name, dirp->current_entry, PATH_MAX);
-    //         dirent->d_ino = current_file->inode->st.st_ino;
-    //         errno = 0;
-    //         return dirent;
-    //     }
-    //     if (strcmp(dirp->current_entry, current_file->name) == 0)
-    //         found_last_entry = true;
-    //     current_file = current_file->next;
-    // }
-
-    errno = 0;
-    return NULL;
 }
 
 int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)

@@ -33,9 +33,10 @@ extern bool tty_cursor_blink;
 
 extern psf_font_t tty_font;
 
-extern uint8_t tty_control_sequence_buffer[TTY_ANSI_BUFFER];
+extern uint32_t tty_control_sequence_buffer[TTY_ANSI_BUFFER];
 extern uint8_t tty_escape_sequence_index;
 extern bool tty_reading_escape_sequence, tty_reading_control_sequence;
+extern bool tty_sequence_question_mark;
 
 void tty_init();
 void tty_refresh_screen();

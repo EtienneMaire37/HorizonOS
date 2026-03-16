@@ -386,4 +386,34 @@ namespace mlibc
 		*bytes_read = (size_t)_bytes_read;
 		return ret;
 	}
+
+	int sys_access(const char* path, int mode)
+	{
+		return syscall2_1(SYS_ACCESS, (uint64_t)path, (uint64_t)mode);
+	}
+
+	gid_t sys_getgid()
+	{
+		gid_t rgid, egid, sgid;
+		int ret = sys_getresgid(&rgid, &egid, &sgid);
+		return rgid;
+	}
+	gid_t sys_getegid()
+	{
+		gid_t rgid, egid, sgid;
+		int ret = sys_getresgid(&rgid, &egid, &sgid);
+		return egid;
+	}
+	uid_t sys_getuid()
+	{
+		uid_t ruid, euid, suid;
+		int ret = sys_getresuid(&ruid, &euid, &suid);
+		return ruid;
+	}
+	uid_t sys_geteuid()
+	{
+		uid_t ruid, euid, suid;
+		int ret = sys_getresuid(&ruid, &euid, &suid);
+		return euid;
+	}
 }
