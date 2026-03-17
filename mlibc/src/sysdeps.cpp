@@ -421,4 +421,22 @@ namespace mlibc
 	{
 		return syscall4_1(SYS_FADVISE, (uint64_t)fd, (uint64_t)offset, (uint64_t)length, (uint64_t)advice);
 	}
+
+	int sys_lgetxattr(const char* path, const char* name, void* val, size_t size, ssize_t* nread) 
+	{
+		*nread = 0;
+		return 0;
+	}
+
+	int sys_listxattr(const char* path, char* list, size_t size, ssize_t* nread) 
+	{
+		*nread = 0;
+		return 0;
+	}
+
+	int sys_llistxattr(const char* path, char* list, size_t size, ssize_t* nread) 
+	{
+		*nread = 0;
+		return 0;
+	}
 }
