@@ -5,6 +5,7 @@
 #include <mlibc/all-sysdeps.hpp>
 #include <pwd.h>
 #include <termios.h>
+#include <asm-generic/ioctls.h>
 
 #include "syscall.hpp"
 #include "stub.h"
@@ -438,5 +439,16 @@ namespace mlibc
 	{
 		*nread = 0;
 		return 0;
+	}
+
+	int sys_pipe(int* fds, int flags)
+	{
+		return syscall2_1(SYS_PIPE2, (uint64_t)fds, (uint64_t)flags);
+	}
+
+	int sys_tcflow(int fd, int action)
+	{
+		int res;
+		return sys_ioctl(fd, TCXONC, (void*)action, &res);
 	}
 }

@@ -42,6 +42,7 @@
 #define SYS_READ_ENTRIES    37
 #define SYS_ACCESS          38
 #define SYS_FADVISE         39
+#define SYS_PIPE2           40
 
 #define SYS_HOS_SET_KB_LAYOUT   100
 

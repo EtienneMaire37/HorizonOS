@@ -871,7 +871,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         SC_LOG("syscall SYS_SETPGID(%d, %d)", arg1, arg2);
         lock_scheduler();
         thread_t* process = find_task_by_pid_anywhere(arg1);
-        if (!process)
+        if (!process || process == idle_task)
         {
             unlock_scheduler();
             sc_ret_errno = ESRCH;
@@ -1040,6 +1040,11 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         break;
     sc_case(SYS_FADVISE, 4, int, off_t, off_t, int)
         SC_LOG("syscall SYS_FADVISE(%d, %ld, %ld, %d)", arg1, arg2, arg3, arg4);
+        sc_ret_errno = 0;
+        break;
+    sc_case(SYS_PIPE2, 2, int*, int)
+        SC_LOG("syscall SYS_PIPE2(%p, %d)", arg1, arg2);
+        sc_ret_errno = ENOSYS;
         break;
 
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
