@@ -54,6 +54,29 @@ end:
 	unlock_scheduler();
 }
 
+void tty_clear_section(uint32_t start_char, uint32_t end_char, uint8_t clear_color)
+{
+	lock_scheduler();
+	for (uint32_t i = start_char; i < end_char; i++)
+		if (i % MAX_TTY_X < tty_res_x) tty_data[i] = ((uint16_t)clear_color << 8) | ' ';
+	for (uint32_t i = start_char; i < end_char; i++)
+		if (i % MAX_TTY_X < tty_res_x) tty_render_character(i, ' ', clear_color);
+	if (tty_cursor_blink)
+		tty_render_cursor(tty_cursor);
+	unlock_scheduler();
+}
+
+void tty_move_characters(uint32_t start, int offset)
+{
+	size_t bytes = offset > 0 ? MAX_TTY_X - ((start + offset) % MAX_TTY_X) : MAX_TTY_X - (start % MAX_TTY_X);
+	memmove(&tty_data[start + offset], &tty_data[start], bytes);
+	uint32_t base = offset > 0 ? start : start + offset;
+	for (uint32_t i = base; i < base + bytes; i++)
+		if (i % MAX_TTY_X < tty_res_x) tty_render_character(i, tty_data[i], tty_data[i] >> 8);
+	if (tty_cursor_blink)
+		tty_render_cursor(tty_cursor);
+}
+
 uint8_t tty_ansi_to_vga(uint8_t ansi_code) 
 {
     switch (ansi_code) 
@@ -277,26 +300,16 @@ void tty_ansi_J_code(uint32_t code)
 	if (code != 0 && code != 2 && code != 3)
 		return;
 
-	const uint8_t clear_color = FG_WHITE | BG_BLACK;
-
-	const uint32_t start_char = 
+	tty_clear_section(
 		(code == 0 ? tty_cursor : 
 		(code == 1 ? 0 :
 		(code == 2 ? 0 : 
-		(code == 3 ? 0 : 0))));
+		(code == 3 ? 0 : 0)))), 
 
-	const uint32_t end_char = 
 		(code == 0 ? MAX_TTY_X * tty_res_y : 
 		(code == 1 ? tty_cursor :
 		(code == 2 ? MAX_TTY_X * tty_res_y : 
-		(code == 3 ? MAX_TTY_X * tty_res_y : MAX_TTY_X * tty_res_y))));
-	
-	lock_scheduler();
-	for (uint32_t i = start_char; i < end_char; i++)
-		if (i % MAX_TTY_X < tty_res_x) tty_data[i] = ((uint16_t)clear_color << 8) | ' ';
-	for (uint32_t i = start_char; i < end_char; i++)
-		if (i % MAX_TTY_X < tty_res_x) tty_render_character(i, ' ', clear_color);
-	unlock_scheduler();
+		(code == 3 ? MAX_TTY_X * tty_res_y : MAX_TTY_X * tty_res_y)))), FG_WHITE | BG_BLACK);
 }
 
 void tty_ansi_H_code(uint32_t code)
@@ -349,6 +362,45 @@ void tty_ansi_l_code(uint32_t code)
 	}
 
 	return;
+}
+
+void tty_ansi_K_code(uint32_t code)
+{
+	if (tty_sequence_question_mark)
+		return;
+
+	if (code != 0 && code != 1 && code != 2)
+		return;
+
+	tty_clear_section(	 code == 0 ? tty_cursor : 
+						(code == 1 ? (tty_cursor / MAX_TTY_X) * MAX_TTY_X : 
+						(code == 2 ? (tty_cursor / MAX_TTY_X) * MAX_TTY_X : 0)), 
+						code == 0 ? ((tty_cursor + MAX_TTY_X) / MAX_TTY_X) * MAX_TTY_X : 
+						(code == 1 ? tty_cursor : 
+						(code == 2 ? ((tty_cursor + MAX_TTY_X) / MAX_TTY_X) * MAX_TTY_X : 0)), 
+						FG_WHITE | BG_BLACK);
+}
+
+void tty_ansi_P_code(uint32_t code)
+{
+	if (tty_sequence_question_mark)
+		return;
+
+	if (code == 0)
+		code = 1;
+
+	tty_move_characters(tty_cursor + code, -code);
+}
+
+void tty_ansi_at_code(uint32_t code)
+{
+	if (tty_sequence_question_mark)
+		return;
+
+	if (code == 0)
+		code = 1;
+
+	tty_move_characters(tty_cursor, code);
 }
 
 void tty_outc(char c)
@@ -471,6 +523,27 @@ void tty_outc(char c)
 		case 'l':
 			for (uint8_t i = 0; i <= tty_escape_sequence_index; i++)
 				tty_ansi_l_code(tty_control_sequence_buffer[i]);
+			tty_escape_sequence_index = 0;
+			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
+			tty_reading_control_sequence = false;
+			break;
+		case 'K':
+			for (uint8_t i = 0; i <= tty_escape_sequence_index; i++)
+				tty_ansi_K_code(tty_control_sequence_buffer[i]);
+			tty_escape_sequence_index = 0;
+			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
+			tty_reading_control_sequence = false;
+			break;
+		case 'P':
+			for (uint8_t i = 0; i <= tty_escape_sequence_index; i++)
+				tty_ansi_P_code(tty_control_sequence_buffer[i]);
+			tty_escape_sequence_index = 0;
+			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
+			tty_reading_control_sequence = false;
+			break;
+		case '@':
+			for (uint8_t i = 0; i <= tty_escape_sequence_index; i++)
+				tty_ansi_at_code(tty_control_sequence_buffer[i]);
 			tty_escape_sequence_index = 0;
 			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
 			tty_reading_control_sequence = false;

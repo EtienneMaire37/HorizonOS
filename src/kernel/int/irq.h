@@ -37,6 +37,7 @@ void handle_apic_irq(interrupt_registers_t* registers)
 
         resolve_time();
 
+        #ifdef TTY_CURSOR_BLINK
         if (system_thousands - increment < 500 && system_thousands >= 500)
         {
             tty_cursor_blink ^= true;
@@ -50,6 +51,7 @@ void handle_apic_irq(interrupt_registers_t* registers)
                 tty_render_character(tty_cursor, data, data >> 8);
             }
         }
+        #endif
         if (multitasking_enabled)
         {
             if (multitasking_counter <= 0)

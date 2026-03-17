@@ -89,6 +89,9 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     int noncanonical_read_minimum_count = ts->c_cc[VMIN];
     int raw_timeout = ts->c_cc[VTIME];
 
+    bool ctrl = keyboard_is_key_pressed(VK_LCONTROL) || keyboard_is_key_pressed(VK_RCONTROL);
+    bool alt = keyboard_is_key_pressed(VK_LALT);
+
     // LOG(TRACE, "ts: echo:%d raw:%d vmin:%d vtime:%d", 
     //     echo, raw, noncanonical_read_minimum_count, raw_timeout);
 
@@ -127,8 +130,8 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
 
         case VK_UP:     character_len = 3; break;
         case VK_DOWN:   character_len = 3; break;
-        case VK_RIGHT:  character_len = 3; break;
-        case VK_LEFT:   character_len = 3; break;
+        case VK_RIGHT:  character_len = 4 + 3 * ctrl; break;
+        case VK_LEFT:   character_len = 4 + 3 * ctrl; break;
 
         case VK_HOME:   character_len = 3; break;
         case VK_END:    character_len = 3; break;
@@ -139,7 +142,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         case VK_PAGEUP:   character_len = 4; break;
         case VK_PAGEDOWN: character_len = 4; break;
 
-        default:        character_len = 1 + keyboard_is_key_pressed(VK_LALT);
+        default:        character_len = 1 + alt;
         }
 
         if ((ssize_t)num_characters < (ssize_t)max_characters - character_len)
@@ -171,14 +174,30 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
             case VK_RIGHT:
                 utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
                 utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                if (echo) printf("^[");
+                if (ctrl)
+                {
+                    utf32_buffer_putchar(&keyboard_input_buffer, '1');
+                    utf32_buffer_putchar(&keyboard_input_buffer, ';');
+                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
+                    if (echo) printf("1;5");
+                }
                 utf32_buffer_putchar(&keyboard_input_buffer, 'C');
-                if (echo) printf("^[C");
+                if (echo) printf("C");
                 break;
             case VK_LEFT:
                 utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
                 utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                if (echo) printf("^[");
+                if (ctrl)
+                {
+                    utf32_buffer_putchar(&keyboard_input_buffer, '1');
+                    utf32_buffer_putchar(&keyboard_input_buffer, ';');
+                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
+                    if (echo) printf("1;5");
+                }
                 utf32_buffer_putchar(&keyboard_input_buffer, 'D');
-                if (echo) printf("^[D");
+                if (echo) printf("D");
                 break;
             case VK_HOME:
                 utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
@@ -204,7 +223,8 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
                 utf32_buffer_putchar(&keyboard_input_buffer, '[');
                 utf32_buffer_putchar(&keyboard_input_buffer, '3');
                 utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                if (echo) printf("^[3~");
+                if (echo) printf("^[3");
+                if (echo) printf("~");
                 break;
             case VK_PAGEUP:
                 utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
@@ -223,12 +243,12 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
             default:
                 if (ascii)
                 {
-                    if (keyboard_is_key_pressed(VK_LALT))
+                    if (alt)
                     {
-                        utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');                    
+                        utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
                         if (echo) putchar('^');
                     }
-                    utf32_buffer_putchar(&keyboard_input_buffer, character);                    
+                    utf32_buffer_putchar(&keyboard_input_buffer, character);
                     if (echo) putchar(ascii);
                 }
             }

@@ -262,6 +262,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                         character = tty_ts.c_cc[VEOF];
                         goto key;
                     default:
+                        goto key;
                     }
                 }
             }
