@@ -9,7 +9,7 @@ cd mlibc
 git clone https://github.com/managarm/mlibc mlibc
 cd mlibc
 git checkout ccc93dd
-mkdir -p mlibc/sysdeps/horizonos
+mkdir -p sysdeps/horizonos
 git apply -p2 ../../diffs/mlibc/mlibc.diff
 cp -r ../src/* sysdeps/horizonos/
 mkdir -p sysdeps/horizonos/include/abi-bits sysdeps/horizonos/include/bits
