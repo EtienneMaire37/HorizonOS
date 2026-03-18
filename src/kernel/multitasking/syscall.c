@@ -81,7 +81,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         break;
     sc_case(SYS_VM_MAP, 6, void*, size_t, int, int, int, off_t)
         SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#x, %#x, %d, %" PRId64 ")", arg1, arg2, arg3, arg4, arg5, arg6);
-        
+
         if (arg2 & 0xfff || arg2 == 0 || (uint64_t)arg1 & 0xfff)
         {
             sc_ret_errno = EINVAL;
@@ -175,7 +175,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret(1) = (uint64_t)((off_t)0);
             break;
         }
-        if (vfs_isatty(entry))
+        if (!S_ISREG(entry->tnode.file->inode->st.st_mode) || vfs_isatty(entry))
         {
             sc_ret_errno = ESPIPE;
             sc_ret(1) = (uint64_t)((off_t)-1);
@@ -286,8 +286,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret_errno = EBADF;
             break;
         }
-        vfs_remove_global_file(current_task->file_table[arg1].index);
-        current_task->file_table[arg1].index = invalid_fd;
+        vfs_close(arg1);
         unlock_scheduler();
         sc_ret_errno = 0;
         break;
@@ -421,10 +420,10 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         else
         {
             pid_t old_pid = current_task->pid;
-            
+
             task_set_pid(current_task, task_generate_pid());
             task_set_pid(new_task, old_pid);
-            
+
             new_task->ppid = current_task->ppid;
             task_set_pgid(new_task, current_task->pgid);
 
@@ -826,7 +825,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             }
             else
                 *arg4 = foldertnode->inode->st;
-            
+
             sc_ret_errno = 0;
             unlock_scheduler();
             break;
@@ -1044,7 +1043,29 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         break;
     sc_case(SYS_PIPE2, 2, int*, int)
         SC_LOG("syscall SYS_PIPE2(%p, %d)", arg1, arg2);
-        sc_ret_errno = ENOSYS;
+        int fildes = vfs_allocate_global_file();
+        if (fildes == -1)
+        {
+            sc_ret_errno = ENFILE;
+            break;
+        }
+        int fd1 = vfs_allocate_thread_file(current_task), fd2 = vfs_allocate_thread_file(current_task);
+        if (fd1 == -1 || fd2 == -1)
+        {
+            vfs_close(fd1);
+            vfs_close(fd2);
+            vfs_free_global_file(fildes);
+            sc_ret_errno = EMFILE;
+            break;
+        }
+        sc_ret_errno = 0;
+        lock_scheduler();
+        arg1[0] = fd1;
+        arg1[1] = fd2;
+        file_table[fildes].entry_type = VFS_ET_FILE;
+        // ...
+        unlock_scheduler();
+        abort();
         break;
 
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
@@ -1072,6 +1093,6 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         // *return_address = intret;
     }
     unlock_scheduler();
-    
+
     // SC_LOG("returning from syscall to address %p", *return_address);
 }

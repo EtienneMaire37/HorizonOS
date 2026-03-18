@@ -1,11 +1,10 @@
 #include "pci.h"
 #include "../util/math.h"
-#include "../disk/ata.h"
 #include "../terminal/textio.h"
 
 initrd_file_t* pci_ids = NULL;
 
-uint32_t pci_configuration_address_space_read_dword(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) 
+uint32_t pci_configuration_address_space_read_dword(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset)
 {
     if ((device & 0b11111) != device) return 0xffffffff;
     if ((function & 0b111) != function) return 0xffffffff;
@@ -14,7 +13,7 @@ uint32_t pci_configuration_address_space_read_dword(uint8_t bus, uint8_t device,
     outd(PCI_CONFIG_ADDRESS,    (1 << 31) | // ~ Enable bit
                                 ((uint32_t)bus << 16) |
                                 ((uint32_t)device << 11) |
-                                ((uint32_t)function << 8) | 
+                                ((uint32_t)function << 8) |
                                 offset);
 
     return ind(PCI_CONFIG_DATA);
@@ -54,8 +53,8 @@ void pci_scan_buses()
                     uint32_t reg_1 = pci_configuration_address_space_read_dword(i, j, k, 8);
                     uint8_t class_code = reg_1 >> 24, subclass = (reg_1 >> 16) & 0xff;
 
-                    if (class_code == 0x01 && subclass == 0x01) // * PCI IDE Controller
-                        pci_connect_ide_controller(i, j, k);
+                    // if (class_code == 0x01 && subclass == 0x01) // * PCI IDE Controller
+                    //     pci_connect_ide_controller(i, j, k);
 
                     LOG(INFO, "PCI Device at %#x:%#x:%#x (Header type : %u) :", i, j, k, header_type);
                     LOG(INFO, "    Device ID: %#x | Vendor ID: %#x", device_id, vendor_id);

@@ -13,7 +13,6 @@ hashmap_t* pid_to_task_hashmap = NULL;
 hashmap_t* pgid_to_tq_hashmap = NULL;
 hashmap_t* pid_to_children_tq_hashmap = NULL;
 
-mutex_t file_table_lock = MUTEX_INIT;
 uint8_t global_cpu_ticks = 0;
 
 thread_t* running_tasks = NULL;
@@ -78,7 +77,7 @@ void multitasking_add_idle_task(char* name)
 void multitasking_add_task(thread_t* task)
 {
     lock_scheduler();
-    
+
     if (!running_tasks)
     {
         task->prev = task->next = task;
@@ -128,7 +127,7 @@ void full_context_switch(thread_t* next)
     old_task->gs_base = rdgsbase();
 
     fpu_save_state(old_task->fpu_state);
-    
+
     context_switch(old_task, current_task, (current_task->ring == 0) ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT);
 
     end_context_switch();
@@ -266,7 +265,7 @@ static inline void task_continue(thread_t* thread)
         if (!(global_parent->sig_act_array[SIGCHLD].sa_flags & SA_NOCLDSTOP))
             task_send_signal(global_parent, SIGCHLD);
     }
-    
+
     thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, thread->ppid);
     if (parent && (parent->waitpid_flags & WCONTINUED))
     {
@@ -325,14 +324,14 @@ void task_handle_signal(thread_t* thread, int sig)
     }
 
     LOG(DEBUG, "pid %d receiving signal %d", thread->pid, sig);
-    
+
     task_unset_pending_signal(thread, sig);
 
     struct sigaction* act = &thread->sig_act_array[sig];
-    
+
     if (sig == SIGCONT)
         task_continue(thread);
-    
+
     switch (act->sa_flags & SA_SIGINFO ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler)
     {
     case (uint64_t)SIG_DFL:
@@ -345,7 +344,7 @@ void task_handle_signal(thread_t* thread, int sig)
 
 dfl:
     int dfl_action = sig_default_action(sig);
-    LOG(TRACE, "Signal action defaulted to %s", 
+    LOG(TRACE, "Signal action defaulted to %s",
         dfl_action == SIGDEF_IGN ? "\"ignore\"" :
        (dfl_action == SIGDEF_STOP ? "\"stop\"" :
        (dfl_action == SIGDEF_CONT ? "\"continue\"" :
@@ -390,7 +389,7 @@ void task_try_handle_signals(thread_t* thread, sigset_t old, sigset_t new)
     for (int i = 0; i < sizeof(old.__sig) / sizeof(unsigned long); i++)
     {
         unsigned long were_unset = old.__sig[i] ^ ~new.__sig[i];
-        while (were_unset) 
+        while (were_unset)
         {
             unsigned long bit = were_unset & -were_unset;  // ? find lowest set bit
             int sig = __builtin_ctzll(were_unset) + i * sizeof(unsigned long) * 8;
@@ -399,4 +398,15 @@ void task_try_handle_signals(thread_t* thread, sigset_t old, sigset_t new)
             were_unset ^= bit;
         }
     }
+}
+
+void vfs_close(int fd)
+{
+    lock_scheduler();
+    if (is_fd_valid(fd))
+    {
+        vfs_remove_global_file(current_task->file_table[fd].index);
+        current_task->file_table[fd].index = invalid_fd;
+    }
+    unlock_scheduler();
 }

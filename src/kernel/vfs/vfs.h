@@ -5,7 +5,7 @@
 #include "../initrd/initrd.h"
 #include <sys/stat.h>
 
-typedef struct 
+typedef struct
 {
     int flags;
     int index;
@@ -26,10 +26,10 @@ static inline const char* get_drive_type_string(drive_type_t dt)
     return (const char*[]){"DT_INVALID", "DT_VIRTUAL", "DT_INITRD"}[dt];
 }
 
-typedef struct 
+typedef struct
 {
     drive_type_t type;
-    union 
+    union
     {
         ;
     } data;
@@ -50,7 +50,7 @@ typedef struct vfs_folder_tnode vfs_folder_tnode_t;
 
 typedef struct file_entry file_entry_t;
 
-typedef struct 
+typedef struct
 {
     uint8_t ide_idx, ata_idx;
 } ide_descriptor_t;
@@ -107,6 +107,7 @@ typedef struct vfs_folder_tnode
 
 // * Open file descriptor data
 
+#define VFS_ET_INVALID  0
 #define VFS_ET_FILE     1
 #define VFS_ET_FOLDER   2
 
@@ -175,11 +176,7 @@ ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t di
 
 ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 
-static inline bool vfs_isatty(file_entry_t* entry)
-{
-    if (!entry) return false;
-    return entry->entry_type == VFS_ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && entry->tnode.file->inode->io_func == task_chr_tty) : false;
-}
+bool vfs_isatty(file_entry_t* entry);
 
 vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t),
     uid_t uid, gid_t gid);
@@ -189,12 +186,12 @@ ssize_t vfs_realpath_from_file_tnode(vfs_file_tnode_t* tnode, char* res);
 
 bool file_string_cmp(const char* s1, const char* s2);
 
-int vfs_root_stat(struct stat* st);
 int vfs_stat(const char* path, vfs_folder_tnode_t* pwd, struct stat* st);
-int vfs_fstat(int fd, vfs_folder_tnode_t* pwd, struct stat* st);
 int vfs_access(const char* path, vfs_folder_tnode_t* pwd, int mode);
 
 int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read);
 int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* bytes_written);
+
+void vfs_free_global_file(int fd);
 
 void vfs_log_tree();

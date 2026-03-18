@@ -1,20 +1,17 @@
 #pragma once
 
-#include "task.h"
 #include "../util/hashmap.h"
 #include "queue.h"
 #include "../cpu/registers.h"
+#include "task.h"
 
 #include <assert.h>
 
-#define SCHED_LOCK_STACK_SIZE       64
-
-extern hashmap_t *futex_tq_hashmap, 
-                 *pid_to_task_hashmap, 
-                 *pgid_to_tq_hashmap, 
+extern hashmap_t *futex_tq_hashmap,
+                 *pid_to_task_hashmap,
+                 *pgid_to_tq_hashmap,
                  *pid_to_children_tq_hashmap;
 
-extern mutex_t file_table_lock;
 extern uint8_t global_cpu_ticks;
 
 extern thread_t* running_tasks;
@@ -64,23 +61,12 @@ static inline void unlock_scheduler()
 
 static inline file_entry_t* get_global_file_entry(int fd)
 {
-    acquire_mutex(&file_table_lock);
-    if (!is_fd_valid(fd))
-        return (release_mutex(&file_table_lock), NULL);
-    file_entry_t* entry = &file_table[current_task->file_table[fd].index];
-    release_mutex(&file_table_lock);
-    return entry;
-}
-
-static inline void vfs_close(int fd)
-{
     lock_scheduler();
-    if (is_fd_valid(fd))
-    {
-        vfs_remove_global_file(current_task->file_table[fd].index);
-        current_task->file_table[fd].index = invalid_fd;
-    }
+    if (!is_fd_valid(fd))
+        return (unlock_scheduler(), NULL);
+    file_entry_t* entry = &file_table[current_task->file_table[fd].index];
     unlock_scheduler();
+    return entry;
 }
 
 static inline bool multitasking_is_pgrp_empty(pid_t pgid)
@@ -88,6 +74,18 @@ static inline bool multitasking_is_pgrp_empty(pid_t pgid)
     thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, pgid);
     if (!tq) return true;
     return *tq == NULL;
+}
+
+static inline int vfs_allocate_thread_file(thread_t* task)
+{
+    lock_scheduler();
+    for (int i = 0; i < OPEN_MAX; i++)
+    {
+        if (task->file_table[i].index == invalid_fd)
+            return (unlock_scheduler(), i);
+    }
+    unlock_scheduler();
+    return -1;
 }
 
 static inline void log_tq(thread_queue_t* tq)
@@ -110,13 +108,15 @@ static inline void log_context(thread_t* task)
 {
     if (!task) return;
     LOG(DEBUG, "log_context (rsp = %#16" PRIx64 ")", task->rsp);
-    for (int i = 0; i < 20; i++) 
+    for (int i = 0; i < 20; i++)
     {
         if (task->rsp + (i + 1) * 8 >= TASK_STACK_TOP_ADDRESS)
             break;
         LOG(DEBUG, "%#16" PRIx64 " (rsp + %d) = %#16" PRIx64, task->rsp + 8 * i, i, task_read_at_address_8b(task, task->rsp + 8 * i));
     }
 }
+
+void vfs_close(int fd);
 
 void multitasking_init();
 void multitasking_start();

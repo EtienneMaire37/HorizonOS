@@ -10,6 +10,7 @@
 #include "multitasking.h"
 #include "hashmap.h"
 #include "signal.h"
+#include "multitasking.h"
 
 const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
 const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
@@ -26,8 +27,6 @@ thread_t* task_create_empty()
     if (!task) return NULL;
 
     memset(task, 0, sizeof(*task));
-
-    task->file_table_mutex = MUTEX_INIT;
 
     task->pid = -1;
     task->ppid = -1;
@@ -82,9 +81,9 @@ void task_destroy(thread_t* task)
     const uint16_t tasks_left = task_count - 1;
 
     lock_scheduler();
-    LOG(TRACE, "Destroying task %p: \"%s\" (pid = %d, ring = %u) (%d tasks left)", 
+    LOG(TRACE, "Destroying task %p: \"%s\" (pid = %d, ring = %u) (%d tasks left)",
         task, task->name, task->pid, task->ring, tasks_left);
-    
+
     hashmap_remove_item(pid_to_task_hashmap, task->pid);
     tq_hashmap_remove(pgid_to_tq_hashmap, task->pgid, task);
 
@@ -104,7 +103,7 @@ void task_destroy(thread_t* task)
     unlock_scheduler();
 }
 
-void task_setup_stack_ex(thread_t* task, 
+void task_setup_stack_ex(thread_t* task,
     uint64_t entry_point, uint64_t ret_rsp, uint64_t rflags,
     uint64_t rbx, uint64_t r12, uint64_t r13, uint64_t r14, uint64_t r15, uint64_t rbp)
 {
@@ -119,7 +118,7 @@ void task_setup_stack_ex(thread_t* task,
     task_stack_push(task, (uint64_t)unlock_scheduler);
     task_stack_push(task, (uint64_t)cleanup_tasks);
     task_stack_push(task, (uint64_t)end_context_switch);
-    
+
     task_stack_push(task, rbx);           // rbx
     task_stack_push(task, r12);           // r12
     task_stack_push(task, r13);           // r13
@@ -181,9 +180,9 @@ void task_write_at_address_1b(thread_t* task, uint64_t address, uint8_t value)
         LOG(WARNING, "Kernel tried to write into a null vas");
         return;
     }
-    
+
     uint8_t* ptr = (uint8_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), address);
-    
+
     *ptr = value;
 }
 
@@ -201,7 +200,7 @@ void task_write_at_aligned_address_8b(thread_t* task, uint64_t address, uint64_t
     }
 
     uint64_t* ptr = (uint64_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), address);
-    
+
     *ptr = value;
 }
 
@@ -231,9 +230,9 @@ uint8_t task_read_at_address_1b(thread_t* task, uint64_t address)
         LOG(WARNING, "Kernel tried to write into a null vas");
         return 0;
     }
-    
+
     uint8_t* ptr = (uint8_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), address);
-    
+
     return *ptr;
 }
 
@@ -251,7 +250,7 @@ uint64_t task_read_at_aligned_address_8b(thread_t* task, uint64_t address)
     }
 
     uint64_t* ptr = (uint64_t*)virtual_to_physical((uint64_t*)(task->cr3 + PHYS_MAP_BASE), address);
-    
+
     return *ptr;
 }
 
@@ -323,9 +322,6 @@ thread_t* find_task_by_pid_anywhere(pid_t pid)
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
 {
 	lock_scheduler();
-    acquire_mutex(&file_table_lock);
-    acquire_mutex(&from->file_table_mutex);
-    acquire_mutex(&to->file_table_mutex);
     for (int i = 0; i < OPEN_MAX; i++)
     {
         if (from->file_table[i].index == invalid_fd || (cloexec && (from->file_table[i].flags & FD_CLOEXEC)))
@@ -337,9 +333,6 @@ void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
                 file_table[to->file_table[i].index].used++;
         }
     }
-    release_mutex(&to->file_table_mutex);
-    release_mutex(&from->file_table_mutex);
-    release_mutex(&file_table_lock);
     unlock_scheduler();
 }
 
@@ -351,7 +344,7 @@ void fork_task(thread_t* task)
     lock_scheduler();
 
     thread_t* new_task = (thread_t*)malloc(sizeof(thread_t));
-    if (!new_task) 
+    if (!new_task)
     {
         unlock_scheduler();
         return;
@@ -477,7 +470,7 @@ void waitpid_check_dead()
 
             found_task:
                 move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
-                
+
                 parent->wstatus = thread->return_value;
                 parent->waitpid_ret = thread->pid;
                 move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
@@ -516,7 +509,7 @@ pid_t task_generate_pid()
 void kill_task(thread_t* task, int ret)
 {
     lock_scheduler();
-    LOG(TRACE, "kill_task(%p: {.name = \"%s\", .pid = %d, .ppid = %d, .pgid = %d}, %d)", 
+    LOG(TRACE, "kill_task(%p: {.name = \"%s\", .pid = %d, .ppid = %d, .pgid = %d}, %d)",
         task, task->name, task->pid, task->ppid, task->pgid, ret);
     task->return_value = ret;
 
@@ -530,7 +523,7 @@ void kill_task(thread_t* task, int ret)
     else
     {
         move_task_to_queue(&dead_tasks, task);
-        
+
         thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, task->ppid);
         if (parent)
         {

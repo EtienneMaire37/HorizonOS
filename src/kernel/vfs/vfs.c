@@ -14,19 +14,21 @@ extern int errno;
 #include "../util/math.h"
 #include "../terminal/textio.h"
 #include "../util/access.h"
+#include "../multitasking/multitasking.h"
 
 file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 vfs_folder_tnode_t* vfs_root = NULL;
 
 void vfs_init_file_table()
 {
-    acquire_mutex(&file_table_lock);
+    lock_scheduler();
+
     for (int i = 0; i < MAX_FILE_TABLE_ENTRIES; i++)
     {
         if (i < 3)  file_table[i].used = 1; // * Should always be used
         else        file_table[i].used = 0;
     }
-    
+
     file_table[0].entry_type = VFS_ET_FILE;
     file_table[0].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[0].position = 0;
@@ -42,7 +44,7 @@ void vfs_init_file_table()
     file_table[2].position = 0;
     file_table[2].flags = O_WRONLY;
 
-    release_mutex(&file_table_lock);
+    unlock_scheduler();
 }
 
 int vfs_allocate_global_file()
@@ -50,39 +52,45 @@ int vfs_allocate_global_file()
     // !!! ASAP
     // TODO: Implement a more general "atomic lock" which can be used for several things and not just the scheduler
 	lock_scheduler();
-    acquire_mutex(&file_table_lock);
     for (int i = 3; i < MAX_FILE_TABLE_ENTRIES; i++)
     {
         if (file_table[i].used == 0)
         {
             file_table[i].used = 1;
-            release_mutex(&file_table_lock);
 			unlock_scheduler();
             return i;
         }
     }
-    release_mutex(&file_table_lock);
 	unlock_scheduler();
     return -1;
+}
+
+void vfs_free_global_file(int fd)
+{
+    lock_scheduler();
+    if (file_table[fd].used <= 0)
+    {
+        file_table[fd].used = 0;
+        return;
+    }
+    file_table[fd].used--;
+    unlock_scheduler();
 }
 
 void vfs_remove_global_file(int fd)
 {
 	lock_scheduler();
-    acquire_mutex(&file_table_lock);
-    
+
     if (fd >= 3 && fd < MAX_FILE_TABLE_ENTRIES)
     {
         file_table[fd].used--;
         if (file_table[fd].used <= 0)
             file_table[fd].used = 0;
-            
-        release_mutex(&file_table_lock);
+
 		unlock_scheduler();
         return;
     }
-    
-    release_mutex(&file_table_lock);
+
 	unlock_scheduler();
 }
 
@@ -168,7 +176,7 @@ vfs_file_inode_t* vfs_create_special_file_inode(vfs_folder_tnode_t* parent, mode
     inode->drive.type = DT_VIRTUAL;
     inode->io_func = fun;
     inode->parent = parent;
-    
+
     inode->st.st_dev = 0;   // * root device
     inode->st.st_ino = vfs_generate_inode_number();
     inode->st.st_mode = mode;
@@ -224,12 +232,12 @@ void vfs_mount_device(const char* name, const char* path, drive_t drive, uid_t u
         LOG(ERROR, "vfs_mount_device: Couldn't mount partition: Nonexistent parent folder");
         return;
     }
-    
+
     acquire_mutex(&parent->inode->lock);
 
     vfs_folder_tnode_t** current = &parent->inode->folders;
 
-    if (!(*current)) 
+    if (!(*current))
         goto mount;
 
     while (*current)
@@ -244,17 +252,17 @@ void vfs_mount_device(const char* name, const char* path, drive_t drive, uid_t u
         current = &(*current)->next;
     }
 
-mount: 
-    (*current) = vfs_create_empty_folder_tnode(name, parent, 
-            VFS_NODE_INIT | VFS_NODE_MOUNTPOINT | (drive.type == DT_VIRTUAL ? VFS_NODE_EXPLORED : 0), 
-            drive.type == DT_VIRTUAL ? 0 : vfs_generate_device_id(), 
-            S_IFDIR | 
+mount:
+    (*current) = vfs_create_empty_folder_tnode(name, parent,
+            VFS_NODE_INIT | VFS_NODE_MOUNTPOINT | (drive.type == DT_VIRTUAL ? VFS_NODE_EXPLORED : 0),
+            drive.type == DT_VIRTUAL ? 0 : vfs_generate_device_id(),
+            S_IFDIR |
             S_IRUSR | S_IXUSR |
             S_IRGRP | S_IXGRP |
-            S_IROTH | S_IXOTH, 
+            S_IROTH | S_IXOTH,
             uid, gid,
             drive);
-    
+
     release_mutex(&parent->inode->lock);
 
     return;
@@ -276,7 +284,7 @@ static void vfs_unload_folder_helper(vfs_folder_tnode_t* tnode)
 
     while (tnode->inode->files)
     {
-        vfs_file_tnode_t* file_tnode = tnode->inode->files; 
+        vfs_file_tnode_t* file_tnode = tnode->inode->files;
         free(file_tnode->inode);
         free(file_tnode->name);
         tnode->inode->files = tnode->inode->files->next;
@@ -311,7 +319,7 @@ bool file_string_cmp(const char* s1, const char* s2)
     if (s1 == NULL || s2 == NULL) return false;
     while (*s1 && *s2 && *s1 != '/' && *s2 != '/')
     {
-        if (*s1 != *s2) 
+        if (*s1 != *s2)
             return false;
         s1++;
         s2++;
@@ -353,7 +361,7 @@ static size_t vfs_realpath_from_folder_tnode_helper(vfs_folder_tnode_t* tnode, c
     if (!tnode || !tnode->inode) return idx;
     if (tnode == vfs_root)
         return 0;
-    
+
     idx = vfs_realpath_from_folder_tnode_helper(tnode->inode->parent, res, idx);
     if (idx + 1 >= PATH_MAX) return idx;
     res[idx] = '/';
@@ -367,7 +375,7 @@ static size_t vfs_realpath_from_folder_tnode_helper(vfs_folder_tnode_t* tnode, c
 
 ssize_t vfs_realpath_from_folder_tnode(vfs_folder_tnode_t* tnode, char* res)
 {
-    if (tnode == vfs_root) 
+    if (tnode == vfs_root)
     {
         res[0] = '/';
         res[1] = 0;
@@ -415,7 +423,7 @@ void vfs_explore(vfs_folder_tnode_t* tnode)
     vfs_folder_tnode_t* mount_point = tnode;
     while (!(mount_point->inode->flags & VFS_NODE_MOUNTPOINT))
         mount_point = mount_point->inode->parent;
-        
+
     switch (tnode->inode->drive.type)
     {
     case DT_INITRD:
@@ -616,23 +624,6 @@ int vfs_stat(const char* path, vfs_folder_tnode_t* pwd, struct stat* st)
     return ENOENT;
 }
 
-int vfs_fstat(int fd, vfs_folder_tnode_t* pwd, struct stat* st)
-{
-    if (!is_fd_valid(fd) || !st)
-        return EFAULT;
-
-    file_entry_t* entry = get_global_file_entry(fd);
-
-    switch (entry->entry_type)
-    {
-    case VFS_ET_FILE: *st = entry->tnode.file->inode->st; return 0;
-    case VFS_ET_FOLDER: *st = entry->tnode.folder->inode->st; return 0;
-    default:
-    }
-
-    return ENOENT;
-}
-
 int vfs_access(const char* path, vfs_folder_tnode_t* pwd, int mode)
 {
     if (mode == 0) return 0;
@@ -652,7 +643,7 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
         *bytes_read = -1;
         return EBADF;
     }
-    if ((get_global_file_entry(fd)->flags & O_ACCMODE) == O_WRONLY) 
+    if ((get_global_file_entry(fd)->flags & O_ACCMODE) == O_WRONLY)
     {
         *bytes_read = -1;
         return EBADF;
@@ -784,4 +775,13 @@ ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t di
     default:
         return 0;
     }
+}
+
+bool vfs_isatty(file_entry_t* entry)
+{
+    lock_scheduler();
+    if (!entry) return (unlock_scheduler(), false);
+    bool ret = entry->entry_type == VFS_ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && entry->tnode.file->inode->io_func == task_chr_tty) : false;
+    unlock_scheduler();
+    return ret;
 }

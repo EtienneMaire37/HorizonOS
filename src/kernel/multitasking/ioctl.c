@@ -4,6 +4,7 @@
 #include "multitasking.h"
 
 #include <termios.h>
+#include <asm-generic/ioctls.h>
 
 void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long request, void* arg)
 {
@@ -95,6 +96,11 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
         tty_set_window_size(ws->ws_col, ws->ws_row);
         sc_ret_errno = 0;
         task_send_signal_to_pgrp(SIGWINCH, tty_foreground_pgrp);
+        break;
+    }
+    case TCXONC:
+    {
+        sc_ret_errno = ENOSYS;
         break;
     }
     default:
