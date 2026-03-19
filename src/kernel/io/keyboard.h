@@ -3,6 +3,7 @@
 #include "../cpu/util.h"
 #include "../util/math.h"
 #include <termios.h>
+#include "../util/ring.h"
 
 typedef uint32_t utf32_char_t;
 
@@ -13,7 +14,7 @@ typedef struct utf32_buffer
     size_t put_index, get_index;
 } utf32_buffer_t;
 
-typedef enum virtual_key 
+typedef enum virtual_key
 {
     VK_INVALID = 0,
     VK_ESCAPE,
@@ -34,7 +35,7 @@ typedef enum virtual_key
     VK_SCROLLLOCK, VK_KP_7, VK_KP_8, VK_KP_9, VK_KP_MINUS,
     VK_KP_4, VK_KP_5, VK_KP_6, VK_KP_PLUS, VK_KP_1,
     VK_KP_2, VK_KP_3, VK_KP_0, VK_KP_PERIOD,
-    
+
     VK_RCONTROL, VK_RALT,
     VK_HOME, VK_UP, VK_PAGEUP, VK_LEFT, VK_RIGHT, VK_END,
     VK_DOWN, VK_PAGEDOWN, VK_INSERT, VK_DELETE,
@@ -62,7 +63,7 @@ typedef struct ps2_full_scancode
     uint8_t scancode;
 } ps2_full_scancode_t;
 
-static const uint8_t extended_numlock_map[256] = 
+static const uint8_t extended_numlock_map[256] =
 {
     [0x70] = 0x70,   // Insert → Numpad 0
     [0x69] = 0x69,   // End → Numpad 1
@@ -79,11 +80,11 @@ static const uint8_t extended_numlock_map[256] =
 
 #define NUM_KB_LAYOUTS  2
 
-static const keyboard_layout_t us_qwerty = 
+static const keyboard_layout_t us_qwerty =
 {
-    .ps2_layout_data = 
+    .ps2_layout_data =
     {
-        .vk_table = 
+        .vk_table =
         {
             [0x76] = VK_ESCAPE,    [0x16] = VK_1,        [0x1E] = VK_2,
             [0x26] = VK_3,         [0x25] = VK_4,        [0x2E] = VK_5,
@@ -107,21 +108,21 @@ static const keyboard_layout_t us_qwerty =
             [0x58] = VK_CAPSLOCK,  [0x05] = VK_F1,       [0x06] = VK_F2,
             [0x04] = VK_F3,        [0x0C] = VK_F4,       [0x03] = VK_F5,
             [0x0B] = VK_F6,        [0x83] = VK_F7,       [0x0A] = VK_F8,
-            [0x01] = VK_F9,        [0x09] = VK_F10, 
+            [0x01] = VK_F9,        [0x09] = VK_F10,
             [0x77] = VK_NUMLOCK,   [0x7E] = VK_SCROLLLOCK,
             [0x78] = VK_F11,        [0x07] = VK_F12,
         },
-        .vk_table_e0 = 
+        .vk_table_e0 =
         {
             [0x14] = VK_RCONTROL,  [0x11] = VK_RALT,     [0x6C] = VK_HOME,
             [0x75] = VK_UP,        [0x7D] = VK_PAGEUP,  [0x6B] = VK_LEFT,
             [0x74] = VK_RIGHT,     [0x69] = VK_END,      [0x72] = VK_DOWN,
             [0x7A] = VK_PAGEDOWN,  [0x70] = VK_INSERT,   [0x71] = VK_DELETE,
-            [0x5A] = VK_KP_ENTER,  [0x4A] = VK_KP_DIVIDE, 
+            [0x5A] = VK_KP_ENTER,  [0x4A] = VK_KP_DIVIDE,
             [0x7C] = VK_PRINTSCREEN, [0x1F] = VK_LWIN,
             [0x27] = VK_RWIN,       [0x2F] = VK_APPS,
         },
-        .char_table = 
+        .char_table =
         {
             [0x76] = 0x1b,    // Escape
             [0x0D] = U'\t',       // Tab
@@ -151,13 +152,13 @@ static const keyboard_layout_t us_qwerty =
             [0x74] = U'6', [0x6C] = U'7', [0x75] = U'8',
             [0x7D] = U'9', [0x71] = U'.',
         },
-        .char_table_e0 = 
+        .char_table_e0 =
         {
             [0x5A] = U'\n',
             [0x71] = 0x7f,
             [0x4A] = U'/'
         },
-        .char_table_shift = 
+        .char_table_shift =
         {
             [0x76] = 0x1b,
             [0x0D] = U'\t',
@@ -181,16 +182,16 @@ static const keyboard_layout_t us_qwerty =
             [0x4E] = U'_',        [0x55] = U'+',        [0x5D] = U'|',
             [0x7C] = U'*',        [0x29] = U' ',        [0x61] = U'|',
         },
-        .char_table_altgr = 
+        .char_table_altgr =
         { 0 },
     }
 };
 
-static const keyboard_layout_t fr_azerty = 
+static const keyboard_layout_t fr_azerty =
 {
-    .ps2_layout_data = 
+    .ps2_layout_data =
     {
-        .vk_table = 
+        .vk_table =
         {
             [0x76] = VK_ESCAPE,    [0x16] = VK_1,        [0x1E] = VK_2,
             [0x26] = VK_3,         [0x25] = VK_4,        [0x2E] = VK_5,
@@ -217,17 +218,17 @@ static const keyboard_layout_t fr_azerty =
             [0x01] = VK_F9,        [0x09] = VK_F10,      [0x77] = VK_NUMLOCK,
             [0x7E] = VK_SCROLLLOCK,[0x78] = VK_F11,      [0x07] = VK_F12,
         },
-        .vk_table_e0 = 
+        .vk_table_e0 =
         {
             [0x14] = VK_RCONTROL,  [0x11] = VK_RALT,     [0x6C] = VK_HOME,
             [0x75] = VK_UP,        [0x7D] = VK_PAGEUP,  [0x6B] = VK_LEFT,
             [0x74] = VK_RIGHT,     [0x69] = VK_END,      [0x72] = VK_DOWN,
             [0x7A] = VK_PAGEDOWN,  [0x70] = VK_INSERT,   [0x71] = VK_DELETE,
-            [0x5A] = VK_KP_ENTER,  [0x4A] = VK_KP_DIVIDE, 
+            [0x5A] = VK_KP_ENTER,  [0x4A] = VK_KP_DIVIDE,
             [0x7C] = VK_PRINTSCREEN, [0x1F] = VK_LWIN,
             [0x27] = VK_RWIN,       [0x2F] = VK_APPS,
         },
-        .char_table = 
+        .char_table =
         {
             [0x16] = U'&',        [0x1E] = U'é',        [0x26] = U'"',
             [0x25] = U'\'',       [0x2E] = U'(',        [0x36] = U'-',
@@ -253,11 +254,11 @@ static const keyboard_layout_t fr_azerty =
             [0x61] = U'<',
             [0x7B] = U'-',        [0x79] = U'+',        [0x7c] = U'*'
         },
-        .char_table_e0 = 
+        .char_table_e0 =
         {
             [0x4A] = U'/',        [0x5A] = '\n'
         },
-        .char_table_shift = 
+        .char_table_shift =
         {
             [0x16] = U'1',        [0x1E] = U'2',        [0x26] = U'3',
             [0x25] = U'4',        [0x2E] = U'5',        [0x36] = U'6',
@@ -273,7 +274,7 @@ static const keyboard_layout_t fr_azerty =
             [0x66] = U'\b',       [0x29] = U' ',
             [0x61] = U'>',
         },
-        .char_table_altgr = 
+        .char_table_altgr =
         {
             [0x1E] = U'~',        [0x26] = U'#',        [0x25] = U'{',
             [0x2E] = U'[',        [0x36] = U'|',        [0x3D] = U'`',
@@ -290,7 +291,7 @@ static const keyboard_layout_t fr_azerty =
     }
 };
 
-static const keyboard_layout_t* keyboard_layouts[NUM_KB_LAYOUTS] = 
+static const keyboard_layout_t* keyboard_layouts[NUM_KB_LAYOUTS] =
 {
     &us_qwerty,
     &fr_azerty
@@ -298,13 +299,13 @@ static const keyboard_layout_t* keyboard_layouts[NUM_KB_LAYOUTS] =
 
 extern const keyboard_layout_t* current_keyboard_layout;  // TODO: Make it so we can have one layout per keyboard
 
-#define get_buffered_characters(buffer) ((size_t)imod(((int)(buffer).put_index - (buffer).get_index), (buffer).size))
-#define no_buffered_characters(buffer)  ((buffer).put_index == (buffer).get_index)
-
 static inline char utf32_to_bios_oem(utf32_char_t ch)
 {
     return ch < 128 ? (char)ch : (char)0;
 }
+
+#define no_buffered_characters  ring_no_buffered_bytes
+#define get_buffered_characters ring_get_buffered_bytes
 
 void utf32_buffer_init(utf32_buffer_t* buffer);
 void utf32_buffer_clear(utf32_buffer_t* buffer);

@@ -329,8 +329,7 @@ void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
         else
         {
             to->file_table[i] = from->file_table[i];
-            if (to->file_table[i].index != invalid_fd)
-                file_table[to->file_table[i].index].used++;
+            file_table[to->file_table[i].index].used++;
         }
     }
     unlock_scheduler();

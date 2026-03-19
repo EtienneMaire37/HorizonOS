@@ -15,6 +15,7 @@ extern int errno;
 #include "../terminal/textio.h"
 #include "../util/access.h"
 #include "../multitasking/multitasking.h"
+#include "../cpu/units.h"
 
 file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 vfs_folder_tnode_t* vfs_root = NULL;
@@ -33,16 +34,19 @@ void vfs_init_file_table()
     file_table[0].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[0].position = 0;
     file_table[0].flags = O_RDONLY;
+    file_table[0].iofunc = task_chr_tty;
 
     file_table[1].entry_type = VFS_ET_FILE;
     file_table[1].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[1].position = 0;
     file_table[1].flags = O_WRONLY;
+    file_table[1].iofunc = task_chr_tty;
 
     file_table[2].entry_type = VFS_ET_FILE;
     file_table[2].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
     file_table[2].position = 0;
     file_table[2].flags = O_WRONLY;
+    file_table[2].iofunc = task_chr_tty;
 
     unlock_scheduler();
 }
@@ -643,18 +647,20 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
         *bytes_read = -1;
         return EBADF;
     }
-    if ((get_global_file_entry(fd)->flags & O_ACCMODE) == O_WRONLY)
+    file_entry_t* entry = get_global_file_entry(fd);
+    assert(entry);
+    if ((entry->flags & O_ACCMODE) == O_WRONLY)
     {
         *bytes_read = -1;
         return EBADF;
     }
 
-    if (get_global_file_entry(fd)->entry_type == VFS_ET_FILE)
+    if (entry->entry_type == VFS_ET_FILE)
     {
-        mode_t mode = get_global_file_entry(fd)->tnode.file->inode->st.st_mode;
-        *bytes_read = get_global_file_entry(fd)->tnode.file->inode->io_func(get_global_file_entry(fd), buffer, num_bytes, CHR_DIR_READ);
+        mode_t mode = entry->tnode.file->inode->st.st_mode;
+        *bytes_read = entry->iofunc(entry, buffer, num_bytes, IO_DIR_READ);
         if (*bytes_read > 0)
-            get_global_file_entry(fd)->position += *bytes_read;
+            entry->position += *bytes_read;
         return 0;
     }
     *bytes_read = 0;
@@ -669,17 +675,19 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
         *bytes_written = (uint64_t)-1;
         return EBADF;
     }
-    if ((get_global_file_entry(fd)->flags & O_ACCMODE) == O_RDONLY)
+    file_entry_t* entry = get_global_file_entry(fd);
+    assert(entry);
+    if ((entry->flags & O_ACCMODE) == O_RDONLY)
     {
         *bytes_written = -1;
         return EBADF;
     }
-    if (get_global_file_entry(fd)->entry_type == VFS_ET_FILE)
+    if (entry->entry_type == VFS_ET_FILE)
     {
-        mode_t mode = get_global_file_entry(fd)->tnode.file->inode->st.st_mode;
-        *bytes_written = get_global_file_entry(fd)->tnode.file->inode->io_func(get_global_file_entry(fd), (unsigned char*)buffer, bytes_to_write, CHR_DIR_WRITE);
+        mode_t mode = entry->tnode.file->inode->st.st_mode;
+        *bytes_written = entry->iofunc(entry, (unsigned char*)buffer, bytes_to_write, IO_DIR_WRITE);
         if (*bytes_written > 0)
-            get_global_file_entry(fd)->position += *bytes_written;
+            entry->position += *bytes_written;
         return 0;
     }
     *bytes_written = 0;
@@ -721,7 +729,7 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
 {
     switch(direction)
     {
-    case CHR_DIR_READ:
+    case IO_DIR_READ:
         if (count == 0)
             return 0;
         lock_scheduler();
@@ -744,7 +752,7 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
             buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&keyboard_buffered_input_buffer));
         unlock_scheduler();
         return ret;
-    case CHR_DIR_WRITE:
+    case IO_DIR_WRITE:
         return 0;
     }
     return 0;
@@ -754,9 +762,9 @@ ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t
 {
     switch(direction)
     {
-    case CHR_DIR_READ:
+    case IO_DIR_READ:
         return 0;
-    case CHR_DIR_WRITE:
+    case IO_DIR_WRITE:
         for (uint32_t i = 0; i < count; i++)
             tty_outc(buf[i]);
         return count;
@@ -768,11 +776,55 @@ ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t di
 {
     switch (direction)
     {
-    case CHR_DIR_READ:
+    case IO_DIR_READ:
         return task_chr_stdin(entry, buf, count, direction);
-    case CHR_DIR_WRITE:
+    case IO_DIR_WRITE:
         return task_chr_stdout(entry, buf, count, direction);
     default:
+        return 0;
+    }
+}
+
+ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
+{
+    lock_scheduler();
+    size_t in_buffer = ring_get_buffered_bytes(entry->file_data.pipe_data);
+    size_t maxwrite = entry->file_data.pipe_data.size - in_buffer - 1;
+    size_t endoff = 0;
+    // TODO: Implement the non O_NONBLOCK behaviour
+    switch (direction)
+    {
+    case IO_DIR_READ:
+        // TODO: Implement a proper wait queue
+        while (in_buffer == 0 && entry->used >= 2)
+        {
+            switch_task();
+            unlock_scheduler();
+            lock_scheduler();
+            in_buffer = ring_get_buffered_bytes(entry->file_data.pipe_data);
+        }
+        // LOG(TRACE, "Reading %zu bytes from pipe (%zu bytes in buffer) [%zu bytes asked by program]", in_buffer < count ? in_buffer : count, in_buffer, count);
+        count = in_buffer < count ? in_buffer : count;
+        for (size_t i = 0; i < count; i++)
+            buf[i] = ((uint8_t*)entry->file_data.pipe_data.buffer)[endoff = imod(i + entry->file_data.pipe_data.get_index, entry->file_data.pipe_data.size)];
+        entry->file_data.pipe_data.get_index = imod(1 + endoff, entry->file_data.pipe_data.size);
+        unlock_scheduler();
+        return count;
+    case IO_DIR_WRITE:
+        if (maxwrite <= 0)
+        {
+            unlock_scheduler();
+            return 0;
+        }
+        // LOG(TRACE, "Writing %zu bytes to pipe (%zu bytes in buffer) [%zu bytes asked by program]", maxwrite < count ? maxwrite : count, in_buffer, count);
+        count = maxwrite < count ? maxwrite : count;
+        for (size_t i = 0; i < count; i++)
+            ((uint8_t*)entry->file_data.pipe_data.buffer)[endoff = imod(i + entry->file_data.pipe_data.put_index, entry->file_data.pipe_data.size)] = buf[i];
+        entry->file_data.pipe_data.put_index = imod(1 + endoff, entry->file_data.pipe_data.size);
+        unlock_scheduler();
+        return count;
+    default:
+        unlock_scheduler();
         return 0;
     }
 }
@@ -784,4 +836,21 @@ bool vfs_isatty(file_entry_t* entry)
     bool ret = entry->entry_type == VFS_ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && entry->tnode.file->inode->io_func == task_chr_tty) : false;
     unlock_scheduler();
     return ret;
+}
+
+void vfs_setup_pipe(int fildes)
+{
+    assert(file_table[fildes].used == 2);
+    lock_scheduler();
+    file_table[fildes].entry_type = VFS_ET_FILE;
+    file_table[fildes].file_data.pipe_data.size = 64 * KB;
+    file_table[fildes].file_data.pipe_data.buffer = malloc(file_table[fildes].file_data.pipe_data.size);
+    assert(file_table[fildes].file_data.pipe_data.buffer);
+    file_table[fildes].file_data.pipe_data.put_index = 0;
+    file_table[fildes].file_data.pipe_data.get_index = 0;
+    file_table[fildes].tnode.file = NULL;
+    file_table[fildes].tnode.folder = NULL;
+    file_table[fildes].flags = O_RDWR;
+    file_table[fildes].iofunc = pipe_iofunc;
+    unlock_scheduler();
 }

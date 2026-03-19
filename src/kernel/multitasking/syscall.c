@@ -20,6 +20,7 @@
 #include "../util/memory.h"
 #include "../vfs/entries.h"
 #include <dirent.h>
+#include "../cpu/units.h"
 
 extern void sigret();
 
@@ -252,9 +253,15 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         file_table[fd].tnode.folder = NULL;
 
         if (file_table[fd].entry_type == VFS_ET_FILE)
+        {
             file_table[fd].tnode.file = vfs_get_file_tnode(arg1, current_task->cwd);
+            file_table[fd].iofunc = file_table[fd].tnode.file->inode->io_func;
+        }
         if (file_table[fd].entry_type == VFS_ET_FOLDER)
+        {
             file_table[fd].tnode.folder = vfs_get_folder_tnode(arg1, current_task->cwd);
+            file_table[fd].iofunc = NULL;
+        }
 
         file_table[fd].file_data.folder_child.str = NULL;
         file_table[fd].file_data.folder_child.done_reading = false;
@@ -1043,29 +1050,54 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         break;
     sc_case(SYS_PIPE2, 2, int*, int)
         SC_LOG("syscall SYS_PIPE2(%p, %d)", arg1, arg2);
+        if (arg2 & ~(O_CLOEXEC | O_NONBLOCK))
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
         int fildes = vfs_allocate_global_file();
         if (fildes == -1)
         {
             sc_ret_errno = ENFILE;
             break;
         }
-        int fd1 = vfs_allocate_thread_file(current_task), fd2 = vfs_allocate_thread_file(current_task);
-        if (fd1 == -1 || fd2 == -1)
+        lock_scheduler();
+        int fd1 = vfs_allocate_thread_file(current_task);
+        if (fd1 == -1)
+        {
+            vfs_close(fd1);
+            vfs_free_global_file(fildes);
+            sc_ret_errno = EMFILE;
+            unlock_scheduler();
+            break;
+        }
+        current_task->file_table[fd1].index = fildes;
+        int fd2 = vfs_allocate_thread_file(current_task);
+        current_task->file_table[fd2].index = fildes;
+        if (fd2 == -1)
         {
             vfs_close(fd1);
             vfs_close(fd2);
             vfs_free_global_file(fildes);
             sc_ret_errno = EMFILE;
+            unlock_scheduler();
             break;
         }
         sc_ret_errno = 0;
-        lock_scheduler();
         arg1[0] = fd1;
         arg1[1] = fd2;
-        file_table[fildes].entry_type = VFS_ET_FILE;
-        // ...
+        file_table[fildes].used++;
+        vfs_setup_pipe(fildes);
+        assert(file_table[fildes].file_data.pipe_data.buffer);
+        current_task->file_table[fd1].flags = 0;
+        current_task->file_table[fd2].flags = 0;
+        if (arg2 & O_CLOEXEC)
+        {
+            current_task->file_table[fd1].flags |= FD_CLOEXEC;
+            current_task->file_table[fd2].flags |= FD_CLOEXEC;
+        }
+        // LOG(TRACE, "pipe: [%d, %d]", fd1, fd2);
         unlock_scheduler();
-        abort();
         break;
 
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)

@@ -120,6 +120,14 @@ struct folder_child_data
     bool done_reading;
 };
 
+struct pipe_data
+{
+    void* buffer;
+    size_t size;
+    size_t put_index;
+    size_t get_index;
+};
+
 typedef struct file_entry
 {
     int used;
@@ -129,18 +137,20 @@ typedef struct file_entry
     union
     {
         struct folder_child_data folder_child;
+        struct pipe_data pipe_data;
     } file_data;
     union
     {
         vfs_file_tnode_t* file;
         vfs_folder_tnode_t* folder;
     } tnode;
+    ssize_t (*iofunc)(file_entry_t*, uint8_t* buf, size_t count, uint8_t direction);
 } file_entry_t;
 
 #define MAX_FILE_TABLE_ENTRIES  1024
 
-#define CHR_DIR_READ    1
-#define CHR_DIR_WRITE   2
+#define IO_DIR_READ    1
+#define IO_DIR_WRITE   2
 
 extern file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 extern vfs_folder_tnode_t* vfs_root;
@@ -195,3 +205,5 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
 void vfs_free_global_file(int fd);
 
 void vfs_log_tree();
+
+void vfs_setup_pipe(int fildes);

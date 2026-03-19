@@ -169,6 +169,8 @@ bool is_fd_valid(int fd)
         return (unlock_scheduler(), false);
     if (current_task->file_table[fd].index < 0 || current_task->file_table[fd].index >= MAX_FILE_TABLE_ENTRIES)
         return (unlock_scheduler(), false);
+    if (file_table[current_task->file_table[fd].index].used <= 0)
+        return (unlock_scheduler(), false);
     unlock_scheduler();
     return true;
 }

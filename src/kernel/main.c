@@ -85,32 +85,32 @@ atomic_flag core_log_spinlock = ATOMIC_FLAG_INIT;
 void _start()
 {
     disable_interrupts();
-    
+
     PHYS_MAP_BASE = hhdm_request.response->offset;
 
     uint32_t eax, ebx, ecx, edx;
     cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
     // * CPUID is guaranteed to be present on x86_64
-    
+
     acquire_spinlock(&core_log_spinlock);
     fprintf(stderr, "a");
     first_log = true;
     release_spinlock(&core_log_spinlock);
-    
+
     if (!is_bsp()) // * SMP not supported for now
         halt();
-    
+
     LOG(DEBUG, "_start");
-    
+
     kernel_start_ptr = (void*)&kernel_start;
     kernel_end_ptr = (void*)&kernel_end;
-    
+
     if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1)
         halt();
 
     // assert(framebuffer_request.response->framebuffers[0]->memory_model == LIMINE_FRAMEBUFFER_RGB);
     assert(framebuffer_request.response->framebuffers[0]->bpp % 8 == 0);
-    
+
     framebuffer.width = framebuffer_request.response->framebuffers[0]->width;
     framebuffer.height = framebuffer_request.response->framebuffers[0]->height;
     framebuffer.stride = framebuffer_request.response->framebuffers[0]->pitch;
@@ -120,20 +120,20 @@ void _start()
     framebuffer.red_shift = framebuffer_request.response->framebuffers[0]->red_mask_shift;
     framebuffer.green_shift = framebuffer_request.response->framebuffers[0]->green_mask_shift;
     framebuffer.blue_shift = framebuffer_request.response->framebuffers[0]->blue_mask_shift;
-    
+
     LOG(INFO, "Kernel booted successfully with limine (%p-%p)", kernel_start_ptr, kernel_end_ptr);
     LOG(INFO, "Kernel is %" PRIu64 " bytes long", (uint64_t)kernel_end_ptr - (uint64_t)kernel_start_ptr);
     LOG(INFO, "Framebuffer : (%u, %u) (scanline %u bytes) at %p", framebuffer.width, framebuffer.height, framebuffer.stride, framebuffer.address);
-            
+
     LOG(INFO, "CPUID highest function parameter: %#x", cpuid_highest_function_parameter);
-    
+
     *(uint32_t*)&manufacturer_id_string[0] = ebx;
     *(uint32_t*)&manufacturer_id_string[4] = edx;
     *(uint32_t*)&manufacturer_id_string[8] = ecx;
     manufacturer_id_string[12] = 0;
-    
+
     LOG(INFO, "CPU manufacturer id : \"%s\"", manufacturer_id_string);
-    
+
     cpuid(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
     LOG(INFO, "CPUID highest extended function parameter: %#x", cpuid_highest_extended_function_parameter);
 
@@ -181,7 +181,7 @@ void _start()
     }
     else
     {
-    // * The MAXPHYADDR is 36 bits for processors that do not 
+    // * The MAXPHYADDR is 36 bits for processors that do not
     // * support CPUID leaf 80000008H, or indicated by
     // * CPUID.80000008H:EAX[bits 7:0] for processors that support CPUID leaf 80000008H.
     // * -> Intel manual Vol. 3A 11-8
@@ -191,7 +191,7 @@ void _start()
     LOG(INFO, "Physical address is %u bits long", physical_address_width);
 
     init_pat();
-    
+
     LOG(INFO, "cpu_id : %u", cpuid_get_cpu_id());
 
     struct limine_file* initrd = NULL;
@@ -216,7 +216,7 @@ void _start()
         LOG(DEBUG, "Couldn't find psf font in initrd");
         abort();
     }
-    
+
     pfa_detect_usable_memory();
 
     tty_init();
@@ -232,13 +232,13 @@ void _start()
     tty_set_color(FG_LIGHTMAGENTA, BG_BLACK);
     puts((const char*)commit_file->data);
     tty_set_color(FG_WHITE, BG_BLACK);
-    
+
     printf("Detected ");
     tty_set_color(FG_LIGHTBLUE, BG_BLACK);
     printf("%" PRIu64 " ", allocatable_memory);
     tty_set_color(FG_WHITE, BG_BLACK);
     printf("bytes of allocatable memory\n");
-    
+
     if (pat_enabled)
     {
         LOG(INFO, "PAT successfully enabled");
@@ -267,8 +267,8 @@ void _start()
         LOG(DEBUG, "Copying mapping of range %p-%p from limine", kernel_start_ptr, kernel_end_ptr);
 
         copy_mapping(boot_cr3, global_cr3, (uintptr_t)kernel_start_ptr, (uint64_t)((uintptr_t)kernel_end_ptr - (uintptr_t)kernel_start_ptr) >> 12);
-                
-        for (int i = 0; i < mmap_request.response->entry_count; i++) 
+
+        for (int i = 0; i < mmap_request.response->entry_count; i++)
         {
             struct limine_memmap_entry* entry = mmap_request.response->entries[i];
 
@@ -286,11 +286,11 @@ void _start()
                 continue;
             if (len > MAX_MEMORY - ptr)
                 len = MAX_MEMORY - ptr;
-            
+
             // ? Write-combining cache for the framebuffer
             // ? Write-back for usable memory
             // ? Uncacheable for MMIO and SMBIOS
-            int cache = (entry->type == LIMINE_MEMMAP_USABLE || 
+            int cache = (entry->type == LIMINE_MEMMAP_USABLE ||
                 entry->type == LIMINE_MEMMAP_EXECUTABLE_AND_MODULES ||
                 entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE ||
                 entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE) ? CACHE_WB
@@ -315,7 +315,7 @@ void _start()
 
     printf("Paging setup done\n");
     LOG(INFO, "Set up paging");
-    
+
     if (cpuid_highest_function_parameter >= 1)
     {
         uint32_t eax = 0, ebx, ecx = 0, edx;
@@ -341,9 +341,9 @@ void _start()
                 uint32_t eax = 0, ebx, ecx = 0, edx;
                 cpuid_with_ecx(0x0d, 1, eax, ebx, ecx, edx);
 
-                xsave_instruction = 
-                    // ((eax & (1 << 3)) ? XSAVES : 
-                    ((eax & (1 << 0)) ? XSAVEOPT : 
+                xsave_instruction =
+                    // ((eax & (1 << 3)) ? XSAVES :
+                    ((eax & (1 << 0)) ? XSAVEOPT :
                     ((eax & (1 << 1)) ? XSAVEC : XSAVE));
             }
             else
@@ -472,18 +472,18 @@ void _start()
 
     printf(" | Done\n");
     LOG(INFO, "APIC enabled");
-    
+
     LOG(INFO, "Setting up the APIC timer");
     printf("Setting up the APIC timer");
     fflush(stdout);
-    
+
     apic_timer_init();
     rtc_get_time();
     time_initialized = true;
-    
+
     LOG(INFO, "Set up the APIC timer");
     printf(" | Done\n");
-    
+
     printf("Time: ");
 
     tty_set_color(FG_LIGHTCYAN, BG_BLACK);
@@ -520,7 +520,7 @@ void _start()
 
     disable_interrupts();
         madt_extract_data();
-    enable_interrupts(); 
+    enable_interrupts();
 
     printf("Done.\n");
     LOG(INFO, "Done parsing ACPI tables.");
@@ -539,9 +539,9 @@ void _start()
         ps2_init_keyboards();
 
         ksleep(10 * PRECISE_MILLISECONDS);
-        
+
         ps2_enable_interrupts();
-        
+
         if (ps2_device_1_connected)
         {
             LOG(INFO, "PS/2 device 1 connected");
@@ -563,15 +563,15 @@ void _start()
 
     LOG(INFO, "Setting up the VFS...");
     printf("Mounting initrd at root...\n");
-    vfs_root = vfs_create_empty_folder_tnode("root", NULL, VFS_NODE_MOUNTPOINT | VFS_NODE_INIT, 
+    vfs_root = vfs_create_empty_folder_tnode("root", NULL, VFS_NODE_MOUNTPOINT | VFS_NODE_INIT,
         0,
-        S_IFDIR | 
+        S_IFDIR |
         S_IRUSR | S_IXUSR |
         S_IRGRP | S_IXGRP |
-        S_IROTH | S_IXOTH, 
+        S_IROTH | S_IXOTH,
         0, 0,
         (drive_t){.type = DT_INITRD});
-    if (!vfs_root) 
+    if (!vfs_root)
     {
         LOG(DEBUG, "Couldn't create VFS root");
         abort();
@@ -604,7 +604,7 @@ void _start()
         .c_oflag = OPOST | ONLCR,
         .c_cflag = B38400 | CS8 | CREAD | HUPCL,
         .c_lflag = ISIG | ICANON | ECHO | ECHOE | ECHOK | IEXTEN,
-        .c_cc = 
+        .c_cc =
         {
             [VINTR]    = 0x03,
             [VQUIT]    = 0x1C,
@@ -626,7 +626,7 @@ void _start()
     };
 
     LOG(DEBUG, "sizeof(thread_t): %lld", (unsigned long long)sizeof(thread_t));
-    
+
     LOG(INFO, "cr4: %#" PRIx64, get_cr4());
 
     fflush(stdout);
@@ -642,6 +642,7 @@ void _start()
         abort();
     }
 
+    lock_scheduler();
     init_task->file_table[STDIN_FILENO].flags = 0;
     init_task->file_table[STDIN_FILENO].index = 0;
     file_table[init_task->file_table[STDIN_FILENO].index].used++;
@@ -651,6 +652,7 @@ void _start()
     init_task->file_table[STDERR_FILENO].flags = 0;
     init_task->file_table[STDERR_FILENO].index = 2;
     file_table[init_task->file_table[STDERR_FILENO].index].used++;
+    unlock_scheduler();
 
     LOG(DEBUG, "Starting multitasking...");
 
