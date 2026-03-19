@@ -263,6 +263,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             file_table[fd].iofunc = NULL;
         }
 
+        file_table[fd].on_destroy = NULL;
+
         file_table[fd].file_data.folder_child.str = NULL;
         file_table[fd].file_data.folder_child.done_reading = false;
 
@@ -1106,6 +1108,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         if (!task)
         {
             sc_ret_errno = ESRCH;
+            unlock_scheduler();
             break;
         }
         task_send_signal(task, arg2);

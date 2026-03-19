@@ -89,7 +89,11 @@ void vfs_remove_global_file(int fd)
     {
         file_table[fd].used--;
         if (file_table[fd].used <= 0)
+        {
             file_table[fd].used = 0;
+            if (file_table[fd].on_destroy)
+                file_table[fd].on_destroy(&file_table[fd]);
+        }
 
 		unlock_scheduler();
         return;
@@ -829,6 +833,12 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
     }
 }
 
+void pipe_destroy(file_entry_t* entry)
+{
+    assert(entry);
+    free(entry->file_data.pipe_data.buffer);
+}
+
 bool vfs_isatty(file_entry_t* entry)
 {
     lock_scheduler();
@@ -851,6 +861,8 @@ void vfs_setup_pipe(int fildes)
     file_table[fildes].tnode.file = NULL;
     file_table[fildes].tnode.folder = NULL;
     file_table[fildes].flags = O_RDWR;
+
     file_table[fildes].iofunc = pipe_iofunc;
+    file_table[fildes].on_destroy = pipe_destroy;
     unlock_scheduler();
 }

@@ -134,6 +134,7 @@ typedef struct file_entry
     int flags;
     off_t position;
     uint8_t entry_type;
+
     union
     {
         struct folder_child_data folder_child;
@@ -144,7 +145,9 @@ typedef struct file_entry
         vfs_file_tnode_t* file;
         vfs_folder_tnode_t* folder;
     } tnode;
+
     ssize_t (*iofunc)(file_entry_t*, uint8_t* buf, size_t count, uint8_t direction);
+    void (*on_destroy)(file_entry_t*);
 } file_entry_t;
 
 #define MAX_FILE_TABLE_ENTRIES  1024
