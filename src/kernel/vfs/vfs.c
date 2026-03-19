@@ -55,11 +55,13 @@ int vfs_allocate_global_file()
 {
     // !!! ASAP
     // TODO: Implement a more general "atomic lock" which can be used for several things and not just the scheduler
+    // ! Will need to be implemented to reduce lock contention when adding SMP
 	lock_scheduler();
-    for (int i = 3; i < MAX_FILE_TABLE_ENTRIES; i++)
+    for (int i = 0; i < MAX_FILE_TABLE_ENTRIES; i++)
     {
         if (file_table[i].used == 0)
         {
+			memset(&file_table[i], 0, sizeof(file_table[i]));
             file_table[i].used = 1;
 			unlock_scheduler();
             return i;
@@ -85,12 +87,12 @@ void vfs_remove_global_file(int fd)
 {
 	lock_scheduler();
 
-    if (fd >= 3 && fd < MAX_FILE_TABLE_ENTRIES)
+    if (fd >= 0 && fd < MAX_FILE_TABLE_ENTRIES)
     {
         file_table[fd].used--;
-        if (file_table[fd].used <= 0)
+        assert(file_table[fd].used >= 0);
+        if (file_table[fd].used == 0)
         {
-            file_table[fd].used = 0;
             if (file_table[fd].on_destroy)
                 file_table[fd].on_destroy(&file_table[fd]);
         }
@@ -835,8 +837,11 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
 
 void pipe_destroy(file_entry_t* entry)
 {
+    LOG(TRACE, "Destroying pipe...");
     assert(entry);
+    assert(entry->file_data.pipe_data.buffer);  // ! Freeing several times a pipe IS a bug
     free(entry->file_data.pipe_data.buffer);
+    entry->file_data.pipe_data.buffer = NULL;
 }
 
 bool vfs_isatty(file_entry_t* entry)
@@ -850,8 +855,8 @@ bool vfs_isatty(file_entry_t* entry)
 
 void vfs_setup_pipe(int fildes)
 {
-    assert(file_table[fildes].used == 2);
     lock_scheduler();
+    assert(file_table[fildes].used == 2);
     file_table[fildes].entry_type = VFS_ET_FILE;
     file_table[fildes].file_data.pipe_data.size = 64 * KB;
     file_table[fildes].file_data.pipe_data.buffer = malloc(file_table[fildes].file_data.pipe_data.size);

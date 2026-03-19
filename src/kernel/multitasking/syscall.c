@@ -224,6 +224,14 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 
         int fd = vfs_allocate_global_file();
 
+        if (fd == -1)
+        {
+            unlock_scheduler();
+            sc_ret_errno = ENFILE;
+            sc_ret(1) = (uint64_t)(-1);
+            break;
+        }
+
         file_table[fd].flags = arg2;
         file_table[fd].position = 0;
 
@@ -328,6 +336,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 
         file_table[fd].file_data.folder_child.str = NULL;
         file_table[fd].file_data.folder_child.done_reading = false;
+
+        file_table[fd].on_destroy = NULL;
 
         int ret = vfs_allocate_thread_file(current_task);
         if (ret == -1)
@@ -1000,6 +1010,26 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 
         sc_ret_errno = 0;
 
+        if (arg1 == 0 || (!arg2 && !arg3 && !arg4))
+        {
+            if (arg5)
+            {
+                // TODO: Implement a per file "wait for file" queue to reduce unnecessary spinning
+                unlock_scheduler();
+                precise_time_t start_timer = global_timer;
+                while (true)
+                {
+                    if (global_timer >= start_timer + PRECISE_SECONDS * arg5->tv_sec + PRECISE_NANOSECONDS * arg5->tv_nsec)
+                        break;
+                    hlt();
+                }
+                lock_scheduler();
+                current_task->sig_mask = saved_sigmask;
+            }
+            unlock_scheduler();
+            break;
+        }
+
         // * Assume all fds are always ready for now
         // * Only clear exceptional conditions and check stdin
         if (arg2)
@@ -1011,6 +1041,10 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 {
                     if (!dont_block)
                     {
+                        uint64_t n[2] = { UINT64_MAX, UINT64_MAX };
+                        assert(sizeof(struct timespec) == sizeof(n));
+                        // TODO: Make this actually work
+                        current_task->pselect_timeout = arg5 ? *arg5 : *(struct timespec*)&n;
                         move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
                         switch_task();
                         unlock_scheduler();

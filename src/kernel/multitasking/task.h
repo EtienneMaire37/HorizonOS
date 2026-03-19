@@ -13,14 +13,7 @@ typedef struct thread thread_t;
 
 typedef struct thread
 {
-    char name[THREAD_NAME_MAX];
-
-    uint64_t rsp, cr3;
-    uint64_t fs_base, gs_base;
-
-    sigset_t sig_pending, sig_mask;
-    struct sigaction sig_act_array[NUM_SIGNALS];
-    bool sig_pending_user_space;
+    struct timespec pselect_timeout;
 
     uint32_t return_value;
 
@@ -29,6 +22,10 @@ typedef struct thread
 
     uint64_t pending_signal_handler;
     int pending_signal_number;
+
+    sigset_t sig_pending, sig_mask;
+    struct sigaction sig_act_array[NUM_SIGNALS];
+    bool sig_pending_user_space;
 
     // * waitpid shenanigans
     pid_t wait_pid, waitpid_ret, pgid_on_waitpid;
@@ -44,14 +41,18 @@ typedef struct thread
     bool system_task;    // * Allow causing kernel panics
 
     vfs_folder_tnode_t* cwd;
-
     uint8_t* fpu_state;
-
-    uint16_t stored_cpu_ticks, current_cpu_ticks;   // * In milliseconds
 
     file_table_index_t file_table[OPEN_MAX];
 
-    // * We still have to keep them here to fix the case
+    uint16_t stored_cpu_ticks, current_cpu_ticks;   // * In milliseconds
+
+    char name[THREAD_NAME_MAX];
+
+    uint64_t rsp, cr3;
+    uint64_t fs_base, gs_base;
+
+    // * We still have to keep them here in the case
     // * where the current process is blocked before context switching
     thread_t *prev, *next;
 } thread_t;
