@@ -12,15 +12,15 @@
 
 namespace mlibc
 {
-	void sys_libc_panic() 
+	void sys_libc_panic()
 	{
 		sys_libc_log("\n\x1b[31m[[!!! mlibc panic !!!]]\x1b[0m\n");
 		sys_exit(-1);
 		__builtin_trap();
 	}
 
-	void sys_libc_log(const char* msg) 
-	{ 
+	void sys_libc_log(const char* msg)
+	{
 		ssize_t unused;
 		sys_write(2, msg, strlen(msg), &unused);
 		sys_write(2, "\n", 1, &unused);
@@ -31,14 +31,14 @@ namespace mlibc
 		return syscall1_1(SYS_ISATTY, (uint64_t)fd);
 	}
 
-	int sys_read(int fd, void* buf, size_t size, ssize_t* bytes_read) 
+	int sys_read(int fd, void* buf, size_t size, ssize_t* bytes_read)
 	{
 		uint64_t r64;
 		int ret = syscall3_2(SYS_READ, (uint64_t)fd, (uint64_t)buf, (uint64_t)size, &r64);
 		*bytes_read = (ssize_t)r64;
 		return ret;
 	}
-	int sys_write(int fd, void const* buf, size_t size, ssize_t* bytes_written) 
+	int sys_write(int fd, void const* buf, size_t size, ssize_t* bytes_written)
 	{
 		uint64_t r64;
 		int ret = syscall3_2(SYS_WRITE, (uint64_t)fd, (uint64_t)buf, (uint64_t)size, &r64);
@@ -51,16 +51,16 @@ namespace mlibc
 		return syscall1_1(SYS_SETFS, (uint64_t)pointer);
 	}
 
-	int sys_anon_allocate(size_t size, void** pointer) 
+	int sys_anon_allocate(size_t size, void** pointer)
 	{
 		return sys_vm_map(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, pointer);
 	}
-	int sys_anon_free(void* pointer, size_t size) 
-	{ 
+	int sys_anon_free(void* pointer, size_t size)
+	{
 		return sys_vm_unmap(pointer, size);
 	}
 
-	int sys_seek(int fd, off_t off, int flags, off_t* ret_val) 
+	int sys_seek(int fd, off_t off, int flags, off_t* ret_val)
 	{
 		uint64_t _ret_val;
 		int ret = syscall3_2(SYS_SEEK, (uint64_t)fd, (uint64_t)off, (uint64_t)flags, &_ret_val);
@@ -68,41 +68,41 @@ namespace mlibc
 		return ret;
 	}
 
-	void sys_exit(int status) 
+	void sys_exit(int status)
 	{
 		syscall1_1(SYS_EXIT, status);
 		__builtin_unreachable();
 	}
 
-	int sys_open(const char* path, int oflags, unsigned int mode, int* fd) 
+	int sys_open(const char* path, int oflags, unsigned int mode, int* fd)
 	{
 		uint64_t _fd;
 		int ret = syscall3_2(SYS_OPEN, (uint64_t)path, (uint64_t)oflags, (uint64_t)mode, &_fd);
 		*fd = (int)_fd;
 		return ret;
 	}
-	int sys_close(int fd) 
-	{ 
+	int sys_close(int fd)
+	{
 		return syscall1_1(SYS_CLOSE, (uint64_t)fd);
 	}
 
-	int sys_futex_wake(int*) 
+	int sys_futex_wake(int*)
 	{
 		STUB("sys_futex_wake");
 	}
-	int sys_futex_wait(int*, int, timespec const*) 
+	int sys_futex_wait(int*, int, timespec const*)
 	{
 		STUB("sys_futex_wait");
 	}
 
-	int sys_vm_map(void* hint, size_t size, int prot, int flags, int fd, off_t offset, void** window) 
+	int sys_vm_map(void* hint, size_t size, int prot, int flags, int fd, off_t offset, void** window)
 	{
 		uint64_t addr;
 		int ret = syscall6_2(SYS_VM_MAP, (uint64_t)hint, (uint64_t)size, (uint64_t)prot, (uint64_t)flags, (uint64_t)fd, (uint64_t)offset, &addr);
 		*window = (void*)addr;
 		return ret;
 	}
-	int sys_vm_unmap(void* addr, size_t size) 
+	int sys_vm_unmap(void* addr, size_t size)
 	{
 		return syscall2_1(SYS_VM_UNMAP, (uint64_t)addr, (uint64_t)size);
 	}
@@ -162,7 +162,7 @@ namespace mlibc
 		return syscall3_1(SYS_SIGPROCMASK, (uint64_t)how, (uint64_t)set, (uint64_t)retrieve);
 	}
 
-	int sys_waitpid(pid_t pid, int* status, int flags, struct rusage* ru, pid_t* ret_pid) 
+	int sys_waitpid(pid_t pid, int* status, int flags, struct rusage* ru, pid_t* ret_pid)
 	{
 		uint64_t _ret_pid;
 		int ret = syscall4_2(SYS_WAIT4, (uint64_t)pid, (uint64_t)status, (uint64_t)flags, (uint64_t)ru, &_ret_pid);
@@ -248,7 +248,7 @@ namespace mlibc
 	long sysconf_helper(int number, int* _errno)
 	{
 		/* default return values, if not overriden by sysdep */
-		switch(number) 
+		switch(number)
 		{
 		case _SC_ARG_MAX:
 			// On linux, it is defined to 2097152 in most cases, so define it to be 2097152
@@ -423,19 +423,19 @@ namespace mlibc
 		return syscall4_1(SYS_FADVISE, (uint64_t)fd, (uint64_t)offset, (uint64_t)length, (uint64_t)advice);
 	}
 
-	int sys_lgetxattr(const char* path, const char* name, void* val, size_t size, ssize_t* nread) 
+	int sys_lgetxattr(const char* path, const char* name, void* val, size_t size, ssize_t* nread)
 	{
 		*nread = 0;
 		return 0;
 	}
 
-	int sys_listxattr(const char* path, char* list, size_t size, ssize_t* nread) 
+	int sys_listxattr(const char* path, char* list, size_t size, ssize_t* nread)
 	{
 		*nread = 0;
 		return 0;
 	}
 
-	int sys_llistxattr(const char* path, char* list, size_t size, ssize_t* nread) 
+	int sys_llistxattr(const char* path, char* list, size_t size, ssize_t* nread)
 	{
 		*nread = 0;
 		return 0;
@@ -450,5 +450,10 @@ namespace mlibc
 	{
 		int res;
 		return sys_ioctl(fd, TCXONC, (void*)action, &res);
+	}
+
+	int sys_kill(int pid, int sig)
+	{
+	    return syscall2_1(SYS_KILL, (uint64_t)pid, (uint64_t)sig);
 	}
 }

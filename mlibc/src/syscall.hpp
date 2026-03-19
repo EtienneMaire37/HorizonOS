@@ -43,33 +43,34 @@
 #define SYS_ACCESS          38
 #define SYS_FADVISE         39
 #define SYS_PIPE2           40
+#define SYS_KILL            41
 
 #define SYS_HOS_SET_KB_LAYOUT   100
 
 uint64_t syscall0_1(uint64_t calln);
 uint64_t syscall0_2(uint64_t calln, uint64_t* r1);
-uint64_t syscall1_1(uint64_t calln, 
+uint64_t syscall1_1(uint64_t calln,
     uint64_t a1);
-uint64_t syscall1_2(uint64_t calln, 
+uint64_t syscall1_2(uint64_t calln,
     uint64_t a1, uint64_t* r1);
-uint64_t syscall1_3(uint64_t calln, 
+uint64_t syscall1_3(uint64_t calln,
     uint64_t a1,
     uint64_t* r1, uint64_t* r2);
-uint64_t syscall2_1(uint64_t calln, 
+uint64_t syscall2_1(uint64_t calln,
     uint64_t a1, uint64_t a2);
-uint64_t syscall2_2(uint64_t calln, 
+uint64_t syscall2_2(uint64_t calln,
     uint64_t a1, uint64_t a2,
     uint64_t* r1);
-uint64_t syscall3_1(uint64_t calln, 
+uint64_t syscall3_1(uint64_t calln,
     uint64_t a1, uint64_t a2, uint64_t a3);
-uint64_t syscall3_2(uint64_t calln, 
-    uint64_t a1, uint64_t a2, uint64_t a3, 
+uint64_t syscall3_2(uint64_t calln,
+    uint64_t a1, uint64_t a2, uint64_t a3,
     uint64_t* r1);
-uint64_t syscall4_1(uint64_t calln, 
+uint64_t syscall4_1(uint64_t calln,
     uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4);
-uint64_t syscall4_2(uint64_t calln, 
-    uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
+uint64_t syscall4_2(uint64_t calln,
+    uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4,
     uint64_t* r1);
-uint64_t syscall6_2(uint64_t calln, 
+uint64_t syscall6_2(uint64_t calln,
     uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6,
     uint64_t* r1);

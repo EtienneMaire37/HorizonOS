@@ -1100,6 +1100,19 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         unlock_scheduler();
         break;
 
+    sc_case(SYS_KILL, 2, int, int)
+        lock_scheduler();
+        thread_t* task = find_task_by_pid_anywhere(arg1);
+        if (!task)
+        {
+            sc_ret_errno = ESRCH;
+            break;
+        }
+        task_send_signal(task, arg2);
+        unlock_scheduler();
+        sc_ret_errno = 0;
+        break;
+
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
         if (arg1 >= 1 && arg1 <= NUM_KB_LAYOUTS)

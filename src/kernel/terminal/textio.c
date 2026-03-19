@@ -77,9 +77,9 @@ void tty_move_characters(uint32_t start, int offset)
 		tty_render_cursor(tty_cursor);
 }
 
-uint8_t tty_ansi_to_vga(uint8_t ansi_code) 
+uint8_t tty_ansi_to_vga(uint8_t ansi_code)
 {
-    switch (ansi_code) 
+    switch (ansi_code)
 	{
         case 30: return FG_BLACK;
         case 31: return FG_RED;
@@ -121,7 +121,7 @@ uint8_t tty_ansi_to_vga(uint8_t ansi_code)
 	return FG_WHITE | BG_BLACK;
 }
 
-uint8_t tty_ansi_to_vga_mask(uint8_t ansi_code) 
+uint8_t tty_ansi_to_vga_mask(uint8_t ansi_code)
 {
 	if ((ansi_code >= 30 && ansi_code <= 37) || (ansi_code >= 90 && ansi_code <= 97))
 		return 0x0f;
@@ -191,12 +191,12 @@ uint32_t tty_get_character_pos_y(uint32_t index)
 void tty_render_character(uint32_t cursor, char c, uint8_t color)
 {
 	lock_scheduler();
-	if (cursor >= MAX_TTY_X * tty_res_y) 
+	if (cursor >= MAX_TTY_X * tty_res_y)
 	{
 		unlock_scheduler();
 		return;
 	}
-	
+
 	uint32_t width = tty_get_character_width();
 	uint32_t height = tty_get_character_height();
 
@@ -224,7 +224,7 @@ void tty_render_character(uint32_t cursor, char c, uint8_t color)
 void tty_render_cursor(uint32_t cursor)
 {
 	lock_scheduler();
-	if (cursor >= MAX_TTY_X * tty_res_y) 
+	if (cursor >= MAX_TTY_X * tty_res_y)
 	{
 		unlock_scheduler();
 		return;
@@ -280,7 +280,7 @@ void tty_ansi_m_code(uint32_t code)
 		tty_color = BG_BLACK | (tty_color & 0x0f);
 		return;
 	}
-	
+
 	uint8_t color_mask = tty_ansi_to_vga_mask(code);
 	if (color_mask != 0xff) // * Color code
 	{
@@ -296,19 +296,19 @@ void tty_ansi_J_code(uint32_t code)
 {
 	if (tty_sequence_question_mark)
 		return;
-	
+
 	if (code != 0 && code != 2 && code != 3)
 		return;
 
 	tty_clear_section(
-		(code == 0 ? tty_cursor : 
+		(code == 0 ? tty_cursor :
 		(code == 1 ? 0 :
-		(code == 2 ? 0 : 
-		(code == 3 ? 0 : 0)))), 
+		(code == 2 ? 0 :
+		(code == 3 ? 0 : 0)))),
 
-		(code == 0 ? MAX_TTY_X * tty_res_y : 
+		(code == 0 ? MAX_TTY_X * tty_res_y :
 		(code == 1 ? tty_cursor :
-		(code == 2 ? MAX_TTY_X * tty_res_y : 
+		(code == 2 ? MAX_TTY_X * tty_res_y :
 		(code == 3 ? MAX_TTY_X * tty_res_y : MAX_TTY_X * tty_res_y)))), FG_WHITE | BG_BLACK);
 }
 
@@ -325,7 +325,7 @@ void tty_ansi_H_code(uint32_t code)
 		tty_cursor = 0;
 		if (tty_cursor_blink)
 			tty_render_cursor(tty_cursor);
-			
+
 		return;
 	}
 
@@ -372,12 +372,12 @@ void tty_ansi_K_code(uint32_t code)
 	if (code != 0 && code != 1 && code != 2)
 		return;
 
-	tty_clear_section(	 code == 0 ? tty_cursor : 
-						(code == 1 ? (tty_cursor / MAX_TTY_X) * MAX_TTY_X : 
-						(code == 2 ? (tty_cursor / MAX_TTY_X) * MAX_TTY_X : 0)), 
-						code == 0 ? ((tty_cursor + MAX_TTY_X) / MAX_TTY_X) * MAX_TTY_X : 
-						(code == 1 ? tty_cursor : 
-						(code == 2 ? ((tty_cursor + MAX_TTY_X) / MAX_TTY_X) * MAX_TTY_X : 0)), 
+	tty_clear_section(	 code == 0 ? tty_cursor :
+						(code == 1 ? (tty_cursor / MAX_TTY_X) * MAX_TTY_X :
+						(code == 2 ? (tty_cursor / MAX_TTY_X) * MAX_TTY_X : 0)),
+						code == 0 ? ((tty_cursor + MAX_TTY_X) / MAX_TTY_X) * MAX_TTY_X :
+						(code == 1 ? tty_cursor :
+						(code == 2 ? ((tty_cursor + MAX_TTY_X) / MAX_TTY_X) * MAX_TTY_X : 0)),
 						FG_WHITE | BG_BLACK);
 }
 
@@ -563,10 +563,10 @@ void tty_outc(char c)
 		return;
 	}
 
-	if (c != '\b' && c != 7 && c != '\n') tty_data[tty_cursor] = c | ((uint16_t)tty_color << 8);
+	if (c != '\b' && c != 7 && c != '\n' && c != '\r') tty_data[tty_cursor] = c | ((uint16_t)tty_color << 8);
 
 	tty_render_character(tty_cursor, tty_data[tty_cursor] & 0x7f, tty_data[tty_cursor] >> 8);
-	
+
 	switch (c)
 	{
 	case '\n':
