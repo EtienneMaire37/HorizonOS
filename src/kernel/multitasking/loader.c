@@ -35,28 +35,28 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
     assert(ring == 0 || ring == 3);
 
     initrd_file_t* file;
-    if (!(file = initrd_find_file(path))) 
+    if (!(file = initrd_find_file(path)))
     {
         LOG(ERROR, "Coudln't load file");
         return NULL;
     }
 
     Elf64_Ehdr* header = (Elf64_Ehdr*)file->data;
-    if (memcmp("\x7f""ELF", header->e_ident, 4) != 0) 
+    if (memcmp("\x7f""ELF", header->e_ident, 4) != 0)
     {
         LOG(ERROR, "Invalid ELF signature");
         return NULL;
     }
 
-    if (header->e_ident[4] != ELFCLASS64 || 
-        header->e_ident[5] != ELFDATA2LSB || 
+    if (header->e_ident[4] != ELFCLASS64 ||
+        header->e_ident[5] != ELFDATA2LSB ||
         header->e_machine != EM_X86_64)
     {
         LOG(ERROR, "Non x86_64 ELF file");
         return NULL;
     }
 
-    if (header->e_type != ET_EXEC) 
+    if (header->e_type != ET_EXEC)
     {
         LOG(ERROR, "Non executable ELF file (%#x)", header->e_type);
         return NULL;
@@ -95,11 +95,11 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         if (ph->p_type == PT_DYNAMIC)
             dynamic = true;
 
-        if (ph->p_type != PT_LOAD) 
+        if (ph->p_type != PT_LOAD)
             continue;
 
-        if (ph->p_offset == 0)
-            at_phdr = ph->p_vaddr + header->e_phoff;
+        if (ph->p_offset <= header->e_phoff)
+            at_phdr = ph->p_vaddr + header->e_phoff - ph->p_offset;
 
         virtual_address_t start_address = ph->p_vaddr & ~0xfff;
         virtual_address_t end_address = ph->p_vaddr + ph->p_memsz;
@@ -107,10 +107,10 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 
         // LOG(DEBUG, "%#" PRIx64 " : %" PRIu64 " pages", start_address, num_pages);
 
-        allocate_range((uint64_t*)(task->cr3 + PHYS_MAP_BASE), 
-                    start_address, num_pages, 
+        allocate_range((uint64_t*)(task->cr3 + PHYS_MAP_BASE),
+                    start_address, num_pages,
                     ring == 0 ? PG_SUPERVISOR : PG_USER,
-                    ph->p_flags & PF_W ? PG_READ_WRITE : PG_READ_ONLY, 
+                    ph->p_flags & PF_W ? PG_READ_WRITE : PG_READ_ONLY,
                     CACHE_WB);
 
         uint64_t file_offset = ph->p_offset;
@@ -184,16 +184,16 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
     Elf64_Ehdr* ld_so_header = NULL;
     if (dynamic)
     {
-        initrd_file_t* ld_so;
-        assert(ld_so = initrd_find_file("usr/lib/ld.so"));
+        initrd_file_t* ld_so = initrd_find_file("usr/lib/ld.so");
+        assert(ld_so);
 
         ld_so_header = (Elf64_Ehdr*)ld_so->data;
         assert(ld_so_header);
 
         assert(memcmp("\x7f""ELF", ld_so_header->e_ident, 4) == 0);
 
-        assert(!(ld_so_header->e_ident[4] != ELFCLASS64 || 
-            ld_so_header->e_ident[5] != ELFDATA2LSB || 
+        assert(!(ld_so_header->e_ident[4] != ELFCLASS64 ||
+            ld_so_header->e_ident[5] != ELFDATA2LSB ||
             ld_so_header->e_machine != EM_X86_64));
 
         const Elf64_Half ld_n_ph = ld_so_header->e_phnum;
@@ -213,7 +213,7 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
             if (ph->p_type == PT_DYNAMIC)
                 dynamic = true;
 
-            if (ph->p_type != PT_LOAD) 
+            if (ph->p_type != PT_LOAD)
                 continue;
 
             virtual_address_t start_address = ph->p_vaddr & ~0xfff;
@@ -222,10 +222,10 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 
             // LOG(DEBUG, "%#" PRIx64 " : %" PRIu64 " pages", start_address, num_pages);
 
-            allocate_range((uint64_t*)(task->cr3 + PHYS_MAP_BASE), 
-                        start_address, num_pages, 
+            allocate_range((uint64_t*)(task->cr3 + PHYS_MAP_BASE),
+                        start_address, num_pages,
                         ring == 0 ? PG_SUPERVISOR : PG_USER,
-                        ph->p_flags & PF_W ? PG_READ_WRITE : PG_READ_ONLY, 
+                        ph->p_flags & PF_W ? PG_READ_WRITE : PG_READ_ONLY,
                         CACHE_WB);
 
             uint64_t file_offset = ph->p_offset;
@@ -265,7 +265,7 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_BASE, .a_un.a_val = 0});
         task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_PAGESZ, .a_un.a_val = 4096});
     }
-        
+
     for (int i = 0; i < data->envc + 1; i++)
         task_stack_push(task, task_read_at_aligned_address_8b(task, (uint64_t)&data_cpy.environ[data->envc - i]));
     for (int i = 0; i < data->argc + 1; i++)
@@ -287,7 +287,7 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uint8_t ring, bool system, const startup_data_struct_t* data, vfs_folder_tnode_t* cwd)
 {
     if (!name) return false;
-    if (!data) 
+    if (!data)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: data is NULL");
         abort();
@@ -307,12 +307,12 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     }
 
     char* simplified_path = malloc(PATH_MAX);
-    if (!simplified_path) 
+    if (!simplified_path)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: Out of memory");
         abort();
     }
-    
+
     vfs_realpath_from_file_tnode(tnode, simplified_path);
 
     LOG(DEBUG, "Loading file \"%s\"", simplified_path);
@@ -329,7 +329,7 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
         return NULL;
     }
     char* prefix = malloc(PATH_MAX);
-    if (!prefix) 
+    if (!prefix)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: Out of memory");
         abort();
@@ -338,7 +338,7 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     size_t prefix_length = strlen(prefix);
 
     thread_t* ret = multitasking_add_task_from_initrd(simplified_path, strcmp(simplified_path, prefix) == 0 ? "" : &simplified_path[(mount_point == vfs_root ? 0 : 1) + prefix_length], ring, system, data, cwd);
-    
+
     free(simplified_path);
     free(prefix);
     unlock_scheduler();

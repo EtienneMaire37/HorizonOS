@@ -12,7 +12,7 @@ CROSSNM := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-nm
 CROSSAR := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-ar
 CROSSSTRIP := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-strip
 HOSGCC := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-gcc
-USER_CFLAGS := 
+USER_CFLAGS :=
 
 MAKE := make
 
@@ -54,8 +54,6 @@ limine/limine:
 		LIBS=""
 	./get-deps
 
-mlibc: $(MLIBC_STAMP)
-
 $(MLIBC_STAMP): mlibc/src/* $(HOSGCC)
 	cp -r mlibc/src/* mlibc/mlibc/sysdeps/horizonos/
 	mkdir -p mlibc/mlibc/build
@@ -71,7 +69,7 @@ $(MLIBC_STAMP): mlibc/src/* $(HOSGCC)
 	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
 	touch $@
 
-$(NCURSES_STAMP): $(MLIBC_STAMP) ncurses/ncurses-6.6/config.sub
+$(NCURSES_STAMP): ncurses/ncurses-6.6/config.sub
 	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec
 	cd ncurses/ncurses-6.6 && $(MAKE) -j$(nproc)
 	cd ncurses/ncurses-6.6 && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
@@ -119,7 +117,7 @@ bios-debug: horizonos.iso
 	qemu-system-x86_64 $(QEMU_FLAGS) -s -S &
 	gdb -x gdb-config.txt
 
-horizonos.iso: $(shell find src/system -type f) $(HOSGCC) resources/* src/tasks/bin/init $(KERNEL_ELF) src/boot/limine.conf limine/limine
+horizonos.iso: $(shell find src/system -type f) $(MLIBC_STAMP) $(HOSGCC) resources/* src/tasks/bin/init $(KERNEL_ELF) src/boot/limine.conf limine/limine
 	rm -f $@
 	rm -rf bin/initrd_contents
 
@@ -159,7 +157,7 @@ horizonos.iso: $(shell find src/system -type f) $(HOSGCC) resources/* src/tasks/
 
 	mkdir -p root/boot/limine
 	cp src/boot/limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin root/boot/limine/
-	
+
 	mkdir -p root/EFI/BOOT
 	cp limine/BOOTX64.EFI root/EFI/BOOT/
 	cp limine/BOOTIA32.EFI root/EFI/BOOT/
@@ -170,17 +168,17 @@ horizonos.iso: $(shell find src/system -type f) $(HOSGCC) resources/* src/tasks/
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* $(COREUTILS_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP) $(HOSGCC)
+src/tasks/bin/init: src/tasks/src/init/* $(COREUTILS_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
-src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP) $(HOSGCC)
+src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
-$(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(MLIBC_STAMP) $(HOSGCC)
+$(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(HOSGCC)
 	cd $(COREUTILS_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
 	cd $(COREUTILS_DIR) && $(MAKE) -j$(nproc)
 	cd $(COREUTILS_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
@@ -197,7 +195,7 @@ $(COREUTILS_DL_STAMP):
 	patch $(COREUTILS_DIR)/gnulib/lib/getlocalename_l-unsafe.c < diffs/coreutils/getlocalename.diff
 	touch $@
 
-root/usr/bin/bash: $(BASH_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP) $(HOSGCC)
+root/usr/bin/bash: $(BASH_DL_STAMP) $(NCURSES_STAMP) $(HOSGCC)
 	cd $(BASH_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --without-bash-malloc --disable-nls --with-curses
 	cd $(BASH_DIR) && $(MAKE) -j$(nproc)
 	cd $(BASH_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install

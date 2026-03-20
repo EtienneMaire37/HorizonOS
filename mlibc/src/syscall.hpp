@@ -44,7 +44,6 @@
 #define SYS_FADVISE         39
 #define SYS_PIPE2           40
 #define SYS_KILL            41
-#define SYS_SLEEP           42
 
 #define SYS_HOS_SET_KB_LAYOUT   100
 

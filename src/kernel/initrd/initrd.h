@@ -22,7 +22,7 @@ typedef struct initrd_file
 #define MAX_INITRD_FILES 256
 
 extern initrd_file_t initrd_files[MAX_INITRD_FILES];
-extern uint8_t initrd_files_count;
+extern uint16_t initrd_files_count;
 
 void initrd_parse(uint64_t initrd_start, uint64_t initrd_size);
 initrd_file_t* initrd_find_file(const char* name);

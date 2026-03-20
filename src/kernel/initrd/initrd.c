@@ -4,7 +4,7 @@
 #include <assert.h>
 
 initrd_file_t initrd_files[MAX_INITRD_FILES];
-uint8_t initrd_files_count = 0;
+uint16_t initrd_files_count = 0;
 
 struct ustar_header empty_header;
 
@@ -46,8 +46,8 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 
         if (!USTAR_IS_VALID_HEADER(*header))
         {
-            LOG(WARNING, "Invalid USTAR header at offset %" PRIu64 " (\"%c%c%c%c%c%c\")", 
-                initrd_offset, 
+            LOG(WARNING, "Invalid USTAR header at offset %" PRIu64 " (\"%c%c%c%c%c%c\")",
+                initrd_offset,
                 header->ustar[0], header->ustar[1], header->ustar[2], header->ustar[3], header->ustar[4], header->ustar[5]);
             goto do_loop;
         }
@@ -69,7 +69,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
         }
         else
             goto do_loop;
-            
+
         initrd_files[initrd_files_count].size = file_size;
         initrd_files[initrd_files_count].data = (uint8_t*)(header + 1); // 512 bytes after the header
         if (header->type == 0) header->type = '0';
@@ -80,7 +80,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
         uint64_t mode = ustar_get_number((char*)header->mode, 8);
 
         struct stat st;
-        st.st_mode = (header->type == USTAR_TYPE_DIRECTORY ? S_IFDIR : S_IFREG) | 
+        st.st_mode = (header->type == USTAR_TYPE_DIRECTORY ? S_IFDIR : S_IFREG) |
         ((mode & TUREAD) ? S_IRUSR : 0) | ((mode & TUEXEC) ? S_IXUSR : 0) | // * | ((mode & TUWRITE) ? S_IWUSR : 0)
         ((mode & TGREAD) ? S_IRGRP : 0) | ((mode & TGEXEC) ? S_IXGRP : 0) | // * | ((mode & TGWRITE) ? S_IWGRP : 0)
         ((mode & TOREAD) ? S_IROTH : 0) | ((mode & TOEXEC) ? S_IXOTH : 0) | // * | ((mode & TOWRITE) ? S_IWOTH : 0)
@@ -90,7 +90,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
         st.st_atime = st.st_mtime = st.st_ctime = 0;
 
         st.st_size = file_size;
-        
+
         // LOG(DEBUG, "header->last_modification: %.12s", header->last_modification);
 
         initrd_files[initrd_files_count].st = st;
@@ -98,12 +98,12 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
         initrd_files_count++;
 
         assert(initrd_files_count < MAX_INITRD_FILES);
-        
+
     do_loop:
         initrd_offset += (file_size + USTAR_BLOCK_SIZE - 1) / USTAR_BLOCK_SIZE * USTAR_BLOCK_SIZE + USTAR_BLOCK_SIZE;
     }
 
-    for (uint8_t i = 0; i < initrd_files_count; i++)
+    for (uint16_t i = 0; i < initrd_files_count; i++)
     {
         char* tree_inter = initrd_files_count - i > 1 ? "├" : "└";
         tar_file_type this_type = initrd_files[i].type;
@@ -143,7 +143,7 @@ initrd_file_t* initrd_find_file(const char* name)
 {
     LOG(DEBUG, "Opening file \"%s\" from initrd", name);
 
-    for (uint8_t i = 0; i < initrd_files_count; i++)
+    for (uint16_t i = 0; i < initrd_files_count; i++)
     {
         if (strcmp(initrd_files[i].name, name) == 0 && initrd_files[i].type == USTAR_TYPE_FILE_1)
         {
@@ -161,7 +161,7 @@ initrd_file_t* initrd_find_file_entry(const char* name)
 {
     LOG(DEBUG, "Opening file entry \"%s\" from initrd", name);
 
-    for (uint8_t i = 0; i < initrd_files_count; i++)
+    for (uint16_t i = 0; i < initrd_files_count; i++)
     {
         if (strcmp(initrd_files[i].name, name) == 0)
         {
