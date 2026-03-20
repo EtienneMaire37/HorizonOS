@@ -43,9 +43,9 @@ Here's a (non exhaustive) list of the supported options:
 | -DIGNORE_ANSI | N/A | If set, all ANSI control sequences will be ignored |
 | -DTTY_CURSOR_BLINK | N/A | If set, the terminal cursor will blink. If not, it will be a solid white color |
 
-For example to build with LOG_LEVEL=TRACE and LOG_SYSCALLS:
+For example to build with LOG_LEVEL=TRACE, LOG_SYSCALLS and NDEBUG:
 ```bash
-make USER_CFLAGS="-DLOG_LEVEL=TRACE -DLOG_SYSCALLS"
+make USER_CFLAGS="-DLOG_LEVEL=TRACE -DLOG_SYSCALLS -DNDEBUG"
 ```
 
 A `horizonos.iso` disk image file will be created in the root of the repository.

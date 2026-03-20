@@ -16,8 +16,10 @@ extern uint8_t usable_memory_blocks;
 
 extern uint64_t memory_allocated, allocatable_memory;
 
+#define DO_LOG_MEM_ALLOCATED()      do { uint32_t percentage = 10000 * memory_allocated / allocatable_memory; LOG(TRACE, "Used memory : %" PRIu64 " / %" PRIu64 " bytes (%u.%u%u %%)", memory_allocated, allocatable_memory, percentage / 100, (percentage / 10) % 10, percentage % 10); } while (0)
+
 #ifdef LOG_MEMORY
-#define LOG_MEM_ALLOCATED() { uint32_t percentage = 10000 * memory_allocated / allocatable_memory; LOG(TRACE, "Used memory : %" PRIu64 " / %" PRIu64 " bytes (%u.%u%u %%)", memory_allocated, allocatable_memory, percentage / 100, (percentage / 10) % 10, percentage % 10); }
+#define LOG_MEM_ALLOCATED() DO_LOG_MEM_ALLOCATED()
 #else
 #define LOG_MEM_ALLOCATED()
 #endif

@@ -12,12 +12,13 @@
 #include "../multitasking/queue.h"
 #include "../int/kernel_panic.h"
 #include "../cpu/registers.h"
+#include "../memalloc/page_frame_allocator.h"
 
-uint8_t ps2_keyboard_state[256] = 
+uint8_t ps2_keyboard_state[256] =
 {
     0
 };
-uint8_t ps2_keyboard_state_e0[256] = 
+uint8_t ps2_keyboard_state_e0[256] =
 {
     0
 };
@@ -102,11 +103,11 @@ utf32_char_t ps2_scancode_to_unicode(ps2_full_scancode_t scancode, uint8_t port)
     const uint8_t keypad_scancodes[] = {0x70, 0x69, 0x72, 0x7A, 0x6B, 0x73, 0x74, 0x6C, 0x75, 0x7D};
     const utf32_char_t keypad_chars[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
 
-    if (!scancode.extended) 
+    if (!scancode.extended)
     {
-        for (unsigned int i = 0; i < sizeof(keypad_scancodes); i++) 
+        for (unsigned int i = 0; i < sizeof(keypad_scancodes); i++)
         {
-            if (scancode.scancode == keypad_scancodes[i]) 
+            if (scancode.scancode == keypad_scancodes[i])
             {
                 is_keypad = true;
                 keypad_char = keypad_chars[i];
@@ -116,31 +117,31 @@ utf32_char_t ps2_scancode_to_unicode(ps2_full_scancode_t scancode, uint8_t port)
     }
 
     utf32_char_t base_char = 0;
-    if (is_keypad && num_lock && !shift) 
+    if (is_keypad && num_lock && !shift)
     {
         base_char = keypad_char;
-    } 
-    else 
+    }
+    else
     {
-        base_char = scancode.extended 
+        base_char = scancode.extended
             ? current_keyboard_layout->ps2_layout_data.char_table_e0[scancode.scancode]
             : current_keyboard_layout->ps2_layout_data.char_table[scancode.scancode];
     }
 
     utf32_char_t shifted_char = current_keyboard_layout->ps2_layout_data.char_table_shift[scancode.scancode];
-    
-    if (is_keypad) 
+
+    if (is_keypad)
     {
-        if (shift && num_lock) 
+        if (shift && num_lock)
             return 0;
-        if (!num_lock && !shift) 
+        if (!num_lock && !shift)
             return 0;
     }
 
-    if (base_char >= 'a' && base_char <= 'z') 
+    if (base_char >= 'a' && base_char <= 'z')
         return (caps_lock ^ shift) ? (base_char - 32) : base_char;
 
-    if (altgr) 
+    if (altgr)
     {
         utf32_char_t altgr_char = current_keyboard_layout->ps2_layout_data.char_table_altgr[scancode.scancode];
         if (altgr_char != 0) return altgr_char;
@@ -166,7 +167,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
         if (ps2_kb_2_scancode_set != 2)
             return;
     }
-    else 
+    else
         return;
 
     uint8_t port_index = port - 1;
@@ -192,7 +193,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                 ps2_keyboard_state_e0[current_ps2_keyboard_scancodes[port_index].scancode] |= (1 << port_index);
             else
                 ps2_keyboard_state[current_ps2_keyboard_scancodes[port_index].scancode] |= (1 << port_index);
-            
+
             virtual_key_t vk = current_ps2_keyboard_scancodes[port_index].extended ? current_keyboard_layout->ps2_layout_data.vk_table_e0[current_ps2_keyboard_scancodes[port_index].scancode] : current_keyboard_layout->ps2_layout_data.vk_table[current_ps2_keyboard_scancodes[port_index].scancode];
             // if (!current_ps2_keyboard_scancodes[port_index].release)
             {
@@ -217,34 +218,39 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
             // ps2_kb_update_leds(port);
 
             utf32_char_t character = ps2_scancode_to_unicode(current_ps2_keyboard_scancodes[port_index], port);
-            if (keyboard_is_key_pressed(VK_LCONTROL))
+            if (keyboard_is_key_pressed(VK_LCONTROL) || keyboard_is_key_pressed(VK_RCONTROL))
             {
                 if (keyboard_is_key_pressed(VK_LSHIFT) && keyboard_is_key_pressed(VK_LALT))
                 {
-                    switch (vk)
+                    if (!current_ps2_keyboard_scancodes[port_index].extended)
+                    switch (current_keyboard_layout->ps2_layout_data.char_table[current_ps2_keyboard_scancodes[port_index].scancode])
                     {
-                    case VK_V:
+                    case 'v':
                         vfs_log_tree(vfs_root, 0);
                         break;
-                    case VK_P:
+                    case 'p':
                         tasks_log();
                         break;
-                    case VK_T:
+                    case 't':
                         print_stack_trace((uint64_t)ps2_handle_keyboard_scancode, get_rbp(), false);
                         break;
-                    case VK_F:
+                    case 'f':
                     	LOG(DEBUG, "Futex hashmap:");
                     	hashmap_log(futex_tq_hashmap);
 						break;
+					case 'm':
+	                    DO_LOG_MEM_ALLOCATED();
+					    break;
                     default:
                         goto key;
                     }
                 }
                 else if (!keyboard_is_key_pressed(VK_LSHIFT))
                 {
-                    switch(vk)
+                    if (!current_ps2_keyboard_scancodes[port_index].extended)
+                    switch (current_keyboard_layout->ps2_layout_data.char_table[current_ps2_keyboard_scancodes[port_index].scancode])
                     {
-                    case VK_C:
+                    case 'c':
                         if (tty_ts.c_lflag & ISIG)
                         {
                             lock_scheduler();
@@ -258,7 +264,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                             return;
                         }
                         break;
-                    case VK_D:
+                    case 'd':
                         character = tty_ts.c_cc[VEOF];
                         goto key;
                     default:
@@ -316,7 +322,7 @@ void ps2_kb_update_leds(uint8_t port)
     bool num_lock = ps2_kb_num_lock[port - 1];
     bool caps_lock = ps2_kb_caps_lock[port - 1];
     bool scroll_lock = ps2_kb_scroll_lock[port - 1];
-    
+
     uint8_t leds = (caps_lock << 2) | (num_lock << 1) | scroll_lock;
 
     ps2_send_device_full_command_with_data(port, PS2_KB_SET_LED_STATE, leds, 1);

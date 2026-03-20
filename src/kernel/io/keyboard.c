@@ -85,14 +85,14 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     if (!multitasking_enabled) return;
 
     bool echo = (ts->c_lflag & ECHO) != 0;
-    bool raw = (ts->c_lflag & ICANON) == 0; 
+    bool raw = (ts->c_lflag & ICANON) == 0;
     int noncanonical_read_minimum_count = ts->c_cc[VMIN];
     int raw_timeout = ts->c_cc[VTIME];
 
     bool ctrl = keyboard_is_key_pressed(VK_LCONTROL) || keyboard_is_key_pressed(VK_RCONTROL);
     bool alt = keyboard_is_key_pressed(VK_LALT);
 
-    // LOG(TRACE, "ts: echo:%d raw:%d vmin:%d vtime:%d", 
+    // LOG(TRACE, "ts: echo:%d raw:%d vmin:%d vtime:%d",
     //     echo, raw, noncanonical_read_minimum_count, raw_timeout);
 
     char ascii = utf32_to_bios_oem(character);
@@ -102,7 +102,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         && vk != VK_INSERT && vk != VK_DELETE
         && vk != VK_PAGEUP && vk != VK_PAGEDOWN
         && ascii != '\n' && ascii != '\t' && ascii != '\b' && ascii != tty_ts.c_cc[VEOF]
-        ) 
+        )
         return;
     lock_scheduler();
     if (character == '\b')
