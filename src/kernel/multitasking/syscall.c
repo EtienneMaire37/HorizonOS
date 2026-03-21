@@ -1150,6 +1150,13 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         sc_ret_errno = 0;
         break;
 
+    sc_case(SYS_LOG, 1, const char*)
+    #ifdef PRINT_MLIBC_LOGS
+        puts(arg1);
+    #endif
+        LOG(DEBUG, "%s", arg1);
+        break;
+
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
         SC_LOG("syscall SYS_HOS_SET_KB_LAYOUT(%d)", arg1);
         if (arg1 >= 1 && arg1 <= NUM_KB_LAYOUTS)

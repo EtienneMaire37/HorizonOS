@@ -45,10 +45,13 @@
 #define SYS_PIPE2           40
 #define SYS_KILL            41
 
-#define SYS_HOS_SET_KB_LAYOUT   100
+#define SYS_LOG                 0x1000
+#define SYS_HOS_SET_KB_LAYOUT   0x2000
 
 uint64_t syscall0_1(uint64_t calln);
 uint64_t syscall0_2(uint64_t calln, uint64_t* r1);
+void syscall1_0(uint64_t calln,
+    uint64_t a1);
 uint64_t syscall1_1(uint64_t calln,
     uint64_t a1);
 uint64_t syscall1_2(uint64_t calln,

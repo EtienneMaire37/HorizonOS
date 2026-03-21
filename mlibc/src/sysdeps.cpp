@@ -14,16 +14,18 @@ namespace mlibc
 {
 	void sys_libc_panic()
 	{
-		sys_libc_log("\n\x1b[31m[[!!! mlibc panic !!!]]\x1b[0m\n");
+        const char* str_print = "\n\x1b[31m[[!!! mlibc panic !!!]]\x1b[0m (see logs)\n";
+	    const char* str_log = "[[!!! mlibc panic !!!]]";
+		ssize_t bytes;
+		sys_write(2, str_print, strlen(str_print), &bytes);
+		sys_libc_log(str_log);
 		sys_exit(-1);
 		__builtin_trap();
 	}
 
 	void sys_libc_log(const char* msg)
 	{
-		ssize_t unused;
-		sys_write(2, msg, strlen(msg), &unused);
-		sys_write(2, "\n", 1, &unused);
+	    syscall1_0(SYS_LOG, (uint64_t)msg);
 	}
 
 	int sys_isatty(int fd)

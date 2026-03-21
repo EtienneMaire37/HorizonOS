@@ -43,6 +43,7 @@ Here's a (non exhaustive) list of the supported options:
 | -DIGNORE_ANSI | N/A | If set, all ANSI control sequences will be ignored |
 | -DTTY_CURSOR_BLINK | N/A | If set, the terminal cursor will blink. If not, it will be a solid white color |
 | -DPRINT_PCI_INFO | N/A | Whether to print the pci devices list |
+| -DPRINT_MLIBC_LOGS | N/A | If set, mlibc's logs will be printed to the screen. If not, they will only be logged to port e9 |
 
 For example to build with LOG_LEVEL=TRACE, LOG_SYSCALLS and NDEBUG:
 ```bash
