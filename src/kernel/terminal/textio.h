@@ -3,6 +3,7 @@
 #include "../files/psf.h"
 #include <termios.h>
 #include "../vga/constants.h"
+#include "../multitasking/mutex.h"
 
 static inline bool is_printable_character(char c)
 {
@@ -38,13 +39,16 @@ extern uint8_t tty_escape_sequence_index;
 extern bool tty_reading_escape_sequence, tty_reading_control_sequence;
 extern bool tty_sequence_question_mark;
 
+extern mutex_t termout_mutex;
+
 void tty_init();
-void tty_refresh_screen();
+void __tty_refresh_screen();
 void tty_clear_screen(char c);
-void tty_clear_section(uint32_t start_char, uint32_t end_char, uint8_t clear_color);
+void __tty_clear_screen(char c);
+void __tty_clear_section(uint32_t start_char, uint32_t end_char, uint8_t clear_color);
 void tty_set_color(uint8_t fg_color, uint8_t bg_color);
 void tty_set_window_size(int sx, int sy);
 void tty_outc(char c);
-void tty_render_cursor(uint32_t cursor);
-void tty_render_character(uint32_t cursor, char c, uint8_t color);
-void tty_move_characters(uint32_t start, int offset);
+void __tty_render_cursor(uint32_t cursor);
+void __tty_render_character(uint32_t cursor, char c, uint8_t color);
+void __tty_move_characters(uint32_t start, int offset);
