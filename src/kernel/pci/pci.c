@@ -40,7 +40,6 @@ void pci_scan_buses()
         LOG(ERROR, "Couldn't load `pci.ids`!!!");
     }
 
-#define PRINT_PCI_INFO
     for (uint16_t i = 0; i < 256; i++)
     {
         for (uint8_t j = 0; j < 32; j++)

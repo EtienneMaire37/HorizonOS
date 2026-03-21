@@ -580,7 +580,8 @@ void _start()
     vfs_explore(vfs_root);
 
     vfs_mount_device("mnt", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
-    vfs_mount_device("initrd", "/mnt", (drive_t){.type = DT_INITRD}, 0, 0);
+    // * Can't mount more than once
+    // vfs_mount_device("initrd", "/mnt", (drive_t){.type = DT_INITRD}, 0, 0);
     vfs_mount_device("dev", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
 
     vfs_add_special("/dev", "tty", CHR_MODE, task_chr_tty, 0, 0);
