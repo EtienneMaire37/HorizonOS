@@ -34,6 +34,11 @@ uint8_t pci_configuration_address_space_read_byte(uint8_t bus, uint8_t device, u
 void pci_scan_buses()
 {
     pci_ids = initrd_find_file("boot/pci.ids");
+    if (!pci_ids)
+    {
+        printf("\x1b[31mCouldn't load `pci.ids`!!!\x1b[0m\n");
+        LOG(ERROR, "Couldn't load `pci.ids`!!!");
+    }
 
 #define PRINT_PCI_INFO
     for (uint16_t i = 0; i < 256; i++)
@@ -57,15 +62,11 @@ void pci_scan_buses()
                     //     pci_connect_ide_controller(i, j, k);
 
                     LOG(INFO, "PCI Device at %#x:%#x:%#x (Header type : %u) :", i, j, k, header_type);
-                    LOG(INFO, "    Device ID: %#x | Vendor ID: %#x", device_id, vendor_id);
-                    LOG(INFO, "    Class : %#x.%#x", class_code, subclass);
-                    LOG(INFO, "    Vendor : \"");
+                    LOG(INFO, "    Vendor : [id = %#04x] \"", vendor_id);
 
                 #ifdef PRINT_PCI_INFO
                     printf("PCI Device at %#x:%#x:%#x (Header type : %u) :\n", i, j, k, header_type);
-                    // printf("    Device ID: %#x | Vendor ID: %#x\n", device_id, vendor_id);
-                    // printf("    Class : %#x.%#x\n", class_code, subclass);
-                    printf("    Vendor : ");
+                    printf("    Vendor : [id = %#04x] ", vendor_id);
 
                     tty_set_color(FG_LIGHTGREEN, BG_BLACK);
                     putchar('\"');
@@ -92,13 +93,13 @@ void pci_scan_buses()
                                 #ifdef PRINT_PCI_INFO
                                     putchar('\"');
                                     tty_set_color(FG_WHITE, BG_BLACK);
-                                    printf("\n    Device : ");
+                                    printf("\n    Device : [id = %#04x] ", device_id);
                                     tty_set_color(FG_LIGHTGREEN, BG_BLACK);
                                     putchar('\"');
                                     // fputc('\"', stderr);
                                 #endif
                                     CONTINUE_LOG(INFO, "\"");
-                                    LOG(INFO, "    Device : \"");
+                                    LOG(INFO, "    Device : [id = %#04x] \"", device_id);
                                     printed_vendor = true;
                                 }
                                 if (found_device)
@@ -185,7 +186,7 @@ void pci_scan_buses()
                                 found_device = true;
                             }
                         }
-                        if (!found_device)
+                        if (!found_vendor || !found_device)
                         {
                         #ifdef PRINT_PCI_INFO
                             tty_set_color(FG_LIGHTGREEN, BG_BLACK);
@@ -195,6 +196,9 @@ void pci_scan_buses()
                             tty_set_color(FG_WHITE, BG_BLACK);
                         #endif
                             CONTINUE_LOG(INFO, "\"");
+
+                            if (!found_vendor)
+                                goto empty_device;
                         }
                     }
                     else
@@ -202,10 +206,23 @@ void pci_scan_buses()
                     #ifdef PRINT_PCI_INFO
                         tty_set_color(FG_LIGHTGREEN, BG_BLACK);
                         putchar('\"');
-                        putchar('\n');
                         tty_set_color(FG_WHITE, BG_BLACK);
                     #endif
                         CONTINUE_LOG(INFO, "\"");
+
+                        putchar('\n');
+
+                empty_device:
+                    #ifdef PRINT_PCI_INFO
+                        tty_set_color(FG_WHITE, BG_BLACK);
+                        printf("    Device : [id = %#04x] ", device_id);
+                        tty_set_color(FG_LIGHTGREEN, BG_BLACK);
+                        putchar('\"');
+                        putchar('\"');
+                        tty_set_color(FG_WHITE, BG_BLACK);
+                        putchar('\n');
+                    #endif
+                        LOG(INFO, "    Device : [id = %#04x] \"\"", device_id);
                     }
                 }
             }

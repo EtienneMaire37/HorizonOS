@@ -117,7 +117,7 @@ bios-debug: horizonos.iso
 	qemu-system-x86_64 $(QEMU_FLAGS) -s -S &
 	gdb -x gdb-config.txt
 
-horizonos.iso: $(shell find src/system -type f) $(MLIBC_STAMP) $(HOSGCC) resources/* src/tasks/bin/init $(KERNEL_ELF) src/boot/limine.conf limine/limine
+horizonos.iso: $(shell find src/system -type f) $(MLIBC_STAMP) $(HOSGCC) resources/pci.ids resources/* src/tasks/bin/init $(KERNEL_ELF) src/boot/limine.conf limine/limine
 	rm -f $@
 	rm -rf bin/initrd_contents
 
