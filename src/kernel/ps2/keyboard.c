@@ -244,6 +244,8 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                     default:
                         goto key;
                     }
+                    else
+                        goto key;
                 }
                 else
                 {
