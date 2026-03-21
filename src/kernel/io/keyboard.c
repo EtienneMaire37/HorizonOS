@@ -92,9 +92,6 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     bool ctrl = keyboard_is_key_pressed(VK_LCONTROL) || keyboard_is_key_pressed(VK_RCONTROL);
     bool alt = keyboard_is_key_pressed(VK_LALT);
 
-    // LOG(TRACE, "ts: echo:%d raw:%d vmin:%d vtime:%d",
-    //     echo, raw, noncanonical_read_minimum_count, raw_timeout);
-
     char ascii = utf32_to_bios_oem(character);
     if (!is_printable_character(ascii)
         && vk != VK_UP && vk != VK_RIGHT && vk != VK_DOWN && vk != VK_LEFT

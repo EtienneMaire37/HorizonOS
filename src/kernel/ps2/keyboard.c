@@ -245,7 +245,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                         goto key;
                     }
                 }
-                else if (!keyboard_is_key_pressed(VK_LSHIFT))
+                else
                 {
                     if (!current_ps2_keyboard_scancodes[port_index].extended)
                     switch (current_keyboard_layout->ps2_layout_data.char_table[current_ps2_keyboard_scancodes[port_index].scancode])
@@ -270,6 +270,8 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                     default:
                         goto key;
                     }
+                    else
+                        goto key;
                 }
             }
             else
