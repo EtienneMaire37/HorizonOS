@@ -19,10 +19,14 @@ bool tty_cursor_blink = true;
 
 psf_font_t tty_font;
 
-uint32_t tty_control_sequence_buffer[TTY_ANSI_BUFFER] = {0};
+uint32_t tty_control_sequence_buffer[TTY_ESC_BUFFER] = {0};
 uint8_t tty_escape_sequence_index = 0;
 bool tty_reading_escape_sequence = false, tty_reading_control_sequence = false;
 bool tty_sequence_question_mark = false;
+
+char tty_osc_buffer[TTY_OSC_BUFFER];
+int tty_osc_index = 0;
+bool tty_reading_operating_system_command = false, tty_reading_operating_system_command_string = false;
 
 mutex_t termout_mutex = MUTEX_INIT;
 
@@ -382,6 +386,27 @@ void __tty_ansi_at_code(uint32_t code)
 	__tty_move_characters(tty_cursor, code);
 }
 
+void __tty_osc_put(char c)
+{
+    if (tty_osc_index > TTY_OSC_BUFFER - 1)
+    {
+    handle_osc:
+        tty_reading_operating_system_command_string = false;
+    }
+    else
+    {
+        if (tty_osc_index >= 1)
+        {
+            if (tty_osc_buffer[tty_osc_index - 1] == '\x1b' && c == '\\')
+            {
+                tty_osc_buffer[tty_osc_index - 1] = 0;
+                goto handle_osc;
+            }
+        }
+        tty_osc_buffer[tty_osc_index++] = c;
+    }
+}
+
 void tty_outc(char c)
 {
 	if (!tty_font.f)
@@ -398,11 +423,12 @@ void tty_outc(char c)
 		return;
 	}
 
-	if (c == '\x1b')	// * Escape sequence
+	if (c == '\x1b' && !tty_reading_operating_system_command_string)	// * Escape sequence
 	{
 	#ifndef IGNORE_ANSI
 		tty_reading_escape_sequence = true;
 		tty_escape_sequence_index = 0;
+		tty_osc_index = 0;
 		tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
 		unlock_scheduler();
 		return;
@@ -423,6 +449,13 @@ void tty_outc(char c)
 			unlock_scheduler();
 			return;
 		}
+		if (c == ']')
+		{
+    		tty_reading_operating_system_command = true;
+    		tty_reading_escape_sequence = false;
+            unlock_scheduler();
+			return;
+		}
 		tty_reading_escape_sequence = false;
 		unlock_scheduler();
 		tty_outc('^');
@@ -430,12 +463,19 @@ void tty_outc(char c)
 		return;
 	}
 
-	if (tty_reading_control_sequence)
+	if (tty_reading_control_sequence || tty_reading_operating_system_command)
 	{
 		if (c >= '0' && c <= '9')
 		{
 			tty_control_sequence_buffer[tty_escape_sequence_index] *= 10;
 			tty_control_sequence_buffer[tty_escape_sequence_index] += c - '0';
+			unlock_scheduler();
+			return;
+		}
+		if (c == ';' && tty_reading_operating_system_command)
+		{
+		    tty_reading_operating_system_command_string = true;
+			tty_reading_operating_system_command = false;
 			unlock_scheduler();
 			return;
 		}
@@ -445,10 +485,10 @@ void tty_outc(char c)
 			tty_sequence_question_mark = true;
 			break;
 		case ';':
-			if (tty_escape_sequence_index >= TTY_ANSI_BUFFER - 1)
+			if (tty_escape_sequence_index >= TTY_ESC_BUFFER - 1)
 			{
-				tty_escape_sequence_index = TTY_ANSI_BUFFER - 1;
-				memmove(tty_control_sequence_buffer, (void*)((uintptr_t)tty_control_sequence_buffer + 1), TTY_ANSI_BUFFER - 1);
+				tty_escape_sequence_index = TTY_ESC_BUFFER - 1;
+				memmove(tty_control_sequence_buffer, (void*)((uintptr_t)tty_control_sequence_buffer + 1), TTY_ESC_BUFFER - 1);
 			}
 			else
 			{
@@ -529,6 +569,9 @@ void tty_outc(char c)
 			break;
 		default:
 			tty_reading_control_sequence = false;
+			tty_reading_operating_system_command = false;
+			tty_reading_operating_system_command_string = false;
+			tty_osc_index = 0;
 			tty_outc('^');
 			tty_outc('[');
 			if (!(tty_escape_sequence_index == 0 && tty_control_sequence_buffer[0] == 0))
@@ -540,6 +583,13 @@ void tty_outc(char c)
 		}
 		unlock_scheduler();
 		return;
+	}
+
+	if (tty_reading_operating_system_command_string)
+	{
+	    __tty_osc_put(c);
+        unlock_scheduler();
+        return;
 	}
 
 	if (c != '\b' && c != 7 && c != '\n' && c != '\r') tty_data[tty_cursor] = c | ((uint16_t)tty_color << 8);

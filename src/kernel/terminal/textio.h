@@ -12,7 +12,8 @@ static inline bool is_printable_character(char c)
 
 #define TAB_LENGTH       4
 
-#define TTY_ANSI_BUFFER     32
+#define TTY_ESC_BUFFER     32
+#define TTY_OSC_BUFFER     128
 
 #define MAX_TTY_X   1024
 #define MAX_TTY_Y   1024
@@ -34,10 +35,13 @@ extern bool tty_cursor_blink;
 
 extern psf_font_t tty_font;
 
-extern uint32_t tty_control_sequence_buffer[TTY_ANSI_BUFFER];
+extern uint32_t tty_control_sequence_buffer[TTY_ESC_BUFFER];
 extern uint8_t tty_escape_sequence_index;
 extern bool tty_reading_escape_sequence, tty_reading_control_sequence;
 extern bool tty_sequence_question_mark;
+extern char tty_osc_buffer[TTY_OSC_BUFFER];
+extern int tty_osc_index;
+extern bool tty_reading_operating_system_command, tty_reading_operating_system_command_string;
 
 extern mutex_t termout_mutex;
 
