@@ -120,12 +120,19 @@ struct folder_child_data
     bool done_reading;
 };
 
-struct pipe_data
+struct ring_buffer
 {
     void* buffer;
     size_t size;
     size_t put_index;
     size_t get_index;
+};
+
+struct pipe_data
+{
+    struct ring_buffer* buffer;
+
+    int other_end;
 };
 
 #define IO_DIR_READ    1
@@ -183,4 +190,4 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
 
 void vfs_log_tree();
 
-void vfs_setup_pipe(int fildes, int flags);
+int vfs_setup_pipe(int* ds, int flags);

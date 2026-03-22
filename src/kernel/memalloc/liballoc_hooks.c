@@ -7,13 +7,13 @@ mutex_t liballoc_mutex = MUTEX_INIT;
 
 int liballoc_lock()
 {
-	acquire_mutex(&liballoc_mutex);
+    lock_scheduler();
 	return 0;
 }
 
 int liballoc_unlock()
 {
-	release_mutex(&liballoc_mutex);
+    unlock_scheduler();
 	return 0;
 }
 
@@ -24,12 +24,12 @@ void* liballoc_alloc(size_t pages)
     // LOG(TRACE, "liballoc_alloc: %p", addr);
 	if (!addr) return (unlock_scheduler(), NULL);
 	allocate_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), (uint64_t)addr, pages, PG_SUPERVISOR, PG_READ_WRITE, CACHE_WB);
-    unlock_scheduler();	
+    unlock_scheduler();
     return addr;
 }
 
 int liballoc_free(void* ptr, size_t pages)
-{    
+{
 	free_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), (uint64_t)ptr, pages);
     return 0;
 }

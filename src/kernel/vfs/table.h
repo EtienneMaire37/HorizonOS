@@ -27,7 +27,7 @@ typedef struct file_entry
         vfs_folder_tnode_t* folder;
     } tnode;
 
-    thread_queue_t blocked_on_input, blocked_on_output;
+    thread_queue_t blocked_on_io;
 
     ssize_t (*iofunc)(file_entry_t*, uint8_t* buf, size_t count, uint8_t direction);
     void (*on_destroy)(file_entry_t*);
@@ -37,7 +37,7 @@ static inline file_entry_t file_entry_create_empty()
 {
     file_entry_t ent;
     memset(&ent, 0, sizeof(ent));
-    ent.blocked_on_output = ent.blocked_on_input = TQ_INIT;
+    ent.blocked_on_io = TQ_INIT;
     return ent;
 }
 

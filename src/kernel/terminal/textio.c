@@ -39,9 +39,9 @@ void tty_init()
 
 void tty_clear_screen(char c)
 {
-    acquire_mutex(&termout_mutex);
+    lock_scheduler();
     __tty_clear_screen(c);
-    release_mutex(&termout_mutex);
+    unlock_scheduler();
 }
 
 void __tty_clear_screen(char c)
@@ -137,12 +137,12 @@ uint8_t tty_ansi_to_vga_mask(uint8_t ansi_code)
 void tty_set_color(uint8_t fg_color, uint8_t bg_color)
 {
 	fflush(stdout);
-    acquire_mutex(&termout_mutex);
+	lock_scheduler();
 
 #ifndef LOG_TO_TTY
 	tty_color = (fg_color & 0x0f) | (bg_color & 0xf0);
 #endif
-    release_mutex(&termout_mutex);
+    unlock_scheduler();
 }
 
 void tty_set_window_size(int sx, int sy)
@@ -153,10 +153,10 @@ void tty_set_window_size(int sx, int sy)
 		sx = MAX_TTY_X;
 		sy = sx / TTY_AR;
 	}
-	acquire_mutex(&termout_mutex);
+	lock_scheduler();
 	tty_res_x = sx;
 	tty_res_y = sy;
-	release_mutex(&termout_mutex);
+	unlock_scheduler();
 	__tty_refresh_screen();
 }
 
@@ -389,12 +389,12 @@ void tty_outc(char c)
 	if (c == 0)
 		return;
 
-	acquire_mutex(&termout_mutex);
+	lock_scheduler();
 
 	if (tty_cursor >= MAX_TTY_X * tty_res_y)
 	{
 		tty_cursor++;
-		release_mutex(&termout_mutex);
+		unlock_scheduler();
 		return;
 	}
 
@@ -404,10 +404,10 @@ void tty_outc(char c)
 		tty_reading_escape_sequence = true;
 		tty_escape_sequence_index = 0;
 		tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
-		release_mutex(&termout_mutex);
+		unlock_scheduler();
 		return;
 	#else
-	    release_mutex(&termout_mutex);
+        unlock_scheduler();
 		tty_outc('^');
 		return;
 	#endif
@@ -420,11 +420,11 @@ void tty_outc(char c)
 			tty_reading_control_sequence = true;
 			tty_reading_escape_sequence = false;
 			tty_sequence_question_mark = false;
-			release_mutex(&termout_mutex);
+			unlock_scheduler();
 			return;
 		}
 		tty_reading_escape_sequence = false;
-		release_mutex(&termout_mutex);
+		unlock_scheduler();
 		tty_outc('^');
 		tty_outc(c);
 		return;
@@ -436,7 +436,7 @@ void tty_outc(char c)
 		{
 			tty_control_sequence_buffer[tty_escape_sequence_index] *= 10;
 			tty_control_sequence_buffer[tty_escape_sequence_index] += c - '0';
-			release_mutex(&termout_mutex);
+			unlock_scheduler();
 			return;
 		}
 		switch (c)
@@ -538,7 +538,7 @@ void tty_outc(char c)
 			tty_escape_sequence_index = 0;
 			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
 		}
-		release_mutex(&termout_mutex);
+		unlock_scheduler();
 		return;
 	}
 
@@ -594,10 +594,10 @@ void tty_outc(char c)
 			memcpy(&tty_data[i * MAX_TTY_X], &tty_data[(i + 1) * MAX_TTY_X], MAX_TTY_X * sizeof(uint16_t));
 		memset(&tty_data[(tty_res_y - 1) * MAX_TTY_X], 0x0f, MAX_TTY_X * sizeof(tty_data[0]));
 	}
-	#ifndef DEBUG_SCREEN
+#ifndef DEBUG_SCREEN
 	if (scrolled)
-	#endif
+#endif
 		__tty_refresh_screen();
 
-	release_mutex(&termout_mutex);
+	unlock_scheduler();
 }

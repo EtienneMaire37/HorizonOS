@@ -159,7 +159,7 @@ void vfs_mount_device(const char* name, const char* path, drive_t drive, uid_t u
         return;
     }
 
-    acquire_mutex(&parent->inode->lock);
+    lock_scheduler();
 
     vfs_folder_tnode_t** current = &parent->inode->folders;
 
@@ -171,7 +171,7 @@ void vfs_mount_device(const char* name, const char* path, drive_t drive, uid_t u
         if (strcmp(name, (*current)->name) == 0)
         {
             LOG(ERROR, "vfs_mount_device: Couldn't mount partition: Mount point already exists");
-            release_mutex(&parent->inode->lock);
+            unlock_scheduler();
             return;
         }
 
@@ -189,7 +189,7 @@ mount:
             uid, gid,
             drive);
 
-    release_mutex(&parent->inode->lock);
+    unlock_scheduler();
 
     return;
 }
@@ -199,7 +199,7 @@ static void vfs_unload_folder_helper(vfs_folder_tnode_t* tnode)
     if (!tnode) return;
     if (tnode->inode->parent == tnode) return;
 
-    acquire_mutex(&tnode->inode->lock);
+    lock_scheduler();
 
     while (tnode->inode->folders)
     {
@@ -218,7 +218,7 @@ static void vfs_unload_folder_helper(vfs_folder_tnode_t* tnode)
     }
 
     // * useless
-    // release_mutex(&tnode->inode->lock);
+    unlock_scheduler();
 
     free(tnode->inode);
     free(tnode->name);
@@ -228,14 +228,14 @@ static void vfs_unload_folder_helper(vfs_folder_tnode_t* tnode)
 void vfs_unload_folder(vfs_folder_tnode_t* tnode)
 {
     vfs_folder_tnode_t* parent = tnode->inode->parent;
-    acquire_mutex(&parent->inode->lock);
+    lock_scheduler();
     vfs_folder_tnode_t** current_folder = &parent->inode->folders;
     while (*current_folder && (*current_folder) != tnode)
         current_folder = &(*current_folder)->next;
     if (!*current_folder)
         abort();     // !!! Should be impossible
     *current_folder = tnode->next;
-    release_mutex(&parent->inode->lock);
+    unlock_scheduler();
     vfs_unload_folder_helper(tnode);
 }
 
@@ -387,7 +387,7 @@ vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t m
         return NULL;
     }
 
-    acquire_mutex(&parent->inode->lock);
+    lock_scheduler();
 
     vfs_file_tnode_t** current_tnode = &parent->inode->files;
     while (*current_tnode)
@@ -395,7 +395,7 @@ vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t m
 
     *current_tnode = vfs_create_special_file_tnode(name, parent, mode, fun, uid, gid);
 
-    release_mutex(&parent->inode->lock);
+    unlock_scheduler();
 
     return *current_tnode;
 }
@@ -584,7 +584,11 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
         if (*bytes_read > 0)
             entry->position += *bytes_read;
         else
-            return -*bytes_read;
+        {
+            int ret = *bytes_read;
+            *bytes_read = 0;
+            return -ret;
+        }
         return 0;
     }
     *bytes_read = 0;
@@ -613,7 +617,11 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
         if (*bytes_written > 0)
             entry->position += *bytes_written;
         else
-            return -*bytes_written;
+        {
+            int ret = *bytes_written;
+            *bytes_written = 0;
+            return -ret;
+        }
         return 0;
     }
     *bytes_written = 0;
@@ -713,79 +721,6 @@ ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t di
     }
 }
 
-ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
-{
-    lock_scheduler();
-    size_t in_buffer = ring_get_buffered_bytes(entry->file_data.pipe_data);
-    size_t maxwrite = entry->file_data.pipe_data.size - in_buffer - 1;
-    size_t endoff = 0;
-    if ((entry->flags & O_NONBLOCK) || (direction == IO_DIR_READ && entry->used < 2))
-    {
-        if (in_buffer == 0 && direction == IO_DIR_READ)
-            return (unlock_scheduler(), 0);
-        if (maxwrite == 0 && direction == IO_DIR_WRITE)
-            return (unlock_scheduler(), 0);
-    }
-    switch (direction)
-    {
-    case IO_DIR_READ:
-        if (in_buffer <= 0 && entry->used >= 2)
-        {
-            move_running_task_to_thread_queue(&entry->blocked_on_input, current_task);
-            switch_task();
-            unlock_scheduler();
-            lock_scheduler();
-            in_buffer = ring_get_buffered_bytes(entry->file_data.pipe_data);
-        }
-        if (in_buffer == 0)
-            return (unlock_scheduler(), -EINTR);
-        // LOG(TRACE, "Reading %zu bytes from pipe (%zu bytes in buffer) [%zu bytes asked by program]", in_buffer < count ? in_buffer : count, in_buffer, count);
-        count = in_buffer < count ? in_buffer : count;
-        for (size_t i = 0; i < count; i++)
-            buf[i] = ((uint8_t*)entry->file_data.pipe_data.buffer)[endoff = imod(i + entry->file_data.pipe_data.get_index, entry->file_data.pipe_data.size)];
-        entry->file_data.pipe_data.get_index = imod(1 + endoff, entry->file_data.pipe_data.size);
-        unlock_scheduler();
-        if (maxwrite == 0 && entry->used >= 2 && count > 0)
-            move_n_tasks_to_running_queue(&entry->blocked_on_output, 1);
-        return count;
-    case IO_DIR_WRITE:
-        if (maxwrite <= 0 && entry->used >= 2)
-        {
-            move_running_task_to_thread_queue(&entry->blocked_on_output, current_task);
-            switch_task();
-            unlock_scheduler();
-            lock_scheduler();
-            maxwrite = entry->file_data.pipe_data.size - ring_get_buffered_bytes(entry->file_data.pipe_data) - 1;
-        }
-        if (maxwrite == 0)
-            return (unlock_scheduler(), -EINTR);
-        // LOG(TRACE, "Writing %zu bytes to pipe (%zu bytes in buffer) [%zu bytes asked by program]", maxwrite < count ? maxwrite : count, in_buffer, count);
-        count = maxwrite < count ? maxwrite : count;
-        if (entry->used >= 2)
-        {
-            for (size_t i = 0; i < count; i++)
-                ((uint8_t*)entry->file_data.pipe_data.buffer)[endoff = imod(i + entry->file_data.pipe_data.put_index, entry->file_data.pipe_data.size)] = buf[i];
-            entry->file_data.pipe_data.put_index = imod(1 + endoff, entry->file_data.pipe_data.size);
-        }
-        unlock_scheduler();
-        if (in_buffer == 0 && entry->used >= 2 && count > 0)
-            move_n_tasks_to_running_queue(&entry->blocked_on_input, 1);
-        return count;
-    default:
-        unlock_scheduler();
-        return 0;
-    }
-}
-
-void pipe_destroy(file_entry_t* entry)
-{
-    // LOG(TRACE, "Destroying pipe...");
-    assert(entry);
-    assert(entry->file_data.pipe_data.buffer);  // ! Freeing several times a pipe IS a bug
-    free(entry->file_data.pipe_data.buffer);
-    entry->file_data.pipe_data.buffer = NULL;
-}
-
 bool vfs_isatty(file_entry_t* entry)
 {
     lock_scheduler();
@@ -804,28 +739,172 @@ bool vfs_isapipe(file_entry_t* entry)
     return ret;
 }
 
-void vfs_setup_pipe(int fildes, int flags)
+ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
 {
-    assert(!(flags & ~(O_NONBLOCK)));
+    lock_scheduler();
+    size_t in_buffer = ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer);
+    size_t maxwrite = entry->file_data.pipe_data.buffer->size - in_buffer - 1;
+    size_t endoff = 0;
+    if ((entry->flags & O_NONBLOCK) || (direction == IO_DIR_READ && entry->file_data.pipe_data.other_end == -1))
+    {
+        if (in_buffer == 0 && direction == IO_DIR_READ)
+            return (unlock_scheduler(), 0);
+        if (maxwrite == 0 && direction == IO_DIR_WRITE)
+            return (unlock_scheduler(), 0);
+    }
+    switch (direction)
+    {
+    case IO_DIR_READ:
+        if (in_buffer <= 0 && entry->file_data.pipe_data.other_end != -1)
+        {
+            move_running_task_to_thread_queue(&entry->blocked_on_io, current_task);
+            switch_task();
+            unlock_scheduler();
+            lock_scheduler();
+            in_buffer = ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer);
+        }
+        if (in_buffer == 0)
+            return (unlock_scheduler(), -EINTR);
+        // LOG(TRACE, "Reading %zu bytes from pipe (%zu bytes in buffer) [%zu bytes asked by program]", in_buffer < count ? in_buffer : count, in_buffer, count);
+        count = in_buffer < count ? in_buffer : count;
+        for (size_t i = 0; i < count; i++)
+            buf[i] = ((uint8_t*)entry->file_data.pipe_data.buffer->buffer)[endoff = imod(i + entry->file_data.pipe_data.buffer->get_index, entry->file_data.pipe_data.buffer->size)];
+        entry->file_data.pipe_data.buffer->get_index = imod(1 + endoff, entry->file_data.pipe_data.buffer->size);
+        if (maxwrite == 0 && entry->file_data.pipe_data.other_end != -1 && count > 0)
+            move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
+        unlock_scheduler();
+        return count;
+    case IO_DIR_WRITE:
+        if (maxwrite <= 0 && entry->file_data.pipe_data.other_end != -1)
+        {
+            move_running_task_to_thread_queue(&entry->blocked_on_io, current_task);
+            switch_task();
+            unlock_scheduler();
+            lock_scheduler();
+            maxwrite = entry->file_data.pipe_data.buffer->size - ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer) - 1;
+        }
+        if (maxwrite == 0)
+            return (unlock_scheduler(), -EINTR);
+        // LOG(TRACE, "Writing %zu bytes to pipe (%zu bytes in buffer) [%zu bytes asked by program]", maxwrite < count ? maxwrite : count, in_buffer, count);
+        count = maxwrite < count ? maxwrite : count;
+        if (entry->file_data.pipe_data.other_end != -1)
+        {
+            for (size_t i = 0; i < count; i++)
+                ((uint8_t*)entry->file_data.pipe_data.buffer->buffer)[endoff = imod(i + entry->file_data.pipe_data.buffer->put_index, entry->file_data.pipe_data.buffer->size)] = buf[i];
+            entry->file_data.pipe_data.buffer->put_index = imod(1 + endoff, entry->file_data.pipe_data.buffer->size);
+        }
+        unlock_scheduler();
+        if (in_buffer == 0 && entry->file_data.pipe_data.other_end != -1 && count > 0)
+            move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
+        return count;
+    default:
+        unlock_scheduler();
+        return 0;
+    }
+}
 
+void pipe_destroy(file_entry_t* entry)
+{
+    // LOG(TRACE, "Destroying pipe...");
+    assert(entry);
+    if (entry->file_data.pipe_data.other_end == -1)
+    {
+        free(entry->file_data.pipe_data.buffer->buffer);
+        free(entry->file_data.pipe_data.buffer);
+        entry->file_data.pipe_data.buffer = NULL;
+    }
+    else
+    {
+        file_entry_t* other = &file_table[entry->file_data.pipe_data.other_end];
+        other->file_data.pipe_data.other_end = -1;
+        move_all_tasks_to_running_queue(&other->blocked_on_io);
+    }
+}
+
+void vfs_setup_pipe_end(int fildes, int other, int flags)
+{
     struct stat st;
     memset(&st, 0, sizeof(st));
     st.st_mode = S_IFIFO;
 
-    lock_scheduler();
-    assert(file_table[fildes].used == 2);
+    assert(file_table[fildes].used == 1);
     file_table[fildes].entry_type = VFS_ET_FILE;
-    file_table[fildes].file_data.pipe_data.size = 64 * KB;
-    file_table[fildes].file_data.pipe_data.buffer = malloc(file_table[fildes].file_data.pipe_data.size);
+
+    if (file_table[other].file_data.pipe_data.other_end == -1)
+    {
+        file_table[fildes].file_data.pipe_data.buffer = malloc(sizeof(struct ring_buffer));
+        assert(file_table[fildes].file_data.pipe_data.buffer);
+        file_table[fildes].file_data.pipe_data.buffer->size = 64 * KB;
+        file_table[fildes].file_data.pipe_data.buffer->buffer = malloc(file_table[fildes].file_data.pipe_data.buffer->size);
+        assert(file_table[fildes].file_data.pipe_data.buffer->buffer);
+        file_table[fildes].file_data.pipe_data.buffer->put_index = 0;
+        file_table[fildes].file_data.pipe_data.buffer->get_index = 0;
+    }
+    else
+        file_table[fildes].file_data.pipe_data.buffer = file_table[other].file_data.pipe_data.buffer;
     assert(file_table[fildes].file_data.pipe_data.buffer);
-    file_table[fildes].file_data.pipe_data.put_index = 0;
-    file_table[fildes].file_data.pipe_data.get_index = 0;
+    file_table[fildes].file_data.pipe_data.other_end = other;
+
     file_table[fildes].tnode.file = NULL;
     file_table[fildes].tnode.folder = NULL;
-    file_table[fildes].flags = O_RDWR | flags;
+    file_table[fildes].flags = flags;
     file_table[fildes].st = st;
 
     file_table[fildes].iofunc = pipe_iofunc;
     file_table[fildes].on_destroy = pipe_destroy;
+}
+
+int vfs_setup_pipe(int* fds, int flags)
+{
+    lock_scheduler();
+    int fildes1 = vfs_allocate_global_file();
+    if (fildes1 == -1)
+        return (unlock_scheduler(), ENFILE);
+    int fildes2 = vfs_allocate_global_file();
+    if (fildes2 == -1)
+    {
+        vfs_remove_global_file(fildes1);
+        unlock_scheduler();
+        return ENFILE;
+    }
+    int fd1 = vfs_allocate_thread_file(current_task);
+    if (fd1 == -1)
+    {
+        vfs_close(fd1);
+        vfs_remove_global_file(fildes1);
+        vfs_remove_global_file(fildes2);
+        unlock_scheduler();
+        return EMFILE;
+    }
+    current_task->file_table[fd1].index = fildes1;
+    int fd2 = vfs_allocate_thread_file(current_task);
+    current_task->file_table[fd2].index = fildes2;
+    if (fd2 == -1)
+    {
+        vfs_close(fd1);
+        vfs_close(fd2);
+        vfs_remove_global_file(fildes1);
+        vfs_remove_global_file(fildes2);
+        unlock_scheduler();
+        return EMFILE;
+    }
+    fds[0] = fd1;
+    fds[1] = fd2;
+
+    file_table[fildes1].file_data.pipe_data.other_end = -1;
+    file_table[fildes2].file_data.pipe_data.other_end = -1;
+    vfs_setup_pipe_end(fildes1, fildes2, O_RDONLY | flags);
+    vfs_setup_pipe_end(fildes2, fildes1, O_WRONLY | flags);
+
+    assert(file_table[fildes1].file_data.pipe_data.buffer);
+    current_task->file_table[fd1].flags = 0;
+    current_task->file_table[fd2].flags = 0;
+    if (flags & O_CLOEXEC)
+    {
+        current_task->file_table[fd1].flags |= FD_CLOEXEC;
+        current_task->file_table[fd2].flags |= FD_CLOEXEC;
+    }
+    // LOG(TRACE, "pipe: [%d, %d]", fd1, fd2);
     unlock_scheduler();
+    return 0;
 }

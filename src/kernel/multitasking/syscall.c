@@ -642,11 +642,13 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         waitpid_check_dead();
         assert(task_lock_depth == 0);
         switch_task();
+        lock_scheduler();
         if (arg4)
             memset(arg4, 0, sizeof(struct rusage));
         if (arg2) *arg2 = current_task->wstatus;
         sc_ret(1) = current_task->waitpid_ret;
         sc_ret_errno = current_task->waitpid_ret == -1 ? EINTR : 0;
+        unlock_scheduler();
         break;
     sc_case(SYS_TTYNAME, 3, int, char*, size_t)
         SC_LOG("syscall SYS_TTYNAME(%d, %p, %zu)", arg1, arg2, arg3);
@@ -1113,60 +1115,13 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         break;
     sc_case(SYS_PIPE2, 2, int*, int)
         SC_LOG("syscall SYS_PIPE2(%p, %d)", arg1, arg2);
-        // if (arg2 & O_NOTIFICATION_PIPE)
-        // {
-        //     sc_ret_errno = ENOPKG;
-        //     break;
-        // }
         // * Don't support packet mode for now
         if (arg2 & ~(O_CLOEXEC | O_NONBLOCK))
         {
             sc_ret_errno = EINVAL;
             break;
         }
-        int fildes = vfs_allocate_global_file();
-        if (fildes == -1)
-        {
-            sc_ret_errno = ENFILE;
-            break;
-        }
-        lock_scheduler();
-        int fd1 = vfs_allocate_thread_file(current_task);
-        if (fd1 == -1)
-        {
-            vfs_close(fd1);
-            vfs_remove_global_file(fildes);
-            sc_ret_errno = EMFILE;
-            unlock_scheduler();
-            break;
-        }
-        current_task->file_table[fd1].index = fildes;
-        int fd2 = vfs_allocate_thread_file(current_task);
-        current_task->file_table[fd2].index = fildes;
-        if (fd2 == -1)
-        {
-            vfs_close(fd1);
-            vfs_close(fd2);
-            vfs_remove_global_file(fildes);
-            sc_ret_errno = EMFILE;
-            unlock_scheduler();
-            break;
-        }
-        sc_ret_errno = 0;
-        arg1[0] = fd1;
-        arg1[1] = fd2;
-        file_table[fildes].used++;
-        vfs_setup_pipe(fildes, arg2);
-        assert(file_table[fildes].file_data.pipe_data.buffer);
-        current_task->file_table[fd1].flags = 0;
-        current_task->file_table[fd2].flags = 0;
-        if (arg2 & O_CLOEXEC)
-        {
-            current_task->file_table[fd1].flags |= FD_CLOEXEC;
-            current_task->file_table[fd2].flags |= FD_CLOEXEC;
-        }
-        // LOG(TRACE, "pipe: [%d, %d]", fd1, fd2);
-        unlock_scheduler();
+        sc_ret_errno = vfs_setup_pipe(arg1, arg2);
         break;
 
     sc_case(SYS_KILL, 2, int, int)

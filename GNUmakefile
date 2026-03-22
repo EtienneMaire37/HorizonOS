@@ -18,7 +18,7 @@ MAKE := make
 
 override BASH_DIR := ${MAKE_DIR}/src/tasks/src/bash
 override COREUTILS_DIR := ${MAKE_DIR}/src/tasks/src/coreutils
-override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no fu_cv_sys_mounted_getmntinfo=yes
+override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no fu_cv_sys_mounted_getmntinfo=yes ac_cv_func_splice=no
 
 override KERNEL_SRC := $(shell find src/kernel -name '*.c')
 override KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
