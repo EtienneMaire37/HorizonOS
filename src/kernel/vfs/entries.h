@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include "../vfs/table.h"
+
 static inline unsigned char get_dirent_dt(struct stat* st)
 {
     assert(st);

@@ -2,6 +2,7 @@
 #include "ioctl.h"
 #include "task.h"
 #include "multitasking.h"
+#include "../vfs/table.h"
 
 #include <termios.h>
 #include <asm-generic/ioctls.h>

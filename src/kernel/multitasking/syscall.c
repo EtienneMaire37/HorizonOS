@@ -21,6 +21,7 @@
 #include "../vfs/entries.h"
 #include <dirent.h>
 #include "../cpu/units.h"
+#include "../vfs/table.h"
 
 extern void sigret();
 
@@ -176,7 +177,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret(1) = (uint64_t)((off_t)0);
             break;
         }
-        if (!S_ISREG(entry->tnode.file->inode->st.st_mode) || vfs_isatty(entry))
+        if (!S_ISREG(entry->st.st_mode))
         {
             sc_ret_errno = ESPIPE;
             sc_ret(1) = (uint64_t)((off_t)-1);
@@ -191,7 +192,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             offset += entry->position;
             goto do_seek;
         case SEEK_END:
-            offset += entry->tnode.file->inode->st.st_size;
+            offset += entry->st.st_size;
             goto do_seek;
         }
         if (false)
@@ -264,12 +265,18 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         {
             file_table[fd].tnode.file = vfs_get_file_tnode(arg1, current_task->cwd);
             file_table[fd].iofunc = file_table[fd].tnode.file->inode->io_func;
+
+            file_table[fd].st = file_table[fd].tnode.file->inode->st;
         }
-        if (file_table[fd].entry_type == VFS_ET_FOLDER)
+        else if (file_table[fd].entry_type == VFS_ET_FOLDER)
         {
             file_table[fd].tnode.folder = vfs_get_folder_tnode(arg1, current_task->cwd);
             file_table[fd].iofunc = NULL;
+
+            file_table[fd].st = file_table[fd].tnode.folder->inode->st;
         }
+        else
+            abort();
 
         file_table[fd].on_destroy = NULL;
 
@@ -333,6 +340,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 
         file_table[fd].tnode.file = NULL;
         file_table[fd].tnode.folder = tnode;
+        file_table[fd].st = file_table[fd].tnode.folder->inode->st;
 
         file_table[fd].file_data.folder_child.str = NULL;
         file_table[fd].file_data.folder_child.done_reading = false;
@@ -771,7 +779,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         }
         if (strcmp(arg2, "") == 0 && (arg3 & AT_EMPTY_PATH))
         {
-            *arg4 = entry->entry_type == VFS_ET_FILE ? entry->tnode.file->inode->st : entry->tnode.folder->inode->st;
+            *arg4 = entry->st;
             sc_ret_errno = 0;
             unlock_scheduler();
             break;
@@ -804,7 +812,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 {
                     if (arg3 & AT_EMPTY_PATH)
                     {
-                        *arg4 = entry->tnode.folder->inode->st;
+                        *arg4 = entry->st;
                         sc_ret_errno = 0;
                         unlock_scheduler();
                         break;
@@ -1032,7 +1040,6 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 
         // * Assume all fds are always ready for now
         // * Only clear exceptional conditions and check stdin
-        // TODO: Implement proper pipe support
         if (arg2)
         {
             for (int i = 0; i < arg1; i++)
@@ -1057,8 +1064,15 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                         for (int j = i; j < arg1; j++)
                         {
                             if (!FD_ISSET(j, arg2)) continue;
-                            if (!(vfs_isatty(get_global_file_entry(j)))) continue;
-                            FD_CLR(j, arg2);
+                            file_entry_t* entry = get_global_file_entry(j);
+                            if (vfs_isatty(entry))
+                            // * No characters
+                                FD_CLR(j, arg2);
+                            else if (vfs_isapipe(entry))
+                            {
+                            // * Check if pipe is empty
+                                assert(!"TODO: Implement proper read blocking for pipes");
+                            }
                         }
                         break;
                     }
@@ -1067,6 +1081,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 }
             }
         }
+        if (arg3)
+            assert(!"TODO: Implement write blocking with pselect");
         if (arg4)
             FD_ZERO(arg4);
 
@@ -1105,7 +1121,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         if (fd1 == -1)
         {
             vfs_close(fd1);
-            vfs_free_global_file(fildes);
+            vfs_remove_global_file(fildes);
             sc_ret_errno = EMFILE;
             unlock_scheduler();
             break;
@@ -1117,7 +1133,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         {
             vfs_close(fd1);
             vfs_close(fd2);
-            vfs_free_global_file(fildes);
+            vfs_remove_global_file(fildes);
             sc_ret_errno = EMFILE;
             unlock_scheduler();
             break;

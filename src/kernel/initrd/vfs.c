@@ -1,16 +1,18 @@
 #include "../vfs/vfs.h"
+#include "../vfs/table.h"
+
 #include <stdlib.h>
 #include <limits.h>
 
-bool vfs_initrd_file_in_directory(char* fname, const char* direc) 
+bool vfs_initrd_file_in_directory(char* fname, const char* direc)
 {
     if (!fname || !direc) return false;
 
     // LOG(DEBUG, "\"%s\" | \"%s\"", fname, direc);
 
-    if (*direc == 0) 
+    if (*direc == 0)
     {
-        for (char* f = fname; *f; f++) 
+        for (char* f = fname; *f; f++)
             if (*f == '/')
                 return false;
         return true;
@@ -19,21 +21,21 @@ bool vfs_initrd_file_in_directory(char* fname, const char* direc)
     const char* f = fname;
     const char* d = direc;
 
-    while (*d && *f && (*f == *d)) 
+    while (*d && *f && (*f == *d))
     {
         f++;
         d++;
     }
 
-    if (*d) 
+    if (*d)
         return false;
 
-    if (*f != '/') 
+    if (*f != '/')
         return false;
 
     f++;
 
-    while (*f) 
+    while (*f)
     {
         if (*f == '/') return false;
         f++;
@@ -44,7 +46,7 @@ bool vfs_initrd_file_in_directory(char* fname, const char* direc)
 
 void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_point)
 {
-    if (tnode->inode->drive.type != DT_INITRD) 
+    if (tnode->inode->drive.type != DT_INITRD)
     {
         LOG(ERROR, "vfs_initrd_do_explore: not an initrd mounted folder!!!");
         return;
@@ -55,7 +57,7 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
     vfs_realpath_from_folder_tnode(tnode, constructed_path);
     // CONTINUE_LOG(TRACE, "\"%s\"", constructed_path);
     char* prefix = malloc(PATH_MAX);
-    if (!prefix) 
+    if (!prefix)
     {
         LOG(DEBUG, "vfs_initrd_do_explore: Out of memory");
         abort();
@@ -104,7 +106,7 @@ void vfs_initrd_do_explore(vfs_folder_tnode_t* tnode, vfs_folder_tnode_t* mount_
                 (*current_file_tnode)->inode->st.st_ino = vfs_generate_inode_number();
                 (*current_file_tnode)->inode->st.st_dev = tnode->inode->st.st_dev;
                 (*current_file_tnode)->inode->st.st_rdev = 0; // S_ISCHR(initrd_files[i].st.st_mode) || S_ISBLK(initrd_files[i].st.st_mode) ? vfs_generate_device_id() : 0;
-                
+
                 (*current_file_tnode)->next = NULL;
                 (*current_file_tnode)->inode->parent = tnode;
                 current_file_tnode = &(*current_file_tnode)->next;

@@ -59,16 +59,6 @@ static inline void unlock_scheduler()
     }
 }
 
-static inline file_entry_t* get_global_file_entry(int fd)
-{
-    lock_scheduler();
-    if (!is_fd_valid(fd))
-        return (unlock_scheduler(), NULL);
-    file_entry_t* entry = &file_table[current_task->file_table[fd].index];
-    unlock_scheduler();
-    return entry;
-}
-
 static inline bool multitasking_is_pgrp_empty(pid_t pgid)
 {
     thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, pgid);

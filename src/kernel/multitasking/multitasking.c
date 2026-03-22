@@ -5,6 +5,7 @@
 #include "signal.h"
 #include "../fpu/fpu.h"
 #include "sigset.h"
+#include "../vfs/table.h"
 
 #include <stdlib.h>
 

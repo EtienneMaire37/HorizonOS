@@ -77,6 +77,7 @@ int num_environ;
 #include "multitasking/signal.h"
 #include "int/kernel_panic.h"
 #include "memalloc/virtual_memory_allocator.h"
+#include "vfs/table.h"
 
 initrd_file_t* commit_file;
 

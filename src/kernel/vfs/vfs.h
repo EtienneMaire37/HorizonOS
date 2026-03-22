@@ -128,34 +128,9 @@ struct pipe_data
     size_t get_index;
 };
 
-typedef struct file_entry
-{
-    int used;
-    int flags;
-    off_t position;
-    uint8_t entry_type;
-
-    union
-    {
-        struct folder_child_data folder_child;
-        struct pipe_data pipe_data;
-    } file_data;
-    union
-    {
-        vfs_file_tnode_t* file;
-        vfs_folder_tnode_t* folder;
-    } tnode;
-
-    ssize_t (*iofunc)(file_entry_t*, uint8_t* buf, size_t count, uint8_t direction);
-    void (*on_destroy)(file_entry_t*);
-} file_entry_t;
-
-#define MAX_FILE_TABLE_ENTRIES  1024
-
 #define IO_DIR_READ    1
 #define IO_DIR_WRITE   2
 
-extern file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 extern vfs_folder_tnode_t* vfs_root;
 
 vfs_file_inode_t* vfs_get_file_inode(const char* path, vfs_folder_tnode_t* pwd);
@@ -190,6 +165,7 @@ ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t di
 ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 
 bool vfs_isatty(file_entry_t* entry);
+bool vfs_isapipe(file_entry_t* entry);
 
 vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t),
     uid_t uid, gid_t gid);
@@ -204,8 +180,6 @@ int vfs_access(const char* path, vfs_folder_tnode_t* pwd, int mode);
 
 int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read);
 int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* bytes_written);
-
-void vfs_free_global_file(int fd);
 
 void vfs_log_tree();
 

@@ -16,93 +16,9 @@ extern int errno;
 #include "../util/access.h"
 #include "../multitasking/multitasking.h"
 #include "../cpu/units.h"
+#include "table.h"
 
-file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 vfs_folder_tnode_t* vfs_root = NULL;
-
-void vfs_init_file_table()
-{
-    lock_scheduler();
-
-    for (int i = 0; i < MAX_FILE_TABLE_ENTRIES; i++)
-    {
-        if (i < 3)  file_table[i].used = 1; // * Should always be used
-        else        file_table[i].used = 0;
-    }
-
-    file_table[0].entry_type = VFS_ET_FILE;
-    file_table[0].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
-    file_table[0].position = 0;
-    file_table[0].flags = O_RDONLY;
-    file_table[0].iofunc = task_chr_tty;
-
-    file_table[1].entry_type = VFS_ET_FILE;
-    file_table[1].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
-    file_table[1].position = 0;
-    file_table[1].flags = O_WRONLY;
-    file_table[1].iofunc = task_chr_tty;
-
-    file_table[2].entry_type = VFS_ET_FILE;
-    file_table[2].tnode.file = vfs_get_file_tnode("/dev/tty", NULL);
-    file_table[2].position = 0;
-    file_table[2].flags = O_WRONLY;
-    file_table[2].iofunc = task_chr_tty;
-
-    unlock_scheduler();
-}
-
-int vfs_allocate_global_file()
-{
-    // !!! ASAP
-    // TODO: Implement a more general "atomic lock" which can be used for several things and not just the scheduler
-    // ! Will need to be implemented to reduce lock contention when adding SMP
-	lock_scheduler();
-    for (int i = 0; i < MAX_FILE_TABLE_ENTRIES; i++)
-    {
-        if (file_table[i].used == 0)
-        {
-			memset(&file_table[i], 0, sizeof(file_table[i]));
-            file_table[i].used = 1;
-			unlock_scheduler();
-            return i;
-        }
-    }
-	unlock_scheduler();
-    return -1;
-}
-
-void vfs_free_global_file(int fd)
-{
-    lock_scheduler();
-    if (file_table[fd].used <= 0)
-    {
-        file_table[fd].used = 0;
-        return;
-    }
-    file_table[fd].used--;
-    unlock_scheduler();
-}
-
-void vfs_remove_global_file(int fd)
-{
-	lock_scheduler();
-
-    if (fd >= 0 && fd < MAX_FILE_TABLE_ENTRIES)
-    {
-        file_table[fd].used--;
-        assert(file_table[fd].used >= 0);
-        if (file_table[fd].used == 0)
-        {
-            if (file_table[fd].on_destroy)
-                file_table[fd].on_destroy(&file_table[fd]);
-        }
-
-		unlock_scheduler();
-        return;
-    }
-
-	unlock_scheduler();
-}
 
 ino_t vfs_generate_inode_number()
 {
@@ -663,7 +579,7 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
 
     if (entry->entry_type == VFS_ET_FILE)
     {
-        mode_t mode = entry->tnode.file->inode->st.st_mode;
+        mode_t mode = entry->st.st_mode;
         *bytes_read = entry->iofunc(entry, buffer, num_bytes, IO_DIR_READ);
         if (*bytes_read > 0)
             entry->position += *bytes_read;
@@ -690,7 +606,7 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
     }
     if (entry->entry_type == VFS_ET_FILE)
     {
-        mode_t mode = entry->tnode.file->inode->st.st_mode;
+        mode_t mode = entry->st.st_mode;
         *bytes_written = entry->iofunc(entry, (unsigned char*)buffer, bytes_to_write, IO_DIR_WRITE);
         if (*bytes_written > 0)
             entry->position += *bytes_written;
@@ -837,7 +753,7 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
 
 void pipe_destroy(file_entry_t* entry)
 {
-    LOG(TRACE, "Destroying pipe...");
+    // LOG(TRACE, "Destroying pipe...");
     assert(entry);
     assert(entry->file_data.pipe_data.buffer);  // ! Freeing several times a pipe IS a bug
     free(entry->file_data.pipe_data.buffer);
@@ -848,13 +764,26 @@ bool vfs_isatty(file_entry_t* entry)
 {
     lock_scheduler();
     if (!entry) return (unlock_scheduler(), false);
-    bool ret = entry->entry_type == VFS_ET_FILE ? (S_ISCHR(entry->tnode.file->inode->st.st_mode) && entry->tnode.file->inode->io_func == task_chr_tty) : false;
+    bool ret = entry->entry_type == VFS_ET_FILE ? (S_ISCHR(entry->st.st_mode) && entry->tnode.file->inode->io_func == task_chr_tty) : false;
+    unlock_scheduler();
+    return ret;
+}
+
+bool vfs_isapipe(file_entry_t* entry)
+{
+    lock_scheduler();
+    if (!entry) return (unlock_scheduler(), false);
+    bool ret = entry->entry_type == VFS_ET_FILE ? S_ISFIFO(entry->st.st_mode) : false;
     unlock_scheduler();
     return ret;
 }
 
 void vfs_setup_pipe(int fildes)
 {
+    struct stat st;
+    memset(&st, 0, sizeof(st));
+    st.st_mode = S_IFIFO;
+
     lock_scheduler();
     assert(file_table[fildes].used == 2);
     file_table[fildes].entry_type = VFS_ET_FILE;
@@ -866,6 +795,7 @@ void vfs_setup_pipe(int fildes)
     file_table[fildes].tnode.file = NULL;
     file_table[fildes].tnode.folder = NULL;
     file_table[fildes].flags = O_RDWR;
+    file_table[fildes].st = st;
 
     file_table[fildes].iofunc = pipe_iofunc;
     file_table[fildes].on_destroy = pipe_destroy;

@@ -11,6 +11,7 @@
 #include "hashmap.h"
 #include "signal.h"
 #include "multitasking.h"
+#include "../vfs/table.h"
 
 const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
 const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
