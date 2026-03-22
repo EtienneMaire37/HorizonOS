@@ -401,7 +401,7 @@ void cleanup_tasks()
                 fork_task(task_to_fork);
             }
         }
-        while (forked_tasks && cur_forked_task != forked_tasks);
+        while (forked_tasks && cur_forked_task->prev != cur_forked_task);
     }
 
     if (reapable_tasks)
@@ -430,7 +430,7 @@ void cleanup_tasks()
 
 void waitpid_check_dead()
 {
-    assert(false);
+    // TODO: Rewrite all this and the iterations over circular doubly linked lists everywhere else
     lock_scheduler();
     thread_queue_item_t* cur_dead_task = dead_tasks;
     if (waitpid_tasks && cur_dead_task)
@@ -468,18 +468,19 @@ void waitpid_check_dead()
                     }
                 }
 
-            found_task:
-            // ! This code is completely wrong !!!!!!
-            // TODO: Rewrite all this and the iterations over circular doubly linked lists everywhere else
-                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
+                if (false)
+                {
+                found_task:
+                    move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
 
-                parent->wstatus = thread->return_value;
-                parent->waitpid_ret = thread->pid;
-                move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+                    parent->wstatus = thread->return_value;
+                    parent->waitpid_ret = thread->pid;
+                    move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+                }
             }
             else
             {
-                if (!find_running_task_by_pid(thread->ppid))
+                if (!find_task_by_pid_anywhere(thread->ppid))
                     move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
             }
             cur_dead_task = cur_dead_task->next;
