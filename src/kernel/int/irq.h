@@ -56,7 +56,10 @@ void handle_apic_irq(interrupt_registers_t* registers)
         #endif
 
         if (multitasking_enabled)
-            filter_tasks_to_running_queue(&waiting_for_time_tasks, lambda(bool, (thread_t* task){ return task->timeout_deadline < global_timer; }));
+        {
+            filter_tasks_to_running_queue(&waiting_for_time_tasks, lambda(bool, (thread_t* task){ return task->timeout_deadline == PRECISE_TIME_MAX ? false : task->timeout_deadline < global_timer; }));
+            filter_tasks_to_running_queue(&waiting_for_stdin_tasks, lambda(bool, (thread_t* task){ return task->timeout_deadline == PRECISE_TIME_MAX ? false : task->timeout_deadline < global_timer; }));
+        }
 
         if (multitasking_enabled)
         {

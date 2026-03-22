@@ -1009,6 +1009,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         bool dont_block = arg5 && arg5->tv_nsec == 0 && arg5->tv_sec == 0;
 
         sc_ret_errno = 0;
+        sc_ret(1) = 0;
 
         if (arg1 == 0 || (!arg2 && !arg3 && !arg4))
         {
@@ -1016,9 +1017,12 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             {
                 current_task->timeout_deadline = global_timer + arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS;
                 move_running_task_to_thread_queue(&waiting_for_time_tasks, current_task);
+                switch_task();
                 unlock_scheduler();
                 lock_scheduler();
             }
+            if (current_task->timeout_deadline >= global_timer)
+                sc_ret_errno = EINTR;
             current_task->sig_mask = saved_sigmask;
             unlock_scheduler();
             break;
@@ -1026,10 +1030,12 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 
         // * Assume all fds are always ready for now
         // * Only clear exceptional conditions and check stdin
+        // TODO: Implement proper pipe support
         if (arg2)
         {
             for (int i = 0; i < arg1; i++)
             {
+                if (!FD_ISSET(i, arg2)) continue;
                 if (!(vfs_isatty(get_global_file_entry(i)))) continue;
                 if (no_buffered_characters(keyboard_buffered_input_buffer))
                 {
@@ -1046,9 +1052,14 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 
                     if (no_buffered_characters(keyboard_buffered_input_buffer))
                     {
-                        sc_ret_errno = EINTR;
+                        if (!dont_block)
+                            sc_ret_errno = EINTR;
                         for (int j = i; j < arg1; j++)
+                        {
+                            if (!FD_ISSET(j, arg2)) continue;
+                            if (!(vfs_isatty(get_global_file_entry(j)))) continue;
                             FD_CLR(j, arg2);
+                        }
                         break;
                     }
                     else
@@ -1059,7 +1070,6 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         if (arg4)
             FD_ZERO(arg4);
 
-        sc_ret(1) = 0;
         for (int i = 0; i < arg1; i++)
         {
             if (arg2)
