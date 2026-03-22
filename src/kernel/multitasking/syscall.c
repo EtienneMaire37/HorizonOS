@@ -1021,6 +1021,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 unlock_scheduler();
                 lock_scheduler();
             }
+            else
+                current_task->timeout_deadline = 0;
             if (current_task->timeout_deadline >= global_timer)
                 sc_ret_errno = EINTR;
             current_task->sig_mask = saved_sigmask;
@@ -1041,8 +1043,6 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 {
                     if (!dont_block)
                     {
-                        uint64_t n[2] = { UINT64_MAX, UINT64_MAX };
-                        assert(sizeof(struct timespec) == sizeof(n));
                         current_task->timeout_deadline = arg5 ? global_timer + arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX;
                         move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
                         switch_task();
