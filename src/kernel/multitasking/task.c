@@ -430,6 +430,7 @@ void cleanup_tasks()
 
 void waitpid_check_dead()
 {
+    assert(false);
     lock_scheduler();
     thread_queue_item_t* cur_dead_task = dead_tasks;
     if (waitpid_tasks && cur_dead_task)
@@ -468,6 +469,8 @@ void waitpid_check_dead()
                 }
 
             found_task:
+            // ! This code is completely wrong !!!!!!
+            // TODO: Rewrite all this and the iterations over circular doubly linked lists everywhere else
                 move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
 
                 parent->wstatus = thread->return_value;

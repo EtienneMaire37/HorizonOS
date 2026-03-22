@@ -1,12 +1,15 @@
 #include "queue.h"
 #include "multitasking.h"
 
+#include <stdlib.h>
+
 thread_queue_t dead_tasks = TQ_INIT;
 thread_queue_t reapable_tasks = TQ_INIT;
 thread_queue_t waitpid_tasks = TQ_INIT;
 thread_queue_t forked_tasks = TQ_INIT;
 thread_queue_t stopped_tasks = TQ_INIT;
 thread_queue_t waiting_for_stdin_tasks = TQ_INIT;
+thread_queue_t waiting_for_time_tasks = TQ_INIT;
 
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data)
 {
@@ -83,16 +86,40 @@ void move_task_to_queue(void* queue, thread_t* task)
 
 void move_all_tasks_to_running_queue(thread_queue_t* tq)
 {
+    assert(tq);
     lock_scheduler();
-    if (!tq) { unlock_scheduler(); return; }
     if (!*tq) { unlock_scheduler(); return; }
     thread_queue_item_t* it = *tq;
     if (it)
     {
         do
         {
-            move_task_to_running_queue(tq, it);
-        } while (*tq && it != *tq);
+            thread_queue_item_t* cur = it;
+            it = it->next;
+            move_task_to_running_queue(tq, cur);
+        } while (*tq);
+    }
+    unlock_scheduler();
+}
+
+void filter_tasks_to_running_queue(thread_queue_t* tq, bool (*test)(thread_t* task))
+{
+    assert(tq);
+    lock_scheduler();
+    if (!*tq) { unlock_scheduler(); return; }
+    bool first_item = true;
+    thread_queue_item_t* it = *tq;
+    if (it)
+    {
+        do
+        {
+            thread_queue_item_t* cur = it;
+            it = it->next;
+            if (test(cur->data))
+                move_task_to_running_queue(tq, cur);
+            else
+                first_item = false;
+        } while (*tq && (it != *tq || first_item));
     }
     unlock_scheduler();
 }

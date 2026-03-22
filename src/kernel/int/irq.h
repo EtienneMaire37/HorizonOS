@@ -6,6 +6,8 @@
 #include "../time/ktime.h"
 #include "../terminal/textio.h"
 #include "../multitasking/multitasking.h"
+#include "../multitasking/queue.h"
+#include "../util/lambda.h"
 
 void handle_apic_irq(interrupt_registers_t* registers)
 {
@@ -52,6 +54,10 @@ void handle_apic_irq(interrupt_registers_t* registers)
             }
         }
         #endif
+
+        if (multitasking_enabled)
+            filter_tasks_to_running_queue(&waiting_for_time_tasks, lambda(bool, (thread_t* task){ return task->timeout_deadline < global_timer; }));
+
         if (multitasking_enabled)
         {
             if (multitasking_counter <= 0)

@@ -1,8 +1,10 @@
 #pragma once
 
 #include "../cpu/util.h"
+#include <stdint.h>
 
 typedef uint64_t precise_time_t;
+#define PRECISE_TIME_MAX        UINT64_MAX
 
 extern volatile int64_t system_seconds, system_minutes, system_hours, system_day, system_month;
 extern volatile int64_t system_year;
@@ -15,7 +17,7 @@ extern volatile precise_time_t global_timer;
 #define GLOBAL_TIMER_FREQUENCY  1000ULL
 #define GLOBAL_TIMER_INCREMENT  (precise_time_ticks_per_second / GLOBAL_TIMER_FREQUENCY)
 
-static const uint64_t precise_time_ticks_per_second = 1000000000;  // * nanoseconds
+static const precise_time_t precise_time_ticks_per_second = 1000000000;  // * nanoseconds
 
 #define PRECISE_SECONDS         precise_time_ticks_per_second
 #define PRECISE_MILLISECONDS    (precise_time_ticks_per_second / 1000ULL)

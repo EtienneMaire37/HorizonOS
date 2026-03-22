@@ -25,7 +25,7 @@ void futex_wake(uint64_t paddr, int num)
 {
 	lock_scheduler();
 	thread_queue_t* fqueue = (thread_queue_t*)hashmap_get_item(futex_tq_hashmap, paddr);
-	if (!fqueue) 
+	if (!fqueue)
 		goto end;
 	thread_queue_item_t* it = *fqueue;
 	int i = 0;
@@ -35,7 +35,7 @@ void futex_wake(uint64_t paddr, int num)
 		it = it->next;
 		move_task_to_running_queue(fqueue, to_move);
 		i++;
-	} while (*fqueue != NULL && it != *fqueue && i < num);
+	} while (*fqueue != NULL && i < num);
 end:
 	unlock_scheduler();
 }

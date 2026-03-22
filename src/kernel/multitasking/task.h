@@ -13,7 +13,7 @@ typedef struct thread thread_t;
 
 typedef struct thread
 {
-    struct timespec pselect_timeout;
+    precise_time_t timeout_deadline;
 
     uint32_t return_value;
 

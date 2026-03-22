@@ -1,4 +1,5 @@
 #include "defs.h"
+#include "../util/lambda.h"
 
 #include <assert.h>
 
@@ -31,7 +32,7 @@ void apic_init()
         LOG(DEBUG, "Mapping local APIC at physical address %#" PRIx64 " to %p", paddr, lapic);
 
         lock_scheduler();
-        remap_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), 
+        remap_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE),
             (uint64_t)lapic, paddr,
             1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
         unlock_scheduler();
@@ -111,7 +112,7 @@ uint8_t ioapic_get_max_redirection_entry(volatile io_apic_registers_t* ioapic)
 
 uint64_t ioapic_read_redirection_entry(volatile io_apic_registers_t* ioapic, uint32_t entry)
 {
-    if (entry > ioapic_get_max_redirection_entry(ioapic)) 
+    if (entry > ioapic_get_max_redirection_entry(ioapic))
     {
         LOG(ERROR, "ioapic_read_redirection_entry: Invalid redirection entry !!!");
         return 0;
@@ -125,7 +126,7 @@ uint64_t ioapic_read_redirection_entry(volatile io_apic_registers_t* ioapic, uin
 
 void ioapic_write_redirection_entry(volatile io_apic_registers_t* ioapic, uint32_t entry, uint64_t value)
 {
-    if (entry > ioapic_get_max_redirection_entry(ioapic)) 
+    if (entry > ioapic_get_max_redirection_entry(ioapic))
     {
         LOG(ERROR, "ioapic_write_redirection_entry: Invalid redirection entry !!!");
         return;
@@ -142,7 +143,7 @@ void* map_ioapic_in_current_vas(uint64_t paddr)
     LOG(DEBUG, "Mapping I/O APIC at physical address %#" PRIx64 " to %p", paddr, vaddr);
 
     lock_scheduler();
-    remap_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), 
+    remap_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE),
         (uint64_t)vaddr, paddr,
         1, PG_SUPERVISOR, PG_READ_WRITE, CACHE_UC);
     unlock_scheduler();
@@ -155,7 +156,7 @@ void unmap_ioapic(void* addr)
 {
     LOG(DEBUG, "Unmapping I/O APIC at virtual address %p", addr);
 
-    free_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), 
+    free_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE),
         (uint64_t)addr, 1);
 }
 
@@ -180,60 +181,6 @@ struct madt_entry_header* find_entry_in_madt(bool (*test_func)(struct madt_entry
     return NULL;
 }
 
-bool is_madt_entry_irq_source_1(struct madt_entry_header* header)
-{
-    if (header->entry_type == 2)    // * I/O APIC Interrupt Source Override
-    {
-        struct madt_ioapic_interrupt_source_override_entry* entry = (struct madt_ioapic_interrupt_source_override_entry*)header;
-        if (entry->irq_source == 1)
-            return true;
-    }
-    return false;
-}
-
-bool is_madt_entry_irq_source_12(struct madt_entry_header* header)
-{
-    if (header->entry_type == 2)    // * I/O APIC Interrupt Source Override
-    {
-        struct madt_ioapic_interrupt_source_override_entry* entry = (struct madt_ioapic_interrupt_source_override_entry*)header;
-        if (entry->irq_source == 12)
-            return true;
-    }
-    return false;
-}
-
-bool is_madt_entry_irq_1_capable(struct madt_entry_header* header)
-{
-    if (header->entry_type == 1)    // * I/O APIC
-    {
-        struct madt_ioapic_entry* entry = (struct madt_ioapic_entry*)header;
-        if (entry->gsi_base > ps2_1_gsi)
-            return false;
-        volatile io_apic_registers_t* ioapic = map_ioapic_in_current_vas(entry->ioapic_address);
-        uint32_t max_gsi = ioapic_get_max_redirection_entry(ioapic) + entry->gsi_base;
-        unmap_ioapic((void*)ioapic);
-        if (ps2_1_gsi <= max_gsi)
-            return true;
-    }
-    return false;
-}
-
-bool is_madt_entry_irq_12_capable(struct madt_entry_header* header)
-{
-    if (header->entry_type == 1)    // * I/O APIC
-    {
-        struct madt_ioapic_entry* entry = (struct madt_ioapic_entry*)header;
-        if (entry->gsi_base > ps2_12_gsi)
-            return false;
-        volatile io_apic_registers_t* ioapic = map_ioapic_in_current_vas(entry->ioapic_address);
-        uint32_t max_gsi = ioapic_get_max_redirection_entry(ioapic) + entry->gsi_base;
-        unmap_ioapic((void*)ioapic);
-        if (ps2_12_gsi <= max_gsi)
-            return true;
-    }
-    return false;
-}
-
 void madt_extract_data()
 {
     if (!madt) return;
@@ -242,8 +189,28 @@ void madt_extract_data()
 
     if (ps2_controller_connected)
     {
-        struct madt_entry_header* ps2_irq_source_1 = find_entry_in_madt(is_madt_entry_irq_source_1);
-        struct madt_entry_header* ps2_irq_source_12 = find_entry_in_madt(is_madt_entry_irq_source_12);
+        struct madt_entry_header* ps2_irq_source_1 = find_entry_in_madt(lambda(bool, (struct madt_entry_header* header)
+        {
+            if (header->entry_type == 2)    // * I/O APIC Interrupt Source Override
+            {
+                struct madt_ioapic_interrupt_source_override_entry* entry = (struct madt_ioapic_interrupt_source_override_entry*)header;
+                if (entry->irq_source == 1)
+                    return true;
+            }
+            return false;
+        }
+        ));
+        struct madt_entry_header* ps2_irq_source_12 = find_entry_in_madt(lambda(bool, (struct madt_entry_header* header)
+        {
+            if (header->entry_type == 2)    // * I/O APIC Interrupt Source Override
+            {
+                struct madt_ioapic_interrupt_source_override_entry* entry = (struct madt_ioapic_interrupt_source_override_entry*)header;
+                if (entry->irq_source == 12)
+                    return true;
+            }
+            return false;
+        }
+        ));
 
         ps2_1_gsi = 1;
         ps2_12_gsi = 12;
@@ -257,8 +224,36 @@ void madt_extract_data()
         LOG(DEBUG, "PS/2 IRQ 1 GSI: %u", ps2_1_gsi);
         LOG(DEBUG, "PS/2 IRQ 12 GSI: %u", ps2_12_gsi);
 
-        struct madt_ioapic_entry* ps2_1_ioapic_entry = (struct madt_ioapic_entry*)find_entry_in_madt(is_madt_entry_irq_1_capable);
-        struct madt_ioapic_entry* ps2_12_ioapic_entry = (struct madt_ioapic_entry*)find_entry_in_madt(is_madt_entry_irq_12_capable);
+        struct madt_ioapic_entry* ps2_1_ioapic_entry = (struct madt_ioapic_entry*)find_entry_in_madt(lambda(bool, (struct madt_entry_header* header)
+        {
+            if (header->entry_type == 1)    // * I/O APIC
+            {
+                struct madt_ioapic_entry* entry = (struct madt_ioapic_entry*)header;
+                if (entry->gsi_base > ps2_1_gsi)
+                    return false;
+                volatile io_apic_registers_t* ioapic = map_ioapic_in_current_vas(entry->ioapic_address);
+                uint32_t max_gsi = ioapic_get_max_redirection_entry(ioapic) + entry->gsi_base;
+                unmap_ioapic((void*)ioapic);
+                if (ps2_1_gsi <= max_gsi)
+                    return true;
+            }
+            return false;
+        }));
+        struct madt_ioapic_entry* ps2_12_ioapic_entry = (struct madt_ioapic_entry*)find_entry_in_madt(lambda(bool, (struct madt_entry_header* header)
+        {
+            if (header->entry_type == 1)    // * I/O APIC
+            {
+                struct madt_ioapic_entry* entry = (struct madt_ioapic_entry*)header;
+                if (entry->gsi_base > ps2_12_gsi)
+                    return false;
+                volatile io_apic_registers_t* ioapic = map_ioapic_in_current_vas(entry->ioapic_address);
+                uint32_t max_gsi = ioapic_get_max_redirection_entry(ioapic) + entry->gsi_base;
+                unmap_ioapic((void*)ioapic);
+                if (ps2_12_gsi <= max_gsi)
+                    return true;
+            }
+            return false;
+        }));
 
         uint64_t lapic_id = apic_get_cpu_id();
         // ! Horrible way to do things
@@ -269,7 +264,7 @@ void madt_extract_data()
             LOG(DEBUG, "Found I/O APIC entry able to handle GSI %u", ps2_1_gsi);
             volatile io_apic_registers_t* ps2_1_ioapic = map_ioapic_in_current_vas(ps2_1_ioapic_entry->ioapic_address);
             uint64_t redirection_entry = ioapic_read_redirection_entry(ps2_1_ioapic, ps2_1_gsi - ps2_1_ioapic_entry->gsi_base);
-            ioapic_write_redirection_entry(ps2_1_ioapic, ps2_1_gsi - ps2_1_ioapic_entry->gsi_base, 
+            ioapic_write_redirection_entry(ps2_1_ioapic, ps2_1_gsi - ps2_1_ioapic_entry->gsi_base,
                 (redirection_entry & (0x00FFFFFFFFFE0000)) |
                 APIC_PS2_1_INT |
                 APIC_DELIVERY_FIXED |
@@ -285,7 +280,7 @@ void madt_extract_data()
             LOG(DEBUG, "Found I/O APIC entry able to handle GSI %u", ps2_12_gsi);
             volatile io_apic_registers_t* ps2_12_ioapic = map_ioapic_in_current_vas(ps2_12_ioapic_entry->ioapic_address);
             uint64_t redirection_entry = ioapic_read_redirection_entry(ps2_12_ioapic, ps2_12_gsi - ps2_12_ioapic_entry->gsi_base);
-            ioapic_write_redirection_entry(ps2_12_ioapic, ps2_12_gsi - ps2_12_ioapic_entry->gsi_base, 
+            ioapic_write_redirection_entry(ps2_12_ioapic, ps2_12_gsi - ps2_12_ioapic_entry->gsi_base,
                 (redirection_entry & (0x00FFFFFFFFFE0000)) |
                 APIC_PS2_2_INT |
                 APIC_DELIVERY_FIXED |
@@ -331,7 +326,7 @@ void apic_timer_init()
         wrmsr(IA32_X2APIC_LVT_TIMER_MSR, LAPIC_TIMER_MASKED);
 
         uint32_t ticks_in_1_sec = 0xffffffff - rdmsr(IA32_X2APIC_CUR_COUNT_MSR);
-        
+
         wrmsr(IA32_X2APIC_LVT_TIMER_MSR, APIC_TIMER_INT | LAPIC_TIMER_PERIODIC);
         wrmsr(IA32_X2APIC_DIV_CONF_MSR, LAPIC_TIMER_DIVIDE_BY_16);
         wrmsr(IA32_X2APIC_INIT_COUNT_MSR, ticks_in_1_sec / GLOBAL_TIMER_FREQUENCY);

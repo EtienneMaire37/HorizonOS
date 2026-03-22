@@ -1014,18 +1014,12 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         {
             if (arg5)
             {
-                // TODO: Implement a per file "wait for file" queue to reduce unnecessary spinning
+                current_task->timeout_deadline = global_timer + arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS;
+                move_running_task_to_thread_queue(&waiting_for_time_tasks, current_task);
                 unlock_scheduler();
-                precise_time_t start_timer = global_timer;
-                while (true)
-                {
-                    if (global_timer >= start_timer + PRECISE_SECONDS * arg5->tv_sec + PRECISE_NANOSECONDS * arg5->tv_nsec)
-                        break;
-                    hlt();
-                }
                 lock_scheduler();
-                current_task->sig_mask = saved_sigmask;
             }
+            current_task->sig_mask = saved_sigmask;
             unlock_scheduler();
             break;
         }
@@ -1043,8 +1037,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                     {
                         uint64_t n[2] = { UINT64_MAX, UINT64_MAX };
                         assert(sizeof(struct timespec) == sizeof(n));
-                        // TODO: Make this actually work
-                        current_task->pselect_timeout = arg5 ? *arg5 : *(struct timespec*)&n;
+                        current_task->timeout_deadline = arg5 ? global_timer + arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX;
                         move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
                         switch_task();
                         unlock_scheduler();
