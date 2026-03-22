@@ -458,4 +458,9 @@ namespace mlibc
 	{
 	    return syscall2_1(SYS_KILL, (uint64_t)pid, (uint64_t)sig);
 	}
+
+	int sys_uname(struct utsname* buf)
+	{
+	    return syscall1_1(SYS_UNAME, (uint64_t)buf);
+	}
 }

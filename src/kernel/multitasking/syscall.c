@@ -23,6 +23,8 @@
 #include <dirent.h>
 #include "../cpu/units.h"
 #include "../vfs/table.h"
+#include <sys/utsname.h>
+#include "../system/info.h"
 
 extern void sigret();
 
@@ -744,7 +746,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret_errno = EFAULT;
             break;
         }
-        const char* str = "hos-pc";
+        const char* str = sys_nodename;
         const size_t len = strlen(str) + 1;
         if (arg2 <= 0)
         {
@@ -1125,6 +1127,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         break;
 
     sc_case(SYS_KILL, 2, int, int)
+        SC_LOG("syscall SYS_KILL(%d, %d)", arg1, arg2);
         lock_scheduler();
         thread_t* task = find_task_by_pid_anywhere(arg1);
         if (!task)
@@ -1136,6 +1139,21 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         task_send_signal(task, arg2);
         unlock_scheduler();
         sc_ret_errno = 0;
+        break;
+
+    sc_case(SYS_UNAME, 1, struct utsname*)
+        if (!arg1)
+        {
+            sc_ret_errno = EFAULT;
+            break;
+        }
+        sc_ret_errno = 0;
+        strncpy(arg1->sysname, sys_sysname, sizeof(arg1->sysname));
+        strncpy(arg1->nodename, sys_nodename, sizeof(arg1->nodename));
+        strncpy(arg1->release, sys_release, sizeof(arg1->release));
+        strncpy(arg1->version, sys_version, sizeof(arg1->version));
+        strncpy(arg1->machine, sys_machine, sizeof(arg1->machine));
+        strncpy(arg1->domainname, sys_domainname, sizeof(arg1->domainname));
         break;
 
     sc_case(SYS_LOG, 1, const char*)
