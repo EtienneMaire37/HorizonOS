@@ -25,4 +25,5 @@ void move_task_from_to_thread_queue(thread_queue_t* queue1, thread_queue_t* queu
 void move_task_to_queue(void* queue, thread_t* task);
 
 void move_all_tasks_to_running_queue(thread_queue_t* tq);
+void move_n_tasks_to_running_queue(thread_queue_t* tq, int n);
 void filter_tasks_to_running_queue(thread_queue_t* tq, bool (*test)(thread_t* task));

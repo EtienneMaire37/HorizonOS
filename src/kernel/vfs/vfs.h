@@ -183,4 +183,4 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
 
 void vfs_log_tree();
 
-void vfs_setup_pipe(int fildes);
+void vfs_setup_pipe(int fildes, int flags);

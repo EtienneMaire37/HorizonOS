@@ -102,6 +102,26 @@ void move_all_tasks_to_running_queue(thread_queue_t* tq)
     unlock_scheduler();
 }
 
+void move_n_tasks_to_running_queue(thread_queue_t* tq, int n)
+{
+    assert(tq);
+    lock_scheduler();
+    if (!*tq) { unlock_scheduler(); return; }
+    thread_queue_item_t* it = *tq;
+    int i = 0;
+    if (it)
+    {
+        do
+        {
+            thread_queue_item_t* cur = it;
+            it = it->next;
+            move_task_to_running_queue(tq, cur);
+            i++;
+        } while (*tq && i <= n);
+    }
+    unlock_scheduler();
+}
+
 void filter_tasks_to_running_queue(thread_queue_t* tq, bool (*test)(thread_t* task))
 {
     assert(tq);

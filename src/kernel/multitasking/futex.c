@@ -27,15 +27,7 @@ void futex_wake(uint64_t paddr, int num)
 	thread_queue_t* fqueue = (thread_queue_t*)hashmap_get_item(futex_tq_hashmap, paddr);
 	if (!fqueue)
 		goto end;
-	thread_queue_item_t* it = *fqueue;
-	int i = 0;
-	do
-	{
-		thread_queue_item_t* to_move = it;
-		it = it->next;
-		move_task_to_running_queue(fqueue, to_move);
-		i++;
-	} while (*fqueue != NULL && i < num);
+	move_n_tasks_to_running_queue(fqueue, num);
 end:
 	unlock_scheduler();
 }

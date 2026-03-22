@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <asm-generic/errno.h>
 #include "syscall.h"
 #include "../cpu/segbase.h"
 #include "../../../mlibc/src/syscall.hpp"
@@ -66,7 +67,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
     sc_case(SYS_EXIT, 1, int)
         SC_LOG("syscall SYS_EXIT(%d)", arg1);
         kill_task(current_task, ((uint16_t)arg1 & 0x7f) << 8);
-        abort();
+        assert(!"exit fatal error");
         break;
     sc_case(SYS_ISATTY, 1, int)
         SC_LOG("syscall SYS_ISATTY(%d)", arg1);
@@ -276,7 +277,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             file_table[fd].st = file_table[fd].tnode.folder->inode->st;
         }
         else
-            abort();
+            assert(!"open fatal error");
 
         file_table[fd].on_destroy = NULL;
 
@@ -833,7 +834,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
                 unlock_scheduler();
                 break;
             }
-            abort();
+            assert(!"fstatat fatal error");
         }
         else
         {
@@ -1045,39 +1046,46 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             for (int i = 0; i < arg1; i++)
             {
                 if (!FD_ISSET(i, arg2)) continue;
-                if (!(vfs_isatty(get_global_file_entry(i)))) continue;
-                if (no_buffered_characters(keyboard_buffered_input_buffer))
+                file_entry_t* entry = get_global_file_entry(i);
+                if (vfs_isatty(entry))
                 {
-                    if (!dont_block)
-                    {
-                        current_task->timeout_deadline = arg5 ? global_timer + arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX;
-                        move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
-                        switch_task();
-                        unlock_scheduler();
-                        lock_scheduler();
-                    }
-
                     if (no_buffered_characters(keyboard_buffered_input_buffer))
                     {
                         if (!dont_block)
-                            sc_ret_errno = EINTR;
-                        for (int j = i; j < arg1; j++)
                         {
-                            if (!FD_ISSET(j, arg2)) continue;
-                            file_entry_t* entry = get_global_file_entry(j);
-                            if (vfs_isatty(entry))
-                            // * No characters
-                                FD_CLR(j, arg2);
-                            else if (vfs_isapipe(entry))
-                            {
-                            // * Check if pipe is empty
-                                assert(!"TODO: Implement proper read blocking for pipes");
-                            }
+                            current_task->timeout_deadline = arg5 ? global_timer + arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX;
+                            move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
+                            switch_task();
+                            unlock_scheduler();
+                            lock_scheduler();
                         }
-                        break;
+
+                        if (no_buffered_characters(keyboard_buffered_input_buffer))
+                        {
+                            if (!dont_block)
+                                sc_ret_errno = EINTR;
+                            for (int j = i; j < arg1; j++)
+                            {
+                                if (!FD_ISSET(j, arg2)) continue;
+                                file_entry_t* _entry = get_global_file_entry(j);
+                                if (vfs_isatty(_entry))
+                                // * No characters
+                                    FD_CLR(j, arg2);
+                                else if (vfs_isapipe(_entry))
+                                {
+                                // * Check if pipe is empty
+                                    assert(!"TODO: Implement proper read blocking for pipes");
+                                }
+                            }
+                            break;
+                        }
+                        else
+                            break;
                     }
-                    else
-                        break;
+                }
+                else if (vfs_isapipe(entry))
+                {
+                    assert(!"TODO: Implement proper read blocking for pipes");
                 }
             }
         }
@@ -1105,6 +1113,12 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         break;
     sc_case(SYS_PIPE2, 2, int*, int)
         SC_LOG("syscall SYS_PIPE2(%p, %d)", arg1, arg2);
+        // if (arg2 & O_NOTIFICATION_PIPE)
+        // {
+        //     sc_ret_errno = ENOPKG;
+        //     break;
+        // }
+        // * Don't support packet mode for now
         if (arg2 & ~(O_CLOEXEC | O_NONBLOCK))
         {
             sc_ret_errno = EINVAL;
@@ -1142,7 +1156,7 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         arg1[0] = fd1;
         arg1[1] = fd2;
         file_table[fildes].used++;
-        vfs_setup_pipe(fildes);
+        vfs_setup_pipe(fildes, arg2);
         assert(file_table[fildes].file_data.pipe_data.buffer);
         current_task->file_table[fd1].flags = 0;
         current_task->file_table[fd2].flags = 0;
