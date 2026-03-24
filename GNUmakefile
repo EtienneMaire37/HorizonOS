@@ -18,6 +18,8 @@ MAKE := make
 
 override BASH_DIR := ${MAKE_DIR}/src/tasks/src/bash
 override COREUTILS_DIR := ${MAKE_DIR}/src/tasks/src/coreutils
+override LESS_DIR := ${MAKE_DIR}/src/tasks/src/less
+
 override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no fu_cv_sys_mounted_getmntinfo=yes ac_cv_func_splice=no
 
 override KERNEL_SRC := $(shell find src/kernel -name '*.c')
@@ -32,6 +34,8 @@ override MLIBC_STAMP := ${MAKE_DIR}/mlibc/.built
 override NCURSES_STAMP := ${MAKE_DIR}/ncurses/.built
 
 override BASH_DL_STAMP := $(BASH_DIR)/.downloaded
+override LESS_DL_STAMP := $(LESS_DIR)/.downloaded
+override LESS_BUILD_STAMP := $(LESS_DIR)/.built
 override COREUTILS_DL_STAMP := ${MAKE_DIR}/src/tasks/src/coreutils/.downloaded
 override COREUTILS_BUILD_STAMP := ${MAKE_DIR}/src/tasks/src/coreutils/.built
 
@@ -81,7 +85,7 @@ bin/%.o: src/kernel/%.c src/kernel/link.ld limine/limine
 	-MMD -MP \
 	-Wall -Werror -Wno-address-of-packed-member -fpie -fpic -flto=auto -Iroot/usr/include \
 	-O3 -ffunction-sections -fdata-sections -mabi=sysv \
-	-std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fno-omit-frame-pointer -fstack-protector-strong -march=x86-64 \
+	-std=gnu11 -nostdlib -ffreestanding -masm=intel -m64 -mno-ms-bitfields -mlong-double-80 -fstack-protector-strong -march=x86-64 \
 	-mno-red-zone \
 	-Wno-stringop-overflow -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-unused-function -Wno-format-zero-length \
 	-mgeneral-regs-only \
@@ -168,17 +172,17 @@ horizonos.iso: $(shell find src/system -type f) $(MLIBC_STAMP) $(HOSGCC) resourc
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* $(COREUTILS_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(HOSGCC)
+src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
-src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(HOSGCC)
+src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
-$(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(HOSGCC)
+$(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(MLIBC_STAMP)
 	cd $(COREUTILS_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
 	cd $(COREUTILS_DIR) && $(MAKE) -j$(nproc)
 	cd $(COREUTILS_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
@@ -195,7 +199,7 @@ $(COREUTILS_DL_STAMP):
 	patch $(COREUTILS_DIR)/gnulib/lib/getlocalename_l-unsafe.c < diffs/coreutils/getlocalename.diff
 	touch $@
 
-root/usr/bin/bash: $(BASH_DL_STAMP) $(NCURSES_STAMP) $(HOSGCC)
+root/usr/bin/bash: $(BASH_DL_STAMP) $(NCURSES_STAMP) $(MLIBC_STAMP)
 	cd $(BASH_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --without-bash-malloc --disable-nls --with-curses
 	cd $(BASH_DIR) && $(MAKE) -j$(nproc)
 	cd $(BASH_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
@@ -206,6 +210,20 @@ $(BASH_DL_STAMP):
 	git clone https://git.savannah.gnu.org/git/bash.git $(BASH_DIR)
 	cd $(BASH_DIR) && git checkout 637f5c8696a6adc9b4519f1cd74aa78492266b7f
 	git -C $(BASH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
+	touch $@
+
+$(LESS_BUILD_STAMP): $(LESS_DL_STAMP) $(MLIBC_STAMP)
+	cd $(LESS_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
+	cd $(LESS_DIR) && $(MAKE) -j$(nproc)
+	cd $(LESS_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
+	touch $@
+
+$(LESS_DL_STAMP):
+	rm -rf $(LESS_DIR)
+	mkdir -p $(LESS_DIR)
+	git clone https://github.com/gwsw/less $(LESS_DIR)
+	cd $(LESS_DIR) && git checkout 7bd865254d3520ca6f2272ca37849d0de05fd7c7
+	cd $(LESS_DIR) && make -f Makefile.aut distfiles
 	touch $@
 
 $(HOSGCC): $(LINUX_HEADERS_STAMP)

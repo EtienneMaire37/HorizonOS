@@ -10,9 +10,9 @@
 #define SIGDEF_STOP 3
 #define SIGDEF_CONT 4
 
-static inline int sig_default_action(int sig) 
+static inline int sig_default_action(int sig)
 {
-    switch (sig) 
+    switch (sig)
     {
         case SIGABRT:
         case SIGBUS:

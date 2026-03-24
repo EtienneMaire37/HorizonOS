@@ -47,10 +47,14 @@
 #define sc_ret(n)       SC_RET##n
 #define sc_ret_errno    sc_ret(0)
 
+#define SC_LOG_SCHED_DEPTH  0
+
 #ifdef LOG_SYSCALLS
-#define SC_LOG(...) LOG(TRACE, __VA_ARGS__)
+#define SC_LOG(...) do { LOG(TRACE, "[pid = %d] ", current_task->pid); if (SC_LOG_SCHED_DEPTH) CONTINUE_LOG(TRACE, "(sched depth = %d) ", task_lock_depth); CONTINUE_LOG(TRACE, __VA_ARGS__); } while (0)
 #else
 #define SC_LOG(fmt, ...)
 #endif
 
 void c_syscall_handler(interrupt_registers_t* registers, void** return_address);
+
+void task_handle_signal_to_userspace(interrupt_registers_t* registers);

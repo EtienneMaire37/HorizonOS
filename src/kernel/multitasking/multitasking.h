@@ -114,6 +114,9 @@ void multitasking_add_idle_task(char* name);
 void multitasking_add_task(thread_t* task);
 void multitasking_remove_task(thread_t* task);
 
+void task_stop(thread_t* thread, int sig);
+void task_continue(thread_t* thread);
+
 thread_t* find_running_task_by_pid(pid_t pid);
 thread_t* find_task_by_pid_in_queue(void* queue, pid_t pid);
 thread_t* find_task_by_pid_anywhere(pid_t pid);

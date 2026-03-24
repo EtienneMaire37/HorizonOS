@@ -627,6 +627,8 @@ void _start()
         }
     };
 
+    assert((sizeof(interrupt_registers_t) % 16) == 0);
+
     LOG(DEBUG, "sizeof(thread_t): %lld", (unsigned long long)sizeof(thread_t));
 
     LOG(INFO, "cr4: %#" PRIx64, get_cr4());

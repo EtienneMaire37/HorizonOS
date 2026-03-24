@@ -32,7 +32,7 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 
     bool dynamic = false;
 
-    assert(ring == 0 || ring == 3);
+    assert(ring == 3);
 
     initrd_file_t* file;
     if (!(file = initrd_find_file(path)))

@@ -25,8 +25,51 @@
 #include "../vfs/table.h"
 #include <sys/utsname.h>
 #include "../system/info.h"
+#include "../vfs/pipe.h"
 
 extern void sigret();
+
+void task_handle_signal_to_userspace(interrupt_registers_t* registers)
+{
+    lock_scheduler();
+    if (current_task->sig_pending_user_space)
+    {
+        if (current_task->pending_signal_handler)
+        {
+            setup_user_signal_stack_frame__interrupt(registers);
+        }
+        else
+        {
+            int dfl_action = sig_default_action(current_task->pending_signal_number);
+            SC_LOG("Signal action defaulted to %s",
+                dfl_action == SIGDEF_IGN ? "\"ignore\"" :
+               (dfl_action == SIGDEF_STOP ? "\"stop\"" :
+               (dfl_action == SIGDEF_CONT ? "\"continue\"" :
+               (dfl_action == SIGDEF_TERM ? "\"kill\"" :
+               (dfl_action == SIGDEF_CORE ? "\"core dump\"" :
+                "\"invalid action\"")))));
+            switch (dfl_action)
+            {
+            case SIGDEF_IGN:
+                break;
+            case SIGDEF_STOP:
+                task_stop(current_task, current_task->pending_signal_number);
+                break;
+            case SIGDEF_CONT:
+                task_continue(current_task);
+                break;
+            case SIGDEF_TERM:
+            case SIGDEF_CORE:
+            default:
+                unlock_scheduler();
+                kill_task(current_task, current_task->pending_signal_number);
+                assert(!"Fatal error handling signal");
+            }
+        }
+        current_task->sig_pending_user_space = false;
+    }
+    unlock_scheduler();
+}
 
 void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 {
@@ -50,7 +93,6 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         ssize_t ret;
         sc_ret_errno = (uint64_t)vfs_read(arg1, arg2, arg3, &ret);
         sc_ret(1) = (uint64_t)ret;
-        // hexdump(arg2, ret);
         break;
     sc_case(SYS_WRITE, 3, int, const void*, size_t)
         SC_LOG("syscall SYS_WRITE(%d, %p, %zu)", arg1, arg2, arg3);
@@ -117,7 +159,6 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         {
             sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)MAP_FAILED;
-            unlock_scheduler();
             break;
         }
 
@@ -626,15 +667,21 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
             sc_ret_errno = EINVAL;
             break;
         }
-        if (arg3 & WNOHANG)
+        lock_scheduler();
+        pid_t first_pid = waitpid_find_child_in_tq(&dead_tasks, arg1, arg2, current_task->pgid);
+        if (!first_pid && !hashmap_get_item(pid_to_children_tq_hashmap, current_task->pid))
         {
-            lock_scheduler();
-            sc_ret(1) = waitpid_find_child_in_tq(&dead_tasks, arg1, arg2, current_task->pgid);
+            unlock_scheduler();
+            sc_ret_errno = ECHILD;
+            break;
+        }
+        if (arg3 & WNOHANG || first_pid)
+        {
+            sc_ret(1) = first_pid;
             unlock_scheduler();
             sc_ret_errno = 0;
             break;
         }
-        lock_scheduler();
         current_task->wait_pid = arg1;
         current_task->pgid_on_waitpid = current_task->pgid;
         current_task->waitpid_flags = arg3;
@@ -1180,14 +1227,5 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
         sc_ret_errno = ENOSYS;
     }
 
-    lock_scheduler();
-    if (current_task->sig_pending_user_space)
-    {
-        setup_user_signal_stack_frame__interrupt(registers);
-        current_task->sig_pending_user_space = false;
-        // *return_address = intret;
-    }
-    unlock_scheduler();
-
-    // SC_LOG("returning from syscall to address %p", *return_address);
+    task_handle_signal_to_userspace(registers);
 }

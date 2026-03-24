@@ -62,22 +62,22 @@ INT_NO_ERROR_CODE 31
 %assign i 32
     %rep    16
         INT_NO_ERROR_CODE i
-    %assign i i+1 
+    %assign i i+1
     %endrep
 
 ; All the other interrupts
 %assign i 48
     %rep    (256 - 48)
         INT_NO_ERROR_CODE i
-    %assign i i+1 
+    %assign i i+1
     %endrep
 
 global interrupt_table
 interrupt_table:
-    %assign i 0 
+    %assign i 0
     %rep    256
         dq INT_%+i
-    %assign i i+1 
+    %assign i i+1
     %endrep
 
 extern interrupt_handler
@@ -117,12 +117,12 @@ _interrupt_handler:
 
     mov rax, cr3
     push rax
-    
+
     mov rdi, rsp
 
-    ; * "The common recommendation is to use interrupt gates so that the assembly part of the interrupt handler 
-    ; * can fully save all necessary registers to the stack before conditionally enabling interrupts 
-    ; * (if "enough" stack space is left for the kernel, for some measure of "enough"). 
+    ; * "The common recommendation is to use interrupt gates so that the assembly part of the interrupt handler
+    ; * can fully save all necessary registers to the stack before conditionally enabling interrupts
+    ; * (if "enough" stack space is left for the kernel, for some measure of "enough").
     ; * This way, interrupts are enabled most of the time."
     ; * -> nullplan
     sti
@@ -130,7 +130,7 @@ _interrupt_handler:
 global intret
 intret:
     cli
-    
+
     add rsp, 8 + 8  ; skip cr2 and cr3
 
     pop rax

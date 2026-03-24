@@ -431,18 +431,19 @@ void cleanup_tasks()
 
 void waitpid_check_dead()
 {
-    // TODO: Rewrite all this and the iterations over circular doubly linked lists everywhere else
     lock_scheduler();
-    thread_queue_item_t* cur_dead_task = dead_tasks;
-    if (waitpid_tasks && cur_dead_task)
+    thread_queue_item_t* it = dead_tasks;
+    if (waitpid_tasks && it)
     {
         do
         {
-            thread_t* thread = (thread_t*)cur_dead_task->data;
+            thread_t* thread = (thread_t*)it->data;
             thread_t* parent = find_task_by_pid_in_queue(&waitpid_tasks, thread->ppid);
-            pid_t pid = parent->wait_pid;
+            thread_queue_item_t* cur_dead_task = it;
+            it = it->next;
             if (parent)
             {
+                pid_t pid = parent->wait_pid;
                 if (pid > 0)
                 {
                     if (thread->pid == pid)
@@ -484,9 +485,8 @@ void waitpid_check_dead()
                 if (!find_task_by_pid_anywhere(thread->ppid))
                     move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
             }
-            cur_dead_task = cur_dead_task->next;
         }
-        while (dead_tasks != TQ_INIT && cur_dead_task != dead_tasks);
+        while (dead_tasks != TQ_INIT && it != dead_tasks);
     }
     unlock_scheduler();
 }
@@ -548,8 +548,10 @@ void kill_task(thread_t* task, int ret)
         task_send_signal(global_parent, SIGCHLD);
 
     if (task == current_task)
+    {
         switch_task();
-
+        assert(task_lock_depth == 1);
+    }
     unlock_scheduler();
 }
 

@@ -121,8 +121,7 @@ void full_context_switch(thread_t* next)
     last_task = old_task;
     current_task = next;
 
-    if (old_task->ring != 0)
-        swapgs();
+    swapgs();
 
     old_task->fs_base = rdfsbase();
     old_task->gs_base = rdgsbase();
@@ -141,8 +140,7 @@ void end_context_switch()
     wrfsbase(current_task->fs_base);
     wrgsbase(current_task->gs_base);
 
-    if (current_task->ring != 0)
-        swapgs();
+    swapgs();
 
     // LOG(DEBUG, "Saved context of the last task:");
     // log_context(last_task);
@@ -231,7 +229,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
     return 0;
 }
 
-static inline void task_stop(thread_t* thread, int sig)
+void task_stop(thread_t* thread, int sig)
 {
     LOG(TRACE, "Stopping task \"%s\"", thread->name);
 
@@ -256,7 +254,7 @@ static inline void task_stop(thread_t* thread, int sig)
     if (thread == current_task)
         switch_task();
 }
-static inline void task_continue(thread_t* thread)
+void task_continue(thread_t* thread)
 {
     LOG(TRACE, "Resuming task \"%s\"", thread->name);
     if (thread->queue == &stopped_tasks)
@@ -346,29 +344,10 @@ void task_handle_signal(thread_t* thread, int sig)
     }
 
 dfl:
-    int dfl_action = sig_default_action(sig);
-    LOG(TRACE, "Signal action defaulted to %s",
-        dfl_action == SIGDEF_IGN ? "\"ignore\"" :
-       (dfl_action == SIGDEF_STOP ? "\"stop\"" :
-       (dfl_action == SIGDEF_CONT ? "\"continue\"" :
-       (dfl_action == SIGDEF_TERM ? "\"kill\"" :
-       (dfl_action == SIGDEF_CORE ? "\"core dump\"" :
-        "\"invalid action\"")))));
-    switch (dfl_action)
-    {
-    case SIGDEF_IGN:
-        break;
-    case SIGDEF_STOP:
-        task_stop(thread, sig);
-        break;
-    case SIGDEF_CONT:
-        task_continue(thread);
-        break;
-    case SIGDEF_TERM:
-    case SIGDEF_CORE:
-    default:
-        kill_task(thread, sig);
-    }
+    thread->pending_signal_handler = 0;
+    thread->sig_pending_user_space = true;
+    thread->pending_signal_number = sig;
+    move_task_to_queue(&running_tasks, thread);
     unlock_scheduler();
     return;
 

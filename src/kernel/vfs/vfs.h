@@ -4,6 +4,7 @@
 #include "../multitasking/mutex.h"
 #include "../initrd/initrd.h"
 #include <sys/stat.h>
+#include "pipe.h"
 
 typedef struct
 {
@@ -120,21 +121,6 @@ struct folder_child_data
     bool done_reading;
 };
 
-struct ring_buffer
-{
-    void* buffer;
-    size_t size;
-    size_t put_index;
-    size_t get_index;
-};
-
-struct pipe_data
-{
-    struct ring_buffer* buffer;
-
-    int other_end;
-};
-
 #define IO_DIR_READ    1
 #define IO_DIR_WRITE   2
 
@@ -172,7 +158,6 @@ ssize_t task_chr_tty(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t di
 ssize_t initrd_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction);
 
 bool vfs_isatty(file_entry_t* entry);
-bool vfs_isapipe(file_entry_t* entry);
 
 vfs_file_tnode_t* vfs_add_special(const char* folder, const char* name, mode_t mode, ssize_t (*fun)(file_entry_t*, uint8_t*, size_t, uint8_t),
     uid_t uid, gid_t gid);
@@ -189,5 +174,3 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read);
 int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* bytes_written);
 
 void vfs_log_tree();
-
-int vfs_setup_pipe(int* ds, int flags);

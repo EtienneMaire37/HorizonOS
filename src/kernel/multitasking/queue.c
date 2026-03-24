@@ -44,6 +44,8 @@ void move_running_task_to_thread_queue(thread_queue_t* queue, thread_t* task)
 
 void move_task_to_running_queue(thread_queue_t* queue, thread_queue_item_t* item)
 {
+    if (queue == &dead_tasks || queue == &reapable_tasks)
+        return;
     lock_scheduler();
     multitasking_add_task(item->data);
     thread_queue_remove(queue, item);

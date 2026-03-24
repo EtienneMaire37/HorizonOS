@@ -40,14 +40,14 @@ static inline const char* get_panic_message(int err)
     LOG(INFO, "RDI=%#.16" PRIx64 " RSI=%#.16" PRIx64, registers->rdi, registers->rsi); \
     log_segbase(); } while (0)
 
-#define is_a_valid_function(symbol_type) ((symbol_type) == 'T' || (symbol_type) == 'R' || (symbol_type) == 't' || (symbol_type) == 'r')  
+#define is_a_valid_function(symbol_type) ((symbol_type) == 'T' || (symbol_type) == 'R' || (symbol_type) == 't' || (symbol_type) == 'r')
 
 static inline void print_kernel_symbol_name(uintptr_t rip, uintptr_t rbp, bool ttyout)
 {
     initrd_file_t* file = kernel_symbols_file;
     if (file == NULL) return;
     if (file->size == 0 || file->data == NULL) return;
-    
+
     uintptr_t symbol_address = 0, last_symbol_address = 0, current_symbol_address = 0;
     uintptr_t file_offset = 0, line_offset = 0;
     char last_symbol_buffer[64] = {0};
@@ -63,7 +63,7 @@ static inline void print_kernel_symbol_name(uintptr_t rip, uintptr_t rbp, bool t
                 if (ttyout)
                     putchar(file == kernel_symbols_file ? '[' : '(');
                 CONTINUE_LOG(INFO, file == kernel_symbols_file ? "[" : "(");
-                
+
                 if (ttyout)
                 {
                     if (found_symbol_type == 'T' || found_symbol_type == 't')
@@ -239,7 +239,7 @@ static inline void __attribute__((noreturn)) kernel_panic_ex(interrupt_registers
     tty_set_color(FG_WHITE, BG_BLACK);
     if (registers)
         printf("Error code:       %#" PRIx64, registers->error_code);
-    
+
     puts("\n"); // skip 2 lines
 
     if (registers)
@@ -295,7 +295,7 @@ static inline void __attribute__((noreturn)) kernel_panic_ex(interrupt_registers
             putchar('\n');
         }
     }
-    
+
     if (registers)
     {
         log_registers();
@@ -306,7 +306,7 @@ static inline void __attribute__((noreturn)) kernel_panic_ex(interrupt_registers
         registers->r8, registers->r9, registers->r10, registers->r11);
         printf("R12=%#.16" PRIx64 " R13=%#.16" PRIx64 " R14=%#.16" PRIx64 " R15=%#.16" PRIx64 "\n", registers->r12, registers->r13, registers->r14, registers->r15);
         printf("RDI=%#.16" PRIx64 " RSI=%#.16" PRIx64 "\n\n", registers->rdi, registers->rsi);
-        
+
         print_stack_trace(registers->rip, registers->rbp, true);
     }
     else

@@ -33,6 +33,7 @@ Here's a (non exhaustive) list of the supported options:
 | Option | Value   | Description |
 | ------ | ------- | ----------- |
 | -DNDEBUG | N/A | Disable assertions. Might make the kernel run smoother depending on the configuration |
+| -fno-stack-protector | N/A | Disable stack protector. May improve performance in some cases |
 | -DLOG_LEVEL | ={TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL} | Level from which logs are written to port 0xe9 |
 | -DLOG_SYSCALLS | N/A | Whether to log syscalls |
 | -DLOG_MEMORY | N/A | Whether to log page allocation |
@@ -48,6 +49,10 @@ Here's a (non exhaustive) list of the supported options:
 For example to build with LOG_LEVEL=TRACE, LOG_SYSCALLS and NDEBUG:
 ```bash
 make USER_CFLAGS="-DLOG_LEVEL=TRACE -DLOG_SYSCALLS -DNDEBUG"
+```
+Or to build in "Release" mode (little to no security and checks):
+```bash
+make USER_CFLAGS="-DNDEBUG -fno-stack-protector"
 ```
 
 A `horizonos.iso` disk image file will be created in the root of the repository.

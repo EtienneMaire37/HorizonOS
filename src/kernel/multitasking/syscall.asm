@@ -51,7 +51,7 @@ syscall_handler:
     sti
     call c_syscall_handler
     cli
-    
+
     add rsp, 8 + 8 ; * same here
 
     pop rax
@@ -75,10 +75,10 @@ syscall_handler:
     pop rax
 
     add rsp, 8 + 8 ; * same here
-    
+
     mov rcx, [rsp + 0 * 8]
     mov rsp, [rsp + 3 * 8]
-    
+
     push r11
     popfq
 

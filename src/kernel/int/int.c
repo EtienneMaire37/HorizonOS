@@ -11,10 +11,11 @@ initrd_file_t* kernel_symbols_file = NULL;
 #include "irq.h"
 #include "nmi.h"
 #include "../multitasking/signal.h"
+#include "../multitasking/syscall.h"
 
 #include "kernel_panic.h"
 
-#define return_from_isr() { if (multitasking_enabled) { lock_scheduler(); if (current_task->sig_pending_user_space && registers->cs != KERNEL_CODE_SEGMENT) { setup_user_signal_stack_frame__interrupt(registers); current_task->sig_pending_user_space = false; } unlock_scheduler(); } return; }
+#define return_from_isr() { if (multitasking_enabled) { lock_scheduler(); if (current_task->sig_pending_user_space && registers->cs != KERNEL_CODE_SEGMENT) { unlock_scheduler(); task_handle_signal_to_userspace(registers); } else unlock_scheduler(); } return; }
 
 void interrupt_handler(interrupt_registers_t* registers)
 {
@@ -28,22 +29,22 @@ void interrupt_handler(interrupt_registers_t* registers)
     {
         if (multitasking_enabled)
             LOG(WARNING, "[task \"%s\" (pid %u)]: ", current_task->name, current_task->pid);
-        
-        CONTINUE_LOG(WARNING, "Fault : Exception number : %" PRIu64 " ; Error : %s ; Error code = %#" PRIx64 " ; cr2 = %#" PRIx64 " ; cr3 = %#" PRIx64 " ; rip = %#" PRIx64, 
-            registers->interrupt_number, get_error_message(registers->interrupt_number, registers->error_code), 
+
+        CONTINUE_LOG(WARNING, "Fault : Exception number : %" PRIu64 " ; Error : %s ; Error code = %#" PRIx64 " ; cr2 = %#" PRIx64 " ; cr3 = %#" PRIx64 " ; rip = %#" PRIx64,
+            registers->interrupt_number, get_error_message(registers->interrupt_number, registers->error_code),
             registers->error_code, registers->cr2, registers->cr3, registers->rip);
-        
+
         LOG(WARNING, "CS: %#.16" PRIx64 " DS: %#.16" PRIx64 " SS: %#.16" PRIx64, registers->cs, registers->ds, registers->ss);
         log_segbase();
 
         if (multitasking_enabled)
         {
-            if (current_task->system_task || task_count == 1 || !multitasking_enabled || 
+            if (task_lock_depth != 0)
+                kernel_panic(registers);
+
+            if (current_task->system_task || task_count == 1 || !multitasking_enabled ||
 registers->interrupt_number == DOUBLE_FAULT || registers->interrupt_number == MACHINE_CHECK)
-            {
-                disable_interrupts();
-                kernel_panic((interrupt_registers_t*)registers);
-            }
+                kernel_panic(registers);
             else
             {
                 print_stack_trace(registers->rip, registers->rbp, false);
@@ -55,7 +56,7 @@ registers->interrupt_number == DOUBLE_FAULT || registers->interrupt_number == MA
             }
         }
         else
-            kernel_panic((interrupt_registers_t*)registers);
+            kernel_panic(registers);
         return_from_isr();
     }
 

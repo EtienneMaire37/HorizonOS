@@ -9,11 +9,11 @@ sighandler:
     mov rax, 33
     syscall
 do_ud:
-    ud
+    ud2
     jmp do_ud
 
 extern intret
 global sigret
-sigret: 
+sigret:
     mov rsp, [gs:0] ; * remove syscall stack frame
     jmp intret
