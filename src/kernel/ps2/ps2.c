@@ -5,6 +5,7 @@
 #include "../io/io.h"
 #include "../debug/out.h"
 #include "keyboard.h"
+#include "../multitasking/multitasking.h"
 
 uint8_t ps2_device_1_type = PS2_DEVICE_UNKNOWN;
 uint8_t ps2_device_2_type = PS2_DEVICE_UNKNOWN;
@@ -16,13 +17,13 @@ bool ps2_device_1_connected, ps2_device_2_connected;
 uint8_t ps2_data_buffer[PS2_READ_BUFFER_SIZE];
 uint8_t ps2_data_bytes_received;
 
-bool ps2_wait_for_output() 
+bool ps2_wait_for_output()
 {
     if (!ps2_controller_connected)
         return true;
     uint64_t start = precise_time_to_milliseconds(global_timer);
     while (precise_time_to_milliseconds(global_timer) - start < PS2_WAIT_TIME)
-    { 
+    {
         uint8_t reg = inb(PS2_STATUS_REGISTER);
         if ((reg & PS2_STATUS_INPUT_FULL) == 0) // * Device has read all data
             return false;
@@ -37,7 +38,7 @@ bool ps2_wait_for_input_with_timeout(uint64_t timeout)
         return true;
     uint64_t start = precise_time_to_milliseconds(global_timer);
     while (precise_time_to_milliseconds(global_timer) - start < timeout)
-    { 
+    {
         uint8_t reg = inb(PS2_STATUS_REGISTER);
         if (reg & PS2_STATUS_OUTPUT_FULL)   // * Device has data to send
             return false;
@@ -51,7 +52,7 @@ bool ps2_wait_for_input()
     return ps2_wait_for_input_with_timeout(PS2_WAIT_TIME);
 }
 
-void ps2_flush_buffer() 
+void ps2_flush_buffer()
 {
     if (!ps2_controller_connected)
         return;
@@ -59,7 +60,7 @@ void ps2_flush_buffer()
         inb(PS2_DATA);
 }
 
-uint8_t ps2_send_command(uint8_t command) 
+uint8_t ps2_send_command(uint8_t command)
 {
     if (!ps2_controller_connected)
         return 0xff;
@@ -76,7 +77,7 @@ uint8_t ps2_send_command(uint8_t command)
             return 0xff;
         outb(PS2_COMMAND_REGISTER, command);
 
-        if (ps2_wait_for_input()) 
+        if (ps2_wait_for_input())
             return 0xff;
         return_val = inb(PS2_DATA);
 
@@ -96,7 +97,7 @@ void ps2_send_command_no_response(uint8_t command)
     outb(PS2_COMMAND_REGISTER, command);
 }
 
-uint8_t ps2_send_command_with_data(uint8_t command, uint8_t data) 
+uint8_t ps2_send_command_with_data(uint8_t command, uint8_t data)
 {
     if (!ps2_controller_connected)
         return 0xff;
@@ -116,7 +117,7 @@ uint8_t ps2_send_command_with_data(uint8_t command, uint8_t data)
             return 0xff;
         outb(PS2_COMMAND_REGISTER, data);
 
-        if (ps2_wait_for_input()) 
+        if (ps2_wait_for_input())
             return 0xff;
         return_val = inb(PS2_DATA);
 
@@ -126,40 +127,40 @@ uint8_t ps2_send_command_with_data(uint8_t command, uint8_t data)
     return return_val;  // PS2_RESEND
 }
 
-void ps2_send_command_with_data_no_response(uint8_t command, uint8_t data) 
+void ps2_send_command_with_data_no_response(uint8_t command, uint8_t data)
 {
     if (!ps2_controller_connected)
         return;
 
     // LOG(TRACE, "Sending command %#x, %#x to PS/2 controller", command, data);
 
-    if (ps2_wait_for_output()) 
+    if (ps2_wait_for_output())
         return;
     outb(PS2_COMMAND_REGISTER, command);
-    if (ps2_wait_for_output()) 
+    if (ps2_wait_for_output())
         return;
     outb(PS2_DATA, data);
 }
 
-bool ps2_send_device_command(uint8_t device, uint8_t command) 
+bool ps2_send_device_command(uint8_t device, uint8_t command)
 {
     if (!ps2_controller_connected)
         return false;
 
     // LOG(TRACE, "Sending command %#x to PS/2 device %u", command, device);
 
-    for (int tries = 0; tries < PS2_MAX_RESEND; tries++) 
+    for (int tries = 0; tries < PS2_MAX_RESEND; tries++)
     {
-        if (ps2_wait_for_output()) 
+        if (ps2_wait_for_output())
         {
             LOG(DEBUG, "Timeout waiting to send to device %d", device);
             continue;
         }
 
-        if (device == 2) 
+        if (device == 2)
             outb(PS2_COMMAND_REGISTER, PS2_WRITE_DEVICE_2);
 
-        if (ps2_wait_for_output()) 
+        if (ps2_wait_for_output())
         {
             LOG(DEBUG, "Timeout waiting to send to device %d", device);
             continue;
@@ -224,7 +225,7 @@ bool ps2_send_device_full_command_with_data(uint8_t device, uint8_t command, uin
     return false;
 }
 
-void ps2_read_data(uint8_t expected_bytes) 
+void ps2_read_data(uint8_t expected_bytes)
 {
     ps2_data_bytes_received = 0;
     if (!ps2_controller_connected)
@@ -237,7 +238,7 @@ void ps2_read_data(uint8_t expected_bytes)
     }
 }
 
-void ps2_read_additional_data() 
+void ps2_read_additional_data()
 {
     // ps2_data_bytes_received = 0;
     if (!ps2_controller_connected)
@@ -246,7 +247,7 @@ void ps2_read_additional_data()
         ps2_data_buffer[ps2_data_bytes_received++] = inb(PS2_DATA);
 }
 
-void ps2_controller_init() 
+void ps2_controller_init()
 {
     LOG(DEBUG, "PS/2 controller initialization sequence");
 
@@ -267,7 +268,7 @@ void ps2_controller_init()
     ps2_send_command_no_response(PS2_DISABLE_DEVICE_1);
     LOG(DEBUG, "Disabling device 2");
     ps2_send_command_no_response(PS2_DISABLE_DEVICE_2);
-    
+
     ps2_flush_buffer();
 
     LOG(DEBUG, "Setting up the Controller Configuration Byte");
@@ -283,7 +284,7 @@ void ps2_controller_init()
 
     uint8_t self_test_code = ps2_send_command(PS2_TEST_CONTROLLER);
 
-    if (self_test_code != PS2_SELF_TEST_OK) 
+    if (self_test_code != PS2_SELF_TEST_OK)
     {
         LOG(ERROR, "Controller self-test failed (code %#x)", self_test_code);
         printf("Controller self-test failed (code %#x)\n", self_test_code);
@@ -297,7 +298,7 @@ void ps2_controller_init()
     ps2_send_device_full_command(2, PS2_DISABLE_SCANNING, 0);
     ps2_send_command_no_response(PS2_ENABLE_DEVICE_2);
     ps2_flush_buffer();
-    
+
         uint8_t new_config = ps2_send_command(PS2_GET_CONFIGURATION);
         dual_channel = !(new_config & 0b00100000);  // * Second port enabled
 
@@ -310,7 +311,7 @@ void ps2_controller_init()
 
     uint8_t port_1_status = ps2_send_command(PS2_TEST_DEVICE_1), port_2_status = ps2_send_command(PS2_TEST_DEVICE_2);
     ps2_device_1_connected = (port_1_status == PS2_DEVICE_TEST_PASS);
-    ps2_device_2_connected = dual_channel && 
+    ps2_device_2_connected = dual_channel &&
                            (port_2_status == PS2_DEVICE_TEST_PASS);
 
     if (port_1_status != PS2_DEVICE_TEST_PASS)
@@ -320,14 +321,14 @@ void ps2_controller_init()
 
     LOG(DEBUG, "Resetting the devices");
 
-    if (ps2_device_1_connected) 
+    if (ps2_device_1_connected)
     {
         ps2_send_device_full_command(1, PS2_DISABLE_SCANNING, 0);
         ps2_send_command_no_response(PS2_ENABLE_DEVICE_1);
         if (ps2_send_device_full_command(1, PS2_RESET, 2))
         {
-            if (ps2_data_bytes_received == 2 && 
-                ps2_data_buffer[1] == PS2_DEVICE_BAT_OK) 
+            if (ps2_data_bytes_received == 2 &&
+                ps2_data_buffer[1] == PS2_DEVICE_BAT_OK)
             {
                 LOG(INFO, "PS/2 Device 1 basic assurance test passed");
             }
@@ -343,14 +344,14 @@ void ps2_controller_init()
             ps2_device_1_connected = false;
     }
 
-    if (ps2_device_2_connected) 
+    if (ps2_device_2_connected)
     {
         ps2_send_device_full_command(2, PS2_DISABLE_SCANNING, 0);
         ps2_send_command_no_response(PS2_ENABLE_DEVICE_2);
         if (ps2_send_device_full_command(2, PS2_RESET, 2))
         {
-            if (ps2_data_bytes_received == 2 && 
-                ps2_data_buffer[1] == PS2_DEVICE_BAT_OK) 
+            if (ps2_data_bytes_received == 2 &&
+                ps2_data_buffer[1] == PS2_DEVICE_BAT_OK)
             {
                 LOG(INFO, "PS/2 Device 2 basic assurance test passed");
             }
@@ -374,33 +375,33 @@ void ps2_controller_init()
     // if (ps2_device_2_connected) config &= ~0b00000010;
     ps2_send_command_with_data_no_response(PS2_SET_CONFIGURATION, config);
 
-    LOG(INFO, "PS/2 Controller initialized. Devices: %u/%u", 
+    LOG(INFO, "PS/2 Controller initialized. Devices: %u/%u",
         ps2_device_1_connected, ps2_device_2_connected);
 }
 
-void ps2_detect_keyboards() 
+void ps2_detect_keyboards()
 {
     if (!ps2_controller_connected)
         return;
 
     LOG(INFO, "Detecting PS/2 keyboards");
 
-    if (ps2_device_1_connected) 
+    if (ps2_device_1_connected)
         ps2_send_device_full_command(1, PS2_DISABLE_SCANNING, 1);
     if (ps2_device_2_connected)
         ps2_send_device_full_command(2, PS2_DISABLE_SCANNING, 1);
     ps2_flush_buffer();
-    
-    if (ps2_device_1_connected) 
+
+    if (ps2_device_1_connected)
     {
         if (ps2_send_device_full_command(1, PS2_IDENTIFY, 3))
         {
             if (!(ps2_data_bytes_received >= 1 && ps2_data_buffer[0] == PS2_ACK))
                 goto invalid_port_1;
 
-            LOG(INFO, "PS/2 port 1 id : %#x %#x (%u bytes)", ps2_data_buffer[1], 
+            LOG(INFO, "PS/2 port 1 id : %#x %#x (%u bytes)", ps2_data_buffer[1],
                 ps2_data_buffer[2], ps2_data_bytes_received - 1);
-            
+
             if (ps2_data_bytes_received >= 3 && ps2_data_buffer[1] == 0xab) // Any PS/2 keyboard
             {
                 ps2_device_1_type = PS2_DEVICE_KEYBOARD;
@@ -416,16 +417,16 @@ invalid_port_1:
 valid_port_1:
     ps2_flush_buffer();
 
-    if (ps2_device_2_connected) 
+    if (ps2_device_2_connected)
     {
         if (ps2_send_device_full_command(2, PS2_IDENTIFY, 3))
         {
             if (!(ps2_data_bytes_received >= 1 && ps2_data_buffer[0] == PS2_ACK))
                 goto invalid_port_2;
 
-            LOG(INFO, "PS/2 port 2 id : %#x %#x (%u bytes)", ps2_data_buffer[1], 
+            LOG(INFO, "PS/2 port 2 id : %#x %#x (%u bytes)", ps2_data_buffer[1],
                 ps2_data_buffer[2], ps2_data_bytes_received - 1);
-            
+
             if (ps2_data_bytes_received >= 3 && ps2_data_buffer[1] == 0xab) // Any PS/2 keyboard
             {
                 ps2_device_2_type = PS2_DEVICE_KEYBOARD;
@@ -451,10 +452,10 @@ valid_port_2:
 void ps2_enable_interrupts()
 {
     LOG(INFO, "Enabling PS/2 IRQs");
-    
+
     ps2_device_1_interrupt = ps2_device_1_connected;
     ps2_device_2_interrupt = ps2_device_2_connected;
-    
+
     ps2_flush_buffer();
 
     uint8_t config = ps2_send_command(PS2_GET_CONFIGURATION);
@@ -463,7 +464,7 @@ void ps2_enable_interrupts()
     ps2_send_command_with_data_no_response(PS2_SET_CONFIGURATION, config);
 
     ksleep(10 * PRECISE_MILLISECONDS);
-    
+
     ps2_flush_buffer();
 
     enable_ps2_kb_input = true;
@@ -472,10 +473,10 @@ void ps2_enable_interrupts()
 void ps2_disable_interrupts()
 {
     LOG(INFO, "Disabling PS/2 IRQs");
-    
+
     ps2_device_1_interrupt = false;
     ps2_device_2_interrupt = false;
-    
+
     ps2_flush_buffer();
 
     uint8_t config = ps2_send_command(PS2_GET_CONFIGURATION);
@@ -489,20 +490,20 @@ void ps2_disable_interrupts()
     enable_ps2_kb_input = false;
 }
 
-void handle_irq_1(bool* task_switch, bool* send_sigint) 
+void handle_irq_1(bool* task_switch, bool* send_sigint)
 {
     if (!ps2_controller_connected)
         return;
-    
+
     if (!(inb(PS2_STATUS_REGISTER) & PS2_STATUS_OUTPUT_FULL))
         return;
 
     uint8_t data = inb(PS2_DATA);
 
-    if (!ps2_device_1_connected) 
+    if (!ps2_device_1_connected)
         return;
-    
-    if (ps2_device_1_type == PS2_DEVICE_KEYBOARD && enable_ps2_kb_input) 
+
+    if (ps2_device_1_type == PS2_DEVICE_KEYBOARD && enable_ps2_kb_input)
         ps2_handle_keyboard_scancode(1, data, task_switch, send_sigint);
 }
 
@@ -516,9 +517,9 @@ void handle_irq_12(bool* task_switch, bool* send_sigint)
 
     uint8_t data = inb(PS2_DATA);
 
-    if (!ps2_device_2_connected) 
+    if (!ps2_device_2_connected)
         return;
-    
-    if (ps2_device_2_type == PS2_DEVICE_KEYBOARD && enable_ps2_kb_input) 
+
+    if (ps2_device_2_type == PS2_DEVICE_KEYBOARD && enable_ps2_kb_input)
         ps2_handle_keyboard_scancode(2, data, task_switch, send_sigint);
 }

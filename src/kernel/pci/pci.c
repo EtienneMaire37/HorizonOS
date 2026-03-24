@@ -1,6 +1,7 @@
 #include "pci.h"
 #include "../util/math.h"
 #include "../terminal/textio.h"
+#include "../multitasking/multitasking.h"
 
 initrd_file_t* pci_ids = NULL;
 

@@ -5,13 +5,15 @@
 #include "fpu.h"
 #include "../cpu/cpuid.h"
 
+#include "../multitasking/multitasking.h"
+
 extern uint64_t fpu_state_component_bitmap;
 extern bool xsave_supported, fxsave_supported;
 
 static inline uint64_t get_supported_xcr0()
 {
     uint32_t eax = 0, ebx, ecx, edx = 0;
-// * 64-bit bitmap of state-components 
+// * 64-bit bitmap of state-components
 // * supported by XCR0 on this CPU.
     cpuid_with_ecx(0x0d, 0, eax, ebx, ecx, edx);
     return ((uint64_t)edx << 32) | eax;
@@ -19,9 +21,9 @@ static inline uint64_t get_supported_xcr0()
 static inline uint32_t get_xsave_area_size()
 {
     uint32_t eax, ebx = 0, ecx, edx;
-// * Maximum size (in bytes) 
-// * of XSAVE save area for the set 
-// * of state-components currently set in XCR0. 
+// * Maximum size (in bytes)
+// * of XSAVE save area for the set
+// * of state-components currently set in XCR0.
     cpuid_with_ecx(0x0d, 0, eax, ebx, ecx, edx);
     return ebx;
 }

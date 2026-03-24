@@ -4,6 +4,7 @@
 #include "../cpu/util.h"
 #include <stdbool.h>
 #include <limine.h>
+#include "../multitasking/multitasking.h"
 
 struct rsdp_table* rsdp;
 struct rsdt_table* rsdt;
@@ -156,7 +157,7 @@ void fadt_extract_data()
 
     if (_preferred_power_management_profile > 7)
         preferred_power_management_profile = 0;
-    else 
+    else
         preferred_power_management_profile = _preferred_power_management_profile;
 
     LOG(INFO, "Preferred power management profile : %s (%u)", _preferred_power_management_profile > 7 ? "Unknown" : preferred_power_management_profile_text[preferred_power_management_profile], _preferred_power_management_profile);

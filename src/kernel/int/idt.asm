@@ -118,6 +118,8 @@ _interrupt_handler:
     mov rax, cr3
     push rax
 
+    sub rsp, 8 ; padding
+
     mov rdi, rsp
 
     ; * "The common recommendation is to use interrupt gates so that the assembly part of the interrupt handler
@@ -130,6 +132,8 @@ _interrupt_handler:
 global intret
 intret:
     cli
+
+    add rsp, 8 ; padding
 
     add rsp, 8 + 8  ; skip cr2 and cr3
 

@@ -1,4 +1,5 @@
 #include "psf.h"
+#include "../multitasking/multitasking.h"
 
 uint32_t psf_get_glyph_width(psf_font_t* font)
 {
@@ -93,7 +94,7 @@ psf_font_t psf_font_load_from_initrd(const char* path)
     if (*(uint16_t*)data != 0x0436 && *(uint32_t*)data != 0x864ab572)    // * PSF or PSF2
     {
         LOG(ERROR, "Not a psf font");
-    
+
         font.f = NULL;
         return font;
     }

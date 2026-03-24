@@ -629,7 +629,8 @@ void _start()
 
     assert((sizeof(interrupt_registers_t) % 16) == 0);
 
-    LOG(DEBUG, "sizeof(thread_t): %lld", (unsigned long long)sizeof(thread_t));
+    LOG(DEBUG, "sizeof(interrupt_registers_t): %zu", sizeof(interrupt_registers_t));
+    LOG(DEBUG, "sizeof(thread_t): %zu", sizeof(thread_t));
 
     LOG(INFO, "cr4: %#" PRIx64, get_cr4());
 

@@ -71,7 +71,7 @@ void task_handle_signal_to_userspace(interrupt_registers_t* registers)
     unlock_scheduler();
 }
 
-void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
+uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 {
     // SC_LOG("syscall %" PRIu64, registers->rax);
     switch (registers->rax)
@@ -1057,6 +1057,8 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
     sc_case(SYS_SIGRET, 0)
         SC_LOG("syscall SYS_SIGRET()");
         *return_address = sigret;
+        // LOG(TRACE, "poped ret rsp:  %#16" PRIx64, registers->rsp);
+        // hexdump((void*)registers->rsp, sizeof(interrupt_registers_t));
         break;
     sc_case(SYS_PSELECT, 6, int, fd_set*, fd_set*, fd_set*, const struct timespec*, const sigset_t*)
         SC_LOG("syscall SYS_PSELECT(%d, %p, %p, %p, %p, %p)", arg1, arg2, arg3, arg4, arg5, arg6);
@@ -1228,4 +1230,6 @@ void c_syscall_handler(interrupt_registers_t* registers, void** return_address)
     }
 
     task_handle_signal_to_userspace(registers);
+
+    return registers->rsp;
 }

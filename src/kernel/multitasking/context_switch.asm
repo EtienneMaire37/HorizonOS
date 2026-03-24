@@ -10,8 +10,8 @@ extern task_cr3_offset
     ; $rdx = ds
 global context_switch
 context_switch:
-; * If the callee wishes to use registers RBX, RSP, RBP, and R12–R15, 
-; * it must restore their original values before returning control to the caller. 
+; * If the callee wishes to use registers RBX, RSP, RBP, and R12–R15,
+; * it must restore their original values before returning control to the caller.
 ; * All other registers must be saved by the caller if it wishes to preserve their values.
     push rbx
     push r12
@@ -49,3 +49,10 @@ context_switch:
     mov gs, dx
 
     ret
+
+global unlock_scheduler__and__iretq
+extern unlock_scheduler_symbol
+extern iretq_instruction
+unlock_scheduler__and__iretq:
+    call unlock_scheduler_symbol
+    jmp iretq_instruction

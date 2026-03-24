@@ -146,6 +146,11 @@ void end_context_switch()
     // log_context(last_task);
 }
 
+void unlock_scheduler_symbol()
+{
+    unlock_scheduler();
+}
+
 thread_t* find_next_task()
 {
     thread_t* start = current_task->next;

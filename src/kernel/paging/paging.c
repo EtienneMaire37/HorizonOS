@@ -9,11 +9,12 @@ bool pat_enabled = false;
 #include "paging.h"
 #include <string.h>
 #include "../memalloc/page_frame_allocator.h"
+#include "../multitasking/multitasking.h"
 
 uint64_t* create_empty_pdpt()
 {
     uint64_t* pdpt = pfa_allocate_page();
-    if (!pdpt) 
+    if (!pdpt)
     {
         LOG(ERROR, "Couldn't create PDPT!!!");
         return NULL;
@@ -28,7 +29,7 @@ physical_address_t create_empty_pdpt_phys()
 {
     physical_address_t paddr = pfa_allocate_physical_page();
     uint64_t* pdpt = (uint64_t*)(paddr + PHYS_MAP_BASE);
-    if (!paddr) 
+    if (!paddr)
     {
         LOG(ERROR, "Couldn't create PDPT!!!");
         return physical_null;
@@ -104,8 +105,8 @@ void set_pdpt_entry(uint64_t* entry, uint64_t address, uint8_t privilege, uint8_
     *entry = masked_address | (pcd_bit << 4) | (pwt_bit << 3) | ((privilege & 1) << 2) | ((read_write & 1) << 1) | 1;
 }
 
-void remap_range(uint64_t* pml4, 
-    uint64_t start_virtual_address, uint64_t start_physical_address, 
+void remap_range(uint64_t* pml4,
+    uint64_t start_virtual_address, uint64_t start_physical_address,
     uint64_t pages,
     uint8_t privilege, uint8_t read_write, uint8_t cache_type)
 {
@@ -140,7 +141,7 @@ void remap_range(uint64_t* pml4,
         if (!is_pdpt_entry_present(pml4_entry))
             set_pdpt_entry(pml4_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
         uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
-        
+
         uint64_t* pdpt_entry = &pdpt[pdpte];
         if (!is_pdpt_entry_present(pdpt_entry))
             set_pdpt_entry(pdpt_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
@@ -157,18 +158,18 @@ void remap_range(uint64_t* pml4,
         if (is_pdpt_entry_present(pt_entry))
             abort();
 
-        set_pdpt_entry(pt_entry, vaddr - start_virtual_address + start_physical_address, 
+        set_pdpt_entry(pt_entry, vaddr - start_virtual_address + start_physical_address,
             privilege, read_write,
             cache_type);
     }
 }
 
-void allocate_range(uint64_t* pml4, 
-    uint64_t start_virtual_address, 
+void allocate_range(uint64_t* pml4,
+    uint64_t start_virtual_address,
     uint64_t pages,
     uint8_t privilege, uint8_t read_write, uint8_t cache_type)
 {
-    // LOG(DEBUG, "allocate_range(%p, %#" PRIx64 ", %" PRId64 ", %d, %d, %d)", 
+    // LOG(DEBUG, "allocate_range(%p, %#" PRIx64 ", %" PRId64 ", %d, %d, %d)",
     //     pml4, start_virtual_address, pages, privilege, read_write, cache_type);
 
     if (!pml4)
@@ -200,7 +201,7 @@ void allocate_range(uint64_t* pml4,
             set_pdpt_entry(pml4_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
         uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
-        
+
         uint64_t* pdpt_entry = &pdpt[pdpte];
         if (!is_pdpt_entry_present(pdpt_entry))
             set_pdpt_entry(pdpt_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
@@ -217,14 +218,14 @@ void allocate_range(uint64_t* pml4,
         if (is_pdpt_entry_present(pt_entry))
             abort();
 
-        set_pdpt_entry(pt_entry, pfa_allocate_physical_page(), 
+        set_pdpt_entry(pt_entry, pfa_allocate_physical_page(),
             privilege, read_write,
             cache_type);
     }
 }
 
-void free_range(uint64_t* pml4, 
-    uint64_t start_virtual_address, 
+void free_range(uint64_t* pml4,
+    uint64_t start_virtual_address,
     uint64_t pages)
 {
     if (!pml4)
@@ -256,7 +257,7 @@ void free_range(uint64_t* pml4,
         }
 
         uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
-        
+
         uint64_t* pdpt_entry = &pdpt[pdpte];
         if (!is_pdpt_entry_present(pdpt_entry))
         {
@@ -285,8 +286,8 @@ void free_range(uint64_t* pml4,
     }
 }
 
-void unmap_range(uint64_t* pml4, 
-    uint64_t start_virtual_address, 
+void unmap_range(uint64_t* pml4,
+    uint64_t start_virtual_address,
     uint64_t pages)
 {
     if (!pml4)
@@ -318,7 +319,7 @@ void unmap_range(uint64_t* pml4,
         }
 
         uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
-        
+
         uint64_t* pdpt_entry = &pdpt[pdpte];
         if (!is_pdpt_entry_present(pdpt_entry))
         {
@@ -346,8 +347,8 @@ void unmap_range(uint64_t* pml4,
     }
 }
 
-void copy_mapping(uint64_t* src, uint64_t* dst, 
-    uint64_t start_virtual_address, 
+void copy_mapping(uint64_t* src, uint64_t* dst,
+    uint64_t start_virtual_address,
     uint64_t pages)
 {
     if (!src)
@@ -390,7 +391,7 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
             set_pdpt_entry(new_pml4_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
         uint64_t* old_pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pml4_entry));
-        
+
         uint64_t* old_pdpt_entry = &old_pdpt[pdpte];
         if (!is_pdpt_entry_present(old_pdpt_entry))
             skip_pdpt();
@@ -441,7 +442,7 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
 }
 
 void* virtual_to_physical(uint64_t* cr3, uint64_t vaddr)
-{	
+{
     if (!cr3)
         return NULL;
 
@@ -455,7 +456,7 @@ void* virtual_to_physical(uint64_t* cr3, uint64_t vaddr)
         return NULL;
 
     uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
-    
+
     uint64_t* pdpt_entry = &pdpt[pdpte];
     if (!is_pdpt_entry_present(pdpt_entry))
         return NULL;

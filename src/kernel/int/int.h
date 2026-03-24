@@ -8,6 +8,8 @@
 
 typedef struct __attribute__((packed)) interrupt_registers
 {
+    uint64_t padding;
+
     uint64_t cr3, cr2;
     uint64_t ds;
 
@@ -31,8 +33,6 @@ typedef struct __attribute__((packed)) interrupt_registers
     uint64_t rip, cs, rflags;
 
     uint64_t rsp, ss;   // * "64-bit mode also pushes SS:RSP unconditionally, rather than only on a CPL change." -- Intel manual vol 3A 7.14.2
-
-    uint64_t padding;
 } interrupt_registers_t;
 
 #define DIVISION_OVERFLOW_EXCEPTION         0

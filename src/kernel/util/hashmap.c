@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "../random/pcg.h"
+#include "../multitasking/multitasking.h"
 
 hashmap_t* hashmap_create(size_t cap)
 {
@@ -15,7 +16,7 @@ hashmap_t* hashmap_create(size_t cap)
     hmp->data = (ll_t*)malloc(cap);
     assert(hmp->data);
     memset(hmp->data, 0, cap);
-    
+
     return hmp;
 }
 
@@ -71,8 +72,8 @@ new_item:
 	hashmap_item_t* item = (hashmap_item_t*)malloc(sizeof(hashmap_item_t));
 	item->key = key;
 	item->value = value;
-	
-	ll_push_back(ll, item);	
+
+	ll_push_back(ll, item);
 }
 
 void hashmap_remove_item(hashmap_t* hmp, uint64_t key)
@@ -112,5 +113,26 @@ void* hashmap_get_item(hashmap_t* hmp, uint64_t key)
 		it = it->next;
 	} while (it != *ll);
 
-	return NULL;	
+	return NULL;
+}
+
+void hashmap_log(hashmap_t* hmp)
+{
+	LOG(DEBUG, "{");
+	if (!hmp) goto end;
+	for (size_t i = 0; i < hmp->items; i++)
+	{
+		if (hmp->data[i])
+		{
+			ll_item_t* it = hmp->data[i];
+			do
+			{
+				hashmap_item_t* item = (hashmap_item_t*)it->data;
+				LOG(DEBUG, "\t%#" PRIx64 ": %p,", item->key, item->value);
+				it = it->next;
+			} while (it != hmp->data[i]);
+		}
+	}
+end:
+	LOG(DEBUG, "}");
 }

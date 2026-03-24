@@ -44,6 +44,7 @@ syscall_handler:
     mov ds, ax
 
     sub rsp, 8 + 8  ; * see above
+    sub rsp, 8
 
     mov rdi, rsp        ; * registers
     lea rsi, [rsp - 8]  ; * return address pointer
@@ -52,6 +53,7 @@ syscall_handler:
     call c_syscall_handler
     cli
 
+    add rsp, 8
     add rsp, 8 + 8 ; * same here
 
     pop rax

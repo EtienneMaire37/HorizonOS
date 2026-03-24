@@ -6,7 +6,9 @@
 
 #define GDN_EPOCH 719162
 
-static inline uint32_t year_to_gdn(uint16_t year, bool* leap) 
+#include "../multitasking/multitasking.h"
+
+static inline uint32_t year_to_gdn(uint16_t year, bool* leap)
 {
     if (year >= (uint32_t)(-1) / 146097)
     {

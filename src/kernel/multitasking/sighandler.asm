@@ -6,7 +6,7 @@ global sighandler
 sighandler:
     call rax
 
-    mov rax, 33
+    mov rax, 33 ; * sigret
     syscall
 do_ud:
     ud2
@@ -15,5 +15,5 @@ do_ud:
 extern intret
 global sigret
 sigret:
-    mov rsp, [gs:0] ; * remove syscall stack frame
+    mov rsp, rax ; * remove syscall stack frame
     jmp intret

@@ -1,4 +1,5 @@
 #include "vas.h"
+#include "multitasking.h"
 
 physical_address_t task_create_empty_vas(uint8_t privilege)
 {
@@ -52,8 +53,8 @@ void task_free_vas(physical_address_t pml4_address)
     pfa_free_physical_page(pml4_address);
 }
 
-void task_vas_copy(uint64_t* src, uint64_t* dst, 
-    uint64_t start_virtual_address, 
+void task_vas_copy(uint64_t* src, uint64_t* dst,
+    uint64_t start_virtual_address,
     uint64_t pages)
 {
     if (!src)
@@ -102,7 +103,7 @@ void task_vas_copy(uint64_t* src, uint64_t* dst,
             set_pdpt_entry(new_pml4_entry, create_empty_pdpt_phys(), PG_USER, PG_READ_WRITE, CACHE_WB);
 
         uint64_t* old_pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pml4_entry));
-        
+
         uint64_t* old_pdpt_entry = &old_pdpt[pdpte];
         if (!is_pdpt_entry_present(old_pdpt_entry))
         {
@@ -146,7 +147,7 @@ void task_vas_copy(uint64_t* src, uint64_t* dst,
 
         if (!is_pdpt_entry_present(new_pt_entry))
             set_pdpt_entry(new_pt_entry, pfa_allocate_physical_page(), get_pdpt_entry_privilege(old_pt_entry), get_pdpt_entry_read_write(old_pt_entry), CACHE_WB);
-        
+
         memcpy((void*)(PHYS_MAP_BASE + get_pdpt_entry_address(new_pt_entry)), (void*)(PHYS_MAP_BASE + get_pdpt_entry_address(old_pt_entry)), 4096);
     }
 }

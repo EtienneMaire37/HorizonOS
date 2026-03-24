@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include "../debug/out.h"
+#include "../multitasking/multitasking.h"
 
 static inline void hexdump(void* addr, size_t bytes)
 {

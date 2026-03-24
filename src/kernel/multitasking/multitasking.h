@@ -59,6 +59,8 @@ static inline void unlock_scheduler()
     }
 }
 
+extern void unlock_scheduler__and__iretq();
+
 static inline bool multitasking_is_pgrp_empty(pid_t pgid)
 {
     thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, pgid);

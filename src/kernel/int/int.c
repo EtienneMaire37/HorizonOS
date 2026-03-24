@@ -15,7 +15,7 @@ initrd_file_t* kernel_symbols_file = NULL;
 
 #include "kernel_panic.h"
 
-#define return_from_isr() { if (multitasking_enabled) { lock_scheduler(); if (current_task->sig_pending_user_space && registers->cs != KERNEL_CODE_SEGMENT) { unlock_scheduler(); task_handle_signal_to_userspace(registers); } else unlock_scheduler(); } return; }
+#define return_from_isr() { if (multitasking_enabled) { lock_scheduler(); if (current_task->sig_pending_user_space && registers->cs != KERNEL_CODE_SEGMENT) { unlock_scheduler(); task_handle_signal_to_userspace(registers); } else unlock_scheduler(); }  return;; }
 
 void interrupt_handler(interrupt_registers_t* registers)
 {

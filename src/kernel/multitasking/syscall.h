@@ -55,6 +55,6 @@
 #define SC_LOG(fmt, ...)
 #endif
 
-void c_syscall_handler(interrupt_registers_t* registers, void** return_address);
+uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_address);
 
 void task_handle_signal_to_userspace(interrupt_registers_t* registers);

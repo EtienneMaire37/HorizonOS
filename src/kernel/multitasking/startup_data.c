@@ -1,5 +1,6 @@
 #include "startup_data.h"
 #include "../debug/out.h"
+#include "multitasking.h"
 
 startup_data_struct_t startup_data_init_from_command(char** cmd, char** envp)
 {

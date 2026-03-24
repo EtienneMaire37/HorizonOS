@@ -114,18 +114,16 @@ void task_setup_stack_ex(thread_t* task,
     task_stack_push(task, (task->ring == 0) ? KERNEL_CODE_SEGMENT : USER_CODE_SEGMENT);
     task_stack_push(task, entry_point);
 
-    task_stack_push(task, (uint64_t)iretq_instruction);
-
-    task_stack_push(task, (uint64_t)unlock_scheduler);
+    task_stack_push(task, (uint64_t)unlock_scheduler__and__iretq);
     task_stack_push(task, (uint64_t)cleanup_tasks);
     task_stack_push(task, (uint64_t)end_context_switch);
 
-    task_stack_push(task, rbx);           // rbx
-    task_stack_push(task, r12);           // r12
-    task_stack_push(task, r13);           // r13
-    task_stack_push(task, r14);           // r14
-    task_stack_push(task, r15);           // r15
-    task_stack_push(task, rbp);           // rbp
+    task_stack_push(task, rbx);             // rbx
+    task_stack_push(task, r12);             // r12
+    task_stack_push(task, r13);             // r13
+    task_stack_push(task, r14);             // r14
+    task_stack_push(task, r15);             // r15
+    task_stack_push(task, rbp);             // rbp
 }
 
 void task_setup_stack(thread_t* task, uint64_t entry_point)

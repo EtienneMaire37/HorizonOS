@@ -18,26 +18,7 @@ typedef struct hashmap
 	ll_t* data;
 } hashmap_t;
 
-static void hashmap_log(hashmap_t* hmp)
-{
-	LOG(DEBUG, "{");
-	if (!hmp) goto end;
-	for (size_t i = 0; i < hmp->items; i++)
-	{
-		if (hmp->data[i])
-		{
-			ll_item_t* it = hmp->data[i];
-			do
-			{
-				hashmap_item_t* item = (hashmap_item_t*)it->data;
-				LOG(DEBUG, "\t%#" PRIx64 ": %p,", item->key, item->value);
-				it = it->next;
-			} while (it != hmp->data[i]);
-		}
-	}
-end:
-	LOG(DEBUG, "}");
-}
+void hashmap_log(hashmap_t* hmp);
 
 hashmap_t* hashmap_create(size_t cap);
 void hashmap_destroy(hashmap_t* hmp);
