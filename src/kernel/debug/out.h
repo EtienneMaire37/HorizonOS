@@ -97,11 +97,9 @@ extern bool first_log;
     fprintf(stderr, __VA_ARGS__); \
 }
 
-// * sched lock only for debugging purposes
-// TODO: Remove it
 #define LOG(level, ...) \
-    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) { lock_scheduler(); _LOG(level, __VA_ARGS__); unlock_scheduler(); } } while(0)
+    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) { _LOG(level, __VA_ARGS__); } } while(0)
 
 #define CONTINUE_LOG(level, ...) \
-    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) { lock_scheduler(); fprintf(stderr, __VA_ARGS__); unlock_scheduler(); } } while(0)
+    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) fprintf(stderr, __VA_ARGS__); } while(0)
 #endif
