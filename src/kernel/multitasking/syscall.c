@@ -1229,7 +1229,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_ret_errno = ENOSYS;
     }
 
-    task_handle_signal_to_userspace(registers);
+    if (registers->rax != SYS_SIGRET)
+        task_handle_signal_to_userspace(registers);
 
     return registers->rsp;
 }

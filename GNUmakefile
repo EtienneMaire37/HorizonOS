@@ -212,7 +212,7 @@ $(BASH_DL_STAMP):
 	git -C $(BASH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
 	touch $@
 
-$(LESS_BUILD_STAMP): $(LESS_DL_STAMP) $(MLIBC_STAMP)
+$(LESS_BUILD_STAMP): $(LESS_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP)
 	cd $(LESS_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
 	cd $(LESS_DIR) && $(MAKE) -j$(nproc)
 	cd $(LESS_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install

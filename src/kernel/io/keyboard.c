@@ -56,7 +56,7 @@ void utf32_buffer_unputchar(utf32_buffer_t* buffer)
     if (!buffer->characters) return;
     if (no_buffered_characters(*buffer)) return;
 
-    buffer->put_index = imod(buffer->put_index - 1, buffer->size);
+    buffer->put_index = imod((ssize_t)buffer->put_index - 1, buffer->size);
 }
 
 utf32_char_t utf32_buffer_getchar(utf32_buffer_t* buffer)

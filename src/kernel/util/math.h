@@ -14,11 +14,11 @@ static inline __attribute__((always_inline)) __attribute__((const)) int64_t absi
 {
     return x < 0 ? -x : x;
 }
-static inline __attribute__((always_inline)) __attribute__((const)) int imod(int a, int b)
+static inline __attribute__((always_inline)) __attribute__((const)) int64_t imod(int64_t a, int64_t b)
 {
     if (b <= 0)
         return 0;
-    int ret = a - (a / b) * b;
+    int64_t ret = a - (a / b) * b;
     if (ret < 0) ret += b;
     return ret;
 }

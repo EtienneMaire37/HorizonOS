@@ -21,7 +21,6 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
     assert(task_lock_depth == 1);
     size_t in_buffer = ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer);
     size_t maxwrite = entry->file_data.pipe_data.buffer->size - in_buffer - 1;
-    size_t endoff = 0;
     if ((entry->flags & O_NONBLOCK) || (direction == IO_DIR_READ && entry->file_data.pipe_data.other_end == -1))
     {
         if (in_buffer == 0 && direction == IO_DIR_READ)
@@ -36,6 +35,8 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
         {
             if (in_buffer <= 0)
             {
+                if (entry->flags & O_NONBLOCK)
+                    return (unlock_scheduler(), -EWOULDBLOCK);
                 move_running_task_to_thread_queue(&entry->blocked_on_io, current_task);
                 switch_task();
                 unlock_scheduler();
@@ -43,15 +44,15 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
                 in_buffer = ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer);
             }
             if (in_buffer <= 0)
-                return (unlock_scheduler(), entry->file_data.pipe_data.other_end != -1 ? EINTR : 0);
+                return (unlock_scheduler(), entry->file_data.pipe_data.other_end != -1 ? -EINTR : 0);
         }
         // LOG(TRACE, "Reading %zu bytes from pipe (%zu bytes in buffer) [%zu bytes asked by program]", in_buffer < count ? in_buffer : count, in_buffer, count);
         count = in_buffer < count ? in_buffer : count;
         if (count != 0)
         {
             for (size_t i = 0; i < count; i++)
-                buf[i] = ((uint8_t*)entry->file_data.pipe_data.buffer->buffer)[endoff = imod(i + entry->file_data.pipe_data.buffer->get_index, entry->file_data.pipe_data.buffer->size)];
-            entry->file_data.pipe_data.buffer->get_index = imod(1 + endoff, entry->file_data.pipe_data.buffer->size);
+                buf[i] = ((uint8_t*)entry->file_data.pipe_data.buffer->buffer)[(i + entry->file_data.pipe_data.buffer->get_index) % entry->file_data.pipe_data.buffer->size];
+            entry->file_data.pipe_data.buffer->get_index = (entry->file_data.pipe_data.buffer->get_index + count) % entry->file_data.pipe_data.buffer->size;
         }
         if (entry->file_data.pipe_data.other_end != -1 && count > 0)
             move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
@@ -62,6 +63,8 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
         {
             if (maxwrite <= 0)
             {
+                if (entry->flags & O_NONBLOCK)
+                    return (unlock_scheduler(), -EWOULDBLOCK);
                 move_running_task_to_thread_queue(&entry->blocked_on_io, current_task);
                 switch_task();
                 unlock_scheduler();
@@ -69,17 +72,19 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
                 maxwrite = entry->file_data.pipe_data.buffer->size - ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer) - 1;
             }
             if (maxwrite <= 0)
-                return (unlock_scheduler(), entry->file_data.pipe_data.other_end != -1 ? EINTR : 0);
+                return (unlock_scheduler(), entry->file_data.pipe_data.other_end != -1 ? -EINTR : 0);
         }
-        // LOG(TRACE, "Writing %zu bytes to pipe (%zu bytes in buffer) [%zu bytes asked by program]", maxwrite < count ? maxwrite : count, in_buffer, count);
+        else
+            return (unlock_scheduler(), -EPIPE);
+        // LOG(TRACE, "Writing %zu bytes to pipe (%zu bytes in buffer) [%zu bytes asked by program]", maxwrite < count ? maxwrite : count, ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer), count);
         count = maxwrite < count ? maxwrite : count;
-        if (entry->file_data.pipe_data.other_end != -1 && count != 0)
+        if (count != 0)
         {
             for (size_t i = 0; i < count; i++)
-                ((uint8_t*)entry->file_data.pipe_data.buffer->buffer)[endoff = imod(i + entry->file_data.pipe_data.buffer->put_index, entry->file_data.pipe_data.buffer->size)] = buf[i];
-            entry->file_data.pipe_data.buffer->put_index = imod(1 + endoff, entry->file_data.pipe_data.buffer->size);
+                ((uint8_t*)entry->file_data.pipe_data.buffer->buffer)[(i + entry->file_data.pipe_data.buffer->put_index) % entry->file_data.pipe_data.buffer->size] = buf[i];
+            entry->file_data.pipe_data.buffer->put_index = (entry->file_data.pipe_data.buffer->put_index + count) % entry->file_data.pipe_data.buffer->size;
         }
-        if (entry->file_data.pipe_data.other_end != -1 && count > 0)
+        if (count > 0)
             move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
         unlock_scheduler();
         return count;
@@ -91,8 +96,8 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
 
 void pipe_destroy(file_entry_t* entry)
 {
-    // LOG(TRACE, "Destroying pipe...");
     assert(entry);
+    lock_scheduler();
     if (entry->file_data.pipe_data.other_end == -1)
     {
         free(entry->file_data.pipe_data.buffer->buffer);
@@ -105,6 +110,7 @@ void pipe_destroy(file_entry_t* entry)
         other->file_data.pipe_data.other_end = -1;
         move_all_tasks_to_running_queue(&other->blocked_on_io);
     }
+    unlock_scheduler();
 }
 
 void vfs_setup_pipe_end(int fildes, int other, int flags)
@@ -156,7 +162,6 @@ int vfs_setup_pipe(int* fds, int flags)
     int fd1 = vfs_allocate_thread_file(current_task);
     if (fd1 == -1)
     {
-        vfs_close(fd1);
         vfs_remove_global_file(fildes1);
         vfs_remove_global_file(fildes2);
         unlock_scheduler();
@@ -168,7 +173,6 @@ int vfs_setup_pipe(int* fds, int flags)
     if (fd2 == -1)
     {
         vfs_close(fd1);
-        vfs_close(fd2);
         vfs_remove_global_file(fildes1);
         vfs_remove_global_file(fildes2);
         unlock_scheduler();

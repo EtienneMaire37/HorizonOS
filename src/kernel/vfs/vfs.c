@@ -557,7 +557,7 @@ int vfs_access(const char* path, vfs_folder_tnode_t* pwd, int mode)
     int ret = vfs_stat(path, pwd, &st);
     if (ret)
         return ret;
-    // * Assume we're the root for now
+    // * Assume we're the root user for now
     return 0;
 }
 
@@ -667,6 +667,7 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
         if (count == 0)
             return 0;
         lock_scheduler();
+        assert(task_lock_depth == 1);
         if (current_task->pgid != tty_foreground_pgrp)
         {
             task_send_signal(current_task, SIGTTIN);
@@ -675,6 +676,7 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
         }
         if (no_buffered_characters(keyboard_buffered_input_buffer))
         {
+            current_task->timeout_deadline = PRECISE_TIME_MAX;
             move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
             switch_task();
             unlock_scheduler();
