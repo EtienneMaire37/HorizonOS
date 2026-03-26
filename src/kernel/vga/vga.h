@@ -50,7 +50,7 @@
 #define VGA_REG_3D4_MODE_CONTROL              0x17
 #define VGA_REG_3D4_LINE_COMPARE              0x18
 
-const srgb_t vga_colors[16] = 
+const srgb_t vga_colors[16] =
 {
     {0x00, 0x00, 0x00}, // 0: Black
     {0x00, 0x00, 0xAA}, // 1: Blue

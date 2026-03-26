@@ -49,8 +49,8 @@ void handle_apic_irq(interrupt_registers_t* registers)
             }
             else
             {
-                uint16_t data = tty_data[tty_cursor];
-                tty_render_character(tty_cursor, data, data >> 8);
+                tty_char_t data = tty_data[tty_cursor];
+                tty_render_character(tty_cursor, data);
             }
         }
         #endif

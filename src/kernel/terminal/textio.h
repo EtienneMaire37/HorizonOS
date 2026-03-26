@@ -10,6 +10,8 @@ static inline bool is_printable_character(char c)
     return ((unsigned char)c >= 32) && ((unsigned char)c < 128);
 }
 
+typedef uint32_t tty_char_t;
+
 #define TAB_LENGTH       4
 
 #define TTY_ESC_BUFFER     32
@@ -31,7 +33,7 @@ extern pid_t tty_foreground_pgrp;
 
 extern bool tty_cursor_blink;
 
-extern psf_font_t tty_font;
+extern psf_font_t tty_font, tty_font_bold;
 
 extern bool tty_application_cursor_mode;
 
@@ -44,5 +46,5 @@ void tty_set_color(uint8_t fg_color, uint8_t bg_color);
 void tty_set_window_size(int sx, int sy);
 void tty_outc(char c);
 void __tty_render_cursor(uint32_t cursor);
-void __tty_render_character(uint32_t cursor, char c, uint8_t color);
+void __tty_render_character(uint32_t cursor, tty_char_t c);
 void __tty_move_characters(uint32_t start, int offset);

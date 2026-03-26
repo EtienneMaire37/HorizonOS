@@ -1,5 +1,6 @@
 #include "queue.h"
 #include "multitasking.h"
+#include "task.h"
 
 #include <stdlib.h>
 
@@ -50,6 +51,8 @@ void move_task_to_running_queue(thread_queue_t* queue, thread_queue_item_t* item
     multitasking_add_task(item->data);
     thread_queue_remove(queue, item);
     ((thread_t*)item->data)->queue = &running_tasks;
+    if (current_task == idle_task)
+        switch_task();
     unlock_scheduler();
 }
 

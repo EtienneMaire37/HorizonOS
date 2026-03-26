@@ -62,7 +62,7 @@ void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y,
 }
 
 void framebuffer_render_psf2_char(
-    linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height, 
+    linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height,
     psf_font_t* font, char c,
     uint8_t r, uint8_t g, uint8_t b,
     bool transparent, uint8_t bgr, uint8_t bgg, uint8_t bgb)
@@ -82,12 +82,12 @@ void framebuffer_render_psf2_char(
     const uint8_t bytes_per_row = (glyph_width + 7) / 8;
     uint8_t* glyph = (uint8_t*)psf_get_glyph_data(font) + psf_get_bytes_per_glyph(font) * glyph_index;
 
-    for (uint32_t i = y; i < y + height; i++) 
+    for (uint32_t i = y; i < y + height; i++)
     {
         uint32_t offset_y = (i - y) * glyph_height / height;
         uint8_t* glyph_row = glyph + bytes_per_row * offset_y;
 
-        for (uint32_t j = x; j < x + width; j++) 
+        for (uint32_t j = x; j < x + width; j++)
         {
             uint32_t offset_x = (j - x) * glyph_width / width;
             uint32_t byte_index = offset_x / 8;

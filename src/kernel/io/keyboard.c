@@ -125,8 +125,8 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         {
         case VK_TAB:    character_len = !echo ? 1 : TAB_LENGTH; break;
 
-        case VK_UP:     character_len = 3; break;
-        case VK_DOWN:   character_len = 3; break;
+        case VK_UP:     character_len = 3 + 3 * ctrl; break;
+        case VK_DOWN:   character_len = 3 + 3 * ctrl; break;
         case VK_RIGHT:  character_len = 3 + 3 * ctrl; break;
         case VK_LEFT:   character_len = 3 + 3 * ctrl; break;
 

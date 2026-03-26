@@ -211,8 +211,9 @@ void _start()
     kernel_symbols_file = initrd_find_file("boot/symbols.txt");
 
     tty_font = psf_font_load_from_initrd("boot/ka8x16thin-1.psf");
+    tty_font_bold = psf_font_load_from_initrd("boot/tcvn8x16.psf");
 
-    if (!tty_font.f)
+    if (!tty_font.f || !tty_font_bold.f)
     {
         LOG(DEBUG, "Couldn't find psf font in initrd");
         abort();
