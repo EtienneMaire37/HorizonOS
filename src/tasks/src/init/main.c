@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <sys/ioctl.h>
 
 int main(int argc, char** argv)
 {
@@ -16,6 +17,17 @@ int main(int argc, char** argv)
     setenv("TERMINFO", "/usr/share/terminfo", 0);
 
     chdir(getenv("HOME"));
+
+    struct winsize size;
+    ioctl(STDIN_FILENO, TIOCGWINSZ, &size);
+
+    char row[64];
+    char col[64];
+    snprintf(row, sizeof(row), "%d", size.ws_row);
+    snprintf(col, sizeof(col), "%d", size.ws_col);
+
+    setenv("LINES", row, 0);
+    setenv("COLUMNS", col, 0);
 
     execvp("bash", (char*[]){"bash", (char*)NULL});
 

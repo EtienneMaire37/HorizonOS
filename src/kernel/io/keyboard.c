@@ -127,8 +127,8 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
 
         case VK_UP:     character_len = 3; break;
         case VK_DOWN:   character_len = 3; break;
-        case VK_RIGHT:  character_len = 4 + 3 * ctrl; break;
-        case VK_LEFT:   character_len = 4 + 3 * ctrl; break;
+        case VK_RIGHT:  character_len = 3 + 3 * ctrl; break;
+        case VK_LEFT:   character_len = 3 + 3 * ctrl; break;
 
         case VK_HOME:   character_len = 3; break;
         case VK_END:    character_len = 3; break;
@@ -158,19 +158,35 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
                 break;
             case VK_UP:
                 utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, tty_application_cursor_mode ? 'O' : '[');
+                if (echo) printf("^[");
+                if (ctrl)
+                {
+                    utf32_buffer_putchar(&keyboard_input_buffer, '1');
+                    utf32_buffer_putchar(&keyboard_input_buffer, ';');
+                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
+                    if (echo) printf("1;5");
+                }
                 utf32_buffer_putchar(&keyboard_input_buffer, 'A');
-                if (echo) printf("^[A");
+                if (echo) printf("A");
                 break;
             case VK_DOWN:
                 utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, tty_application_cursor_mode ? 'O' : '[');
+                if (echo) printf("^[");
+                if (ctrl)
+                {
+                    utf32_buffer_putchar(&keyboard_input_buffer, '1');
+                    utf32_buffer_putchar(&keyboard_input_buffer, ';');
+                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
+                    if (echo) printf("1;5");
+                }
                 utf32_buffer_putchar(&keyboard_input_buffer, 'B');
-                if (echo) printf("^[B");
+                if (echo) printf("B");
                 break;
             case VK_RIGHT:
                 utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, tty_application_cursor_mode ? 'O' : '[');
                 if (echo) printf("^[");
                 if (ctrl)
                 {
@@ -184,7 +200,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
                 break;
             case VK_LEFT:
                 utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
+                utf32_buffer_putchar(&keyboard_input_buffer, tty_application_cursor_mode ? 'O' : '[');
                 if (echo) printf("^[");
                 if (ctrl)
                 {

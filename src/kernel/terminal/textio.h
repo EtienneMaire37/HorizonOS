@@ -20,11 +20,9 @@ static inline bool is_printable_character(char c)
 
 #define TTY_AR      2
 
-extern uint16_t tty_data[MAX_TTY_X * MAX_TTY_Y];
-
 extern uint32_t tty_res_x, tty_res_y;
 
-extern uint32_t tty_cursor;
+extern int32_t tty_cursor;
 extern uint8_t tty_color;
 
 extern struct termios tty_ts;
@@ -35,15 +33,7 @@ extern bool tty_cursor_blink;
 
 extern psf_font_t tty_font;
 
-extern uint32_t tty_control_sequence_buffer[TTY_ESC_BUFFER];
-extern uint8_t tty_escape_sequence_index;
-extern bool tty_reading_escape_sequence, tty_reading_control_sequence;
-extern bool tty_sequence_question_mark;
-extern char tty_osc_buffer[TTY_OSC_BUFFER];
-extern int tty_osc_index;
-extern bool tty_reading_operating_system_command, tty_reading_operating_system_command_string;
-
-extern mutex_t termout_mutex;
+extern bool tty_application_cursor_mode;
 
 void tty_init();
 void __tty_refresh_screen();

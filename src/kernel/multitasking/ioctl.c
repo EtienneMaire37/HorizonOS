@@ -1,8 +1,10 @@
 #define _GNU_SOURCE
+#include "syscall.h"
 #include "ioctl.h"
 #include "task.h"
 #include "multitasking.h"
 #include "../vfs/table.h"
+#include "../graphics/linear_framebuffer.h"
 
 #include <termios.h>
 #include <asm-generic/ioctls.h>
@@ -72,6 +74,8 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
         struct winsize* ws = arg;
         ws->ws_col = tty_res_x;
         ws->ws_row = tty_res_y;
+        ws->ws_xpixel = framebuffer.width;
+        ws->ws_ypixel = framebuffer.height;
         sc_ret_errno = 0;
         break;
     }
@@ -101,7 +105,21 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
     }
     case TCXONC:
     {
-        sc_ret_errno = ENOSYS;
+        int action = (int)((uintptr_t)arg);
+        sc_ret_errno = 0;
+        switch (action)
+        {
+        case TCOOFF:
+            break;
+        case TCOON:
+            break;
+        case TCIOFF:
+            break;
+        case TCION:
+            break;
+        default:
+            sc_ret_errno = EINVAL;
+        }
         break;
     }
     default:
