@@ -20,7 +20,8 @@ override BASH_DIR := ${MAKE_DIR}/src/tasks/src/bash
 override COREUTILS_DIR := ${MAKE_DIR}/src/tasks/src/coreutils
 override LESS_DIR := ${MAKE_DIR}/src/tasks/src/less
 
-override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no fu_cv_sys_mounted_getmntinfo=yes ac_cv_func_splice=no
+override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no \
+		fu_cv_sys_mounted_getmntinfo=yes ac_cv_func_splice=no
 
 override KERNEL_SRC := $(shell find src/kernel -name '*.c')
 override KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
@@ -73,7 +74,7 @@ $(MLIBC_STAMP): mlibc/src/* $(HOSGCC)
 	cp -r ${TOOLCHAIN_DIR}/* ${SYSROOT_DIR} -f
 	touch $@
 
-$(NCURSES_STAMP): ncurses/ncurses-6.6/config.sub
+$(NCURSES_STAMP): $(HOSGCC) ncurses/ncurses-6.6/config.sub
 	cd ncurses/ncurses-6.6 && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --disable-widec
 	cd ncurses/ncurses-6.6 && $(MAKE) -j$(nproc)
 	cd ncurses/ncurses-6.6 && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
@@ -172,17 +173,17 @@ horizonos.iso: $(shell find src/system -type f) $(MLIBC_STAMP) $(HOSGCC) resourc
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP)
+src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
-src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP)
+src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
-$(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(MLIBC_STAMP)
+$(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(HOSGCC)
 	cd $(COREUTILS_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
 	cd $(COREUTILS_DIR) && $(MAKE) -j$(nproc)
 	cd $(COREUTILS_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
@@ -199,7 +200,7 @@ $(COREUTILS_DL_STAMP):
 	patch $(COREUTILS_DIR)/gnulib/lib/getlocalename_l-unsafe.c < diffs/coreutils/getlocalename.diff
 	touch $@
 
-root/usr/bin/bash: $(BASH_DL_STAMP) $(NCURSES_STAMP) $(MLIBC_STAMP)
+root/usr/bin/bash: $(BASH_DL_STAMP) $(NCURSES_STAMP) $(HOSGCC)
 	cd $(BASH_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS) --without-bash-malloc --disable-nls --with-curses
 	cd $(BASH_DIR) && $(MAKE) -j$(nproc)
 	cd $(BASH_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
@@ -212,7 +213,7 @@ $(BASH_DL_STAMP):
 	git -C $(BASH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
 	touch $@
 
-$(LESS_BUILD_STAMP): $(LESS_DL_STAMP) $(MLIBC_STAMP) $(NCURSES_STAMP)
+$(LESS_BUILD_STAMP): $(LESS_DL_STAMP) $(HOSGCC) $(NCURSES_STAMP)
 	cd $(LESS_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
 	cd $(LESS_DIR) && $(MAKE) -j$(nproc)
 	cd $(LESS_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install

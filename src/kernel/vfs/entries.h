@@ -3,6 +3,7 @@
 #include "vfs.h"
 #include <assert.h>
 #include <stdlib.h>
+#include <dirent.h>
 
 #include "../vfs/table.h"
 

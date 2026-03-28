@@ -463,4 +463,22 @@ namespace mlibc
 	{
 	    return syscall1_1(SYS_UNAME, (uint64_t)buf);
 	}
+
+	int sys_fsync(int fd)
+	{
+	    return syscall1_1(SYS_FSYNC, (uint64_t)fd);
+	}
+
+	int sys_sleep(time_t* secs, long* nanos)
+	{
+		return syscall2_1(SYS_SLEEP, (uint64_t)secs, (uint64_t)nanos);
+	}
+
+	int sys_poll(struct pollfd* fds, nfds_t count, int timeout, int* num_events)
+	{
+	    uint64_t _num_events;
+        int ret = syscall3_2(SYS_POLL, (uint64_t)fds, (uint64_t)count, (uint64_t)timeout, &_num_events);
+        *num_events = (int)_num_events;
+        return ret;
+	}
 }

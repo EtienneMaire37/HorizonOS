@@ -34,4 +34,6 @@ static inline void calibrate_tsc()
         hlt();
     uint64_t end_tsc = rdtsc();
     tsc_cycles_per_second = (end_tsc - start_tsc) * 1000 / ms;
+    // * Round up
+    tsc_cycles_per_second = (tsc_cycles_per_second / 50000000 + 1) * 50000000;
 }

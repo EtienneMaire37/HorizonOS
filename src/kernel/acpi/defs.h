@@ -51,7 +51,7 @@ struct generic_address_structure
     uint8_t address_space;  // 0: System memory; 1: System I/O; 2: PCI configuration space; 5: System CMOS; 6: PCI Device BAR Target
     uint8_t bit_width;
     uint8_t bit_offset;
-    uint8_t access_size;    // 0: Undefined (legacy reasons); 1: Byte access; 2: 16-bit (word) access; 3: 32-bit (dword) access; 4: 64-bit (qword) access 
+    uint8_t access_size;    // 0: Undefined (legacy reasons); 1: Byte access; 2: 16-bit (word) access; 3: 32-bit (dword) access; 4: 64-bit (qword) access
     uint64_t address;
 } __attribute__((packed));
 
@@ -110,7 +110,7 @@ struct fadt_table
 
     uint8_t  reset_value;
     uint8_t  reserved3[3];
-  
+
     // 64bit pointers - Available on ACPI 2.0+
     uint64_t                x_firmware_control;
     uint64_t                x_dsdt;
@@ -157,4 +157,15 @@ struct madt_ioapic_entry
     uint8_t reserved;
     uint32_t ioapic_address;
     uint32_t gsi_base;
+} __attribute__((packed));
+
+// * Reverse engineered
+struct msdm_table
+{
+    struct sdt_header header;
+
+    uint64_t unknown1;  // * 1 on my machine
+    uint64_t unknown2;  // * 1
+    uint32_t bytes;     // * 29
+    char activation_key[29];
 } __attribute__((packed));

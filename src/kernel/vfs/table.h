@@ -52,3 +52,7 @@ static inline file_entry_t* get_global_file_entry(int fd)
     unlock_scheduler();
     return entry;
 }
+
+bool vfs_willblock(file_entry_t* entry, short events);
+void vfs_block(file_entry_t* entry, precise_time_t timeout, short events);
+int vfs_hup(file_entry_t* entry);

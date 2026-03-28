@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <sys/select.h>
 #include <asm-generic/errno.h>
 #include "syscall.h"
 #include "../cpu/segbase.h"
@@ -26,6 +27,7 @@
 #include <sys/utsname.h>
 #include "../system/info.h"
 #include "../vfs/pipe.h"
+#include <sys/poll.h>
 
 extern void sigret();
 
@@ -84,6 +86,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_READ, 3, int, void*, size_t)
         SC_LOG("syscall SYS_READ(%d, %p, %zu)", arg1, arg2, arg3);
+        sc_validate_pointer(arg2);
         if (!is_fd_valid(arg1))
         {
             sc_ret_errno = EBADF;
@@ -96,6 +99,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_WRITE, 3, int, const void*, size_t)
         SC_LOG("syscall SYS_WRITE(%d, %p, %zu)", arg1, arg2, arg3);
+        sc_validate_pointer(arg2);
         if (!is_fd_valid(arg1))
         {
             sc_ret_errno = EBADF;
@@ -256,6 +260,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_OPEN, 3, const char*, int, unsigned int)
         SC_LOG("syscall SYS_OPEN(\"%s\", %d, %u)", arg1, arg2, arg3);
+        sc_validate_pointer(arg1);
 
         // * Only supported flags for now
         if (arg2 & ~(O_CLOEXEC | O_ACCMODE))
@@ -360,7 +365,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_OPEN_DIR, 1, const char*)
         SC_LOG("syscall SYS_OPEN_DIR(\"%s\")", arg1);
-        if (!arg1 || !strcmp(arg1, ""))
+        sc_validate_pointer(arg1);
+        if (!strcmp(arg1, ""))
         {
             sc_ret_errno = ENOENT;
             sc_ret(1) = -1;
@@ -411,6 +417,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_READ_ENTRIES, 3, int, void*, size_t)
         SC_LOG("syscall SYS_READ_ENTRIES(%d, %p, %zu)", arg1, arg2, arg3);
+        sc_validate_pointer(arg2);
         if (!is_fd_valid(arg1))
         {
             sc_ret_errno = EBADF;
@@ -459,12 +466,17 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_IOCTL, 3, int, unsigned long, void*)
         SC_LOG("syscall SYS_IOCTL(%d, %#lx, %p)", arg1, arg2, arg3);
+        sc_validate_pointer(arg3);
         lock_scheduler();
         syscall_ioctl(registers, arg1, arg2, arg3);
         unlock_scheduler();
         break;
     sc_case(SYS_EXECVE, 3, const char*, char**, char**)
         SC_LOG("syscall SYS_EXECVE(\"%s\", %p, %p)", arg1, arg2, arg3);
+    // TODO: Validate each pointer individually
+        sc_validate_pointer(arg1);
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg3);
         vfs_file_tnode_t* tnode = vfs_get_file_tnode(arg1, current_task->cwd);
         if (!tnode)
         {
@@ -510,11 +522,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_TCGETATTR, 2, int, struct termios*)
         SC_LOG("syscall SYS_TCGETATTR(%d, %p)", arg1, arg2);
-        if (!arg2)
-        {
-            sc_ret_errno = EINVAL;
-            break;
-        }
+        sc_validate_pointer(arg2);
         if (!is_fd_valid(arg1))
         {
             sc_ret_errno = EBADF;
@@ -530,11 +538,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_TCSETATTR, 3, int, int, const struct termios*)
         SC_LOG("syscall SYS_TCSETATTR(%d, %d, %p)", arg1, arg2, arg3);
-        if (!arg3)
-        {
-            sc_ret_errno = EINVAL;
-            break;
-        }
+        sc_validate_pointer(arg3);
         if (!is_fd_valid(arg1))
         {
             sc_ret_errno = EBADF;
@@ -562,7 +566,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_GETCWD, 2, char*, size_t)
         SC_LOG("syscall SYS_GETCWD(%p, %zu)", arg1, arg2);
-        if (!arg1 || arg2 == 0)
+        sc_validate_pointer(arg1);
+        if (arg2 == 0)
         {
             sc_ret_errno = EINVAL;
             break;
@@ -579,6 +584,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_CHDIR, 1, const char*)
         SC_LOG("syscall SYS_CHDIR(\"%s\")", arg1);
+        sc_validate_pointer(arg1);
         vfs_folder_tnode_t* tnode = vfs_get_folder_tnode(arg1, current_task->cwd);
         if (!tnode)
         {
@@ -612,6 +618,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_SIGACTION, 3, int, const struct sigaction*, struct sigaction*)
         SC_LOG("syscall SYS_SIGACTION(%d, %p, %p)", arg1, arg2, arg3);
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg3);
         if (arg1 >= NUM_SIGNALS || arg1 == SIGKILL || arg1 == SIGSTOP)
         {
             sc_ret_errno = EINVAL;
@@ -623,13 +631,16 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_SIGPROCMASK, 3, int, const sigset_t* __restrict, sigset_t* __restrict)
         SC_LOG("syscall SYS_SIGPROCMASK(%d, %p, %p)", arg1, arg2, arg3);
-        if (!arg2)
-        {
-        	sc_ret_errno = EFAULT;
-        	break;
-        }
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg3);
         lock_scheduler();
         if (arg3) *arg3 = current_task->sig_mask;
+        if (!arg1)
+        {
+            unlock_scheduler();
+            sc_ret_errno = 0;
+            break;
+        }
         sigset_t old_sigmask = current_task->sig_mask;
         switch (arg1)
         {
@@ -657,6 +668,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     	break;
     sc_case(SYS_WAIT4, 4, pid_t, int*, int, struct rusage*)
         SC_LOG("syscall SYS_WAIT4(%d, %p, %d, %p)", arg1, arg2, arg3, arg4);
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg4);
         if (arg3 & WNOWAIT)
         {
             sc_ret_errno = 0;
@@ -678,8 +691,15 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         if (arg3 & WNOHANG || first_pid)
         {
             sc_ret(1) = first_pid;
-            unlock_scheduler();
             sc_ret_errno = 0;
+            if (first_pid)
+            {
+                thread_t* task = find_task_by_pid_anywhere(first_pid);
+                assert(task);
+                if (arg2) *arg2 = task->return_value;
+                move_task_to_queue(&reapable_tasks, task);
+            }
+            unlock_scheduler();
             break;
         }
         current_task->wait_pid = arg1;
@@ -701,6 +721,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_TTYNAME, 3, int, char*, size_t)
         SC_LOG("syscall SYS_TTYNAME(%d, %p, %zu)", arg1, arg2, arg3);
+        sc_validate_pointer(arg2);
         lock_scheduler();
         if (!is_fd_valid(arg1))
         {
@@ -730,11 +751,9 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_GETRESUID, 3, uid_t*, uid_t*, uid_t*)
         SC_LOG("syscall SYS_GETRESUID(%p, %p, %p)", arg1, arg2, arg3);
-        if (!arg1 || !arg2 || !arg3)
-        {
-            sc_ret_errno = EFAULT;
-            break;
-        }
+        sc_validate_pointer(arg1);
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg3);
         lock_scheduler();
         *arg1 = current_task->ruid;
         *arg2 = current_task->euid;
@@ -744,11 +763,9 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_GETRESGID, 3, uid_t*, uid_t*, uid_t*)
         SC_LOG("syscall SYS_GETRESGID(%p, %p, %p)", arg1, arg2, arg3);
-        if (!arg1 || !arg2 || !arg3)
-        {
-            sc_ret_errno = EFAULT;
-            break;
-        }
+        sc_validate_pointer(arg1);
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg3);
         lock_scheduler();
         *arg1 = current_task->rgid;
         *arg2 = current_task->egid;
@@ -758,11 +775,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_CLOCK_GET, 3, int, time_t*, long*)
         SC_LOG("syscall SYS_CLOCK_GET(%d, %p, %p)", arg1, arg2, arg3);
-        if (!arg2 || !arg3)
-        {
-            sc_ret_errno = EFAULT;
-            break;
-        }
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg3);
         switch (arg1)
         {
         case CLOCK_REALTIME:
@@ -788,11 +802,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_GETHOSTNAME, 2, char*, size_t)
         SC_LOG("syscall SYS_GETHOSTNAME(%p, %zu)", arg1, arg2);
-        if (!arg1)
-        {
-            sc_ret_errno = EFAULT;
-            break;
-        }
+        sc_validate_pointer(arg1);
         const char* str = sys_nodename;
         const size_t len = strlen(str) + 1;
         if (arg2 <= 0)
@@ -810,15 +820,12 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_FSTATAT, 4, int, const char*, int, struct stat*)
         SC_LOG("syscall SYS_FSTATAT(%d, \"%s\", %d, %p)", arg1, arg2, arg3, arg4);
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg4);
         // TODO: Implement symbolic links
         if (arg3 & ~(AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW))
         {
             sc_ret_errno = EINVAL;
-            break;
-        }
-        if (!arg4 || !arg2)
-        {
-            sc_ret_errno = EFAULT;
             break;
         }
         lock_scheduler();
@@ -912,6 +919,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_ACCESS, 2, const char*, int)
         SC_LOG("syscall SYS_ACCESS(\"%s\", %d)", arg1, arg2);
+        sc_validate_pointer(arg1);
         if (arg2 & ~(R_OK | W_OK | X_OK)) // * F_OK is 0
         {
             sc_ret_errno = EINVAL;
@@ -1062,6 +1070,11 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_PSELECT, 6, int, fd_set*, fd_set*, fd_set*, const struct timespec*, const sigset_t*)
         SC_LOG("syscall SYS_PSELECT(%d, %p, %p, %p, %p, %p)", arg1, arg2, arg3, arg4, arg5, arg6);
+        sc_validate_pointer(arg2);
+        sc_validate_pointer(arg3);
+        sc_validate_pointer(arg4);
+        sc_validate_pointer(arg5);
+        sc_validate_pointer(arg6);
         lock_scheduler();
         // * sigmask
         sigset_t saved_sigmask = current_task->sig_mask;
@@ -1092,58 +1105,57 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             break;
         }
 
-        // * Assume all fds are always ready for now
-        // * Only clear exceptional conditions and check stdin
         if (arg2)
         {
             for (int i = 0; i < arg1; i++)
             {
                 if (!FD_ISSET(i, arg2)) continue;
                 file_entry_t* entry = get_global_file_entry(i);
-                if (vfs_isatty(entry))
+                if (!entry)
                 {
-                    if (no_buffered_characters(keyboard_buffered_input_buffer))
-                    {
-                        if (!dont_block)
-                        {
-                            current_task->timeout_deadline = arg5 ? global_timer + arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX;
-                            move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
-                            switch_task();
-                            unlock_scheduler();
-                            lock_scheduler();
-                        }
-
-                        if (no_buffered_characters(keyboard_buffered_input_buffer))
-                        {
-                            if (!dont_block)
-                                sc_ret_errno = EINTR;
-                            for (int j = i; j < arg1; j++)
-                            {
-                                if (!FD_ISSET(j, arg2)) continue;
-                                file_entry_t* _entry = get_global_file_entry(j);
-                                if (vfs_isatty(_entry))
-                                // * No characters
-                                    FD_CLR(j, arg2);
-                                else if (vfs_isapipe(_entry))
-                                {
-                                // * Check if pipe is empty
-                                    assert(!"TODO: Implement proper read blocking for pipes");
-                                }
-                            }
-                            break;
-                        }
-                        else
-                            break;
-                    }
+                    FD_CLR(i, arg2);
+                    continue;
                 }
-                else if (vfs_isapipe(entry))
+                if (vfs_willblock(entry, POLLIN))
                 {
-                    assert(!"TODO: Implement proper read blocking for pipes");
+                    if (!dont_block)
+                    {
+                        vfs_block(entry, arg5 ? arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX, POLLIN);
+                        dont_block = true;
+                        if (vfs_willblock(entry, POLLIN))
+                            sc_ret_errno = EINTR;
+                    }
+                    else
+                        FD_CLR(i, arg2);
                 }
             }
         }
         if (arg3)
-            assert(!"TODO: Implement write blocking with pselect");
+        {
+            for (int i = 0; i < arg1; i++)
+            {
+                if (!FD_ISSET(i, arg3)) continue;
+                file_entry_t* entry = get_global_file_entry(i);
+                if (!entry)
+                {
+                    FD_CLR(i, arg3);
+                    continue;
+                }
+                if (vfs_willblock(entry, POLLOUT))
+                {
+                    if (!dont_block)
+                    {
+                        vfs_block(entry, arg5 ? arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX, POLLOUT);
+                        dont_block = true;
+                        if (vfs_willblock(entry, POLLOUT))
+                            sc_ret_errno = EINTR;
+                    }
+                    else
+                        FD_CLR(i, arg3);
+                }
+            }
+        }
+        // * Ignore exceptional conditions
         if (arg4)
             FD_ZERO(arg4);
 
@@ -1166,6 +1178,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_PIPE2, 2, int*, int)
         SC_LOG("syscall SYS_PIPE2(%p, %d)", arg1, arg2);
+        sc_validate_pointer(arg1);
         // * Don't support packet mode for now
         if (arg2 & ~(O_CLOEXEC | O_NONBLOCK))
         {
@@ -1191,11 +1204,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
 
     sc_case(SYS_UNAME, 1, struct utsname*)
-        if (!arg1)
-        {
-            sc_ret_errno = EFAULT;
-            break;
-        }
+        SC_LOG("syscall SYS_UNAME(%p)", arg1);
+        sc_validate_pointer(arg1);
         sc_ret_errno = 0;
         strncpy(arg1->sysname, sys_sysname, sizeof(arg1->sysname));
         strncpy(arg1->nodename, sys_nodename, sizeof(arg1->nodename));
@@ -1205,7 +1215,95 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         strncpy(arg1->domainname, sys_domainname, sizeof(arg1->domainname));
         break;
 
+    sc_case(SYS_FSYNC, 1, int)
+        SC_LOG("syscall SYS_FSYNC(%d)", arg1);
+        sc_ret_errno = 0;
+        break;
+
+    sc_case(SYS_SLEEP, 2, time_t*, long*)
+        SC_LOG("syscall SYS_SLEEP(%lld, %ld)", (long long)*arg1, (long)*arg2);
+        sc_validate_pointer(arg1);
+        sc_validate_pointer(arg2);
+        if (*arg1 < 0 || *arg2 >= 1000000000)
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        precise_time_t deadline = global_timer + *arg2 * PRECISE_NANOSECONDS + *arg1 * PRECISE_SECONDS;
+        current_task->timeout_deadline = deadline;
+        move_running_task_to_thread_queue(&waiting_for_time_tasks, current_task);
+        switch_task();
+        if (global_timer <= deadline)
+        {
+            sc_ret_errno = EINTR;
+            *arg1 = (deadline - global_timer) / PRECISE_SECONDS;
+            *arg2 = ((deadline - global_timer) / PRECISE_NANOSECONDS) % 1000000000;
+            break;
+        }
+        *arg1 = 0;
+        *arg2 = 0;
+        sc_ret_errno = 0;
+        break;
+
+    sc_case(SYS_POLL, 3, struct pollfd*, nfds_t, int)
+        SC_LOG("syscall SYS_POLL(%p, %lu, %d)", arg1, arg2, arg3);
+        sc_validate_pointer(arg1);
+        sc_ret_errno = 0;
+        sc_ret(1) = 0;
+        lock_scheduler();
+        for (nfds_t i = 0; i < arg2; i++)
+        {
+            struct pollfd* fds = &arg1[i];
+            file_entry_t* entry = get_global_file_entry(fds->fd);
+            bool dont_block = arg3 == 0;
+            int set = 0;
+            if (entry)
+            {
+                fds->revents = 0;
+                if ((fds->events & POLLIN) || (fds->events & POLLRDNORM))
+                {
+                    if (vfs_willblock(entry, POLLIN))
+                    {
+                        if (!dont_block)
+                        {
+                            vfs_block(entry, arg3 * PRECISE_MILLISECONDS, POLLIN);
+                            dont_block = true;
+                            if (vfs_willblock(entry, POLLIN))
+                                sc_ret_errno = EINTR;
+                            else
+                                fds->revents |= (set = 1, POLLIN | vfs_hup(entry));
+                        }
+                    }
+                    else
+                        fds->revents |= (set = 1, POLLIN | vfs_hup(entry));
+                }
+                if ((fds->events & POLLOUT) || (fds->events & POLLWRNORM))
+                {
+                    if (vfs_willblock(entry, POLLOUT))
+                    {
+                        if (!dont_block)
+                        {
+                            vfs_block(entry, arg3 * PRECISE_MILLISECONDS, POLLOUT);
+                            dont_block = true;
+                            if (vfs_willblock(entry, POLLOUT))
+                                sc_ret_errno = EINTR;
+                            else
+                                fds->revents |= (set = 1, POLLOUT | vfs_hup(entry));
+                        }
+                    }
+                    else
+                        fds->revents |= (set = 1, POLLOUT | vfs_hup(entry));
+                }
+            }
+            else
+                fds->revents = fds->fd < 0 ? 0 : (set = 1, POLLNVAL);
+            sc_ret(1) += set;
+        }
+        unlock_scheduler();
+        break;
+
     sc_case(SYS_LOG, 1, const char*)
+        sc_validate_pointer(arg1);
     #ifdef PRINT_MLIBC_LOGS
         puts(arg1);
     #endif

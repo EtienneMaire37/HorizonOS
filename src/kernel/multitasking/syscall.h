@@ -55,6 +55,13 @@
 #define SC_LOG(fmt, ...)
 #endif
 
+// TODO: Valide area including memory mapped io/files
+#define sc_validate_pointer(ptr)    if ((uintptr_t)ptr >= TASK_STACK_TOP_ADDRESS) \
+                                    { \
+                                        sc_ret_errno = EFAULT; \
+                                        break;    \
+                                    }
+
 uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_address);
 
 void task_handle_signal_to_userspace(interrupt_registers_t* registers);

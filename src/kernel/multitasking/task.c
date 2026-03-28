@@ -310,6 +310,8 @@ thread_t* find_task_by_pid_in_queue(void* queue, pid_t pid)
     thread_t* ret = find_task_by_pid_anywhere(pid);
     if (!ret || ret->queue != queue)
         return NULL;
+    if (ret == idle_task)
+        return NULL;
     return ret;
 }
 
