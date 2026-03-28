@@ -35,5 +35,9 @@ static inline void calibrate_tsc()
     uint64_t end_tsc = rdtsc();
     tsc_cycles_per_second = (end_tsc - start_tsc) * 1000 / ms;
     // * Round up
-    tsc_cycles_per_second = (tsc_cycles_per_second / 50000000 + 1) * 50000000;
+    // * round(n) = floor((floor(2n)+1)/2)
+    const uint64_t roundfac = 10000000;
+    uint64_t two_n = 2 * tsc_cycles_per_second / roundfac;
+    uint64_t n = (two_n + 1) / 2;
+    tsc_cycles_per_second = n * roundfac;
 }

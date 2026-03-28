@@ -1245,6 +1245,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_ret_errno = 0;
         break;
 
+    // TODO: Fix this and pselect (only block when needed)
     sc_case(SYS_POLL, 3, struct pollfd*, nfds_t, int)
         SC_LOG("syscall SYS_POLL(%p, %lu, %d)", arg1, arg2, arg3);
         sc_validate_pointer(arg1);
