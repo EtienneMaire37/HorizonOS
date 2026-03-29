@@ -15,7 +15,7 @@ initrd_file_t* kernel_symbols_file = NULL;
 
 #include "kernel_panic.h"
 
-#define return_from_isr() { if (multitasking_enabled) { lock_scheduler(); if (current_task->sig_pending_user_space && registers->cs != KERNEL_CODE_SEGMENT) { unlock_scheduler(); task_handle_signal_to_userspace(registers); } else unlock_scheduler(); }  return;; }
+#define return_from_isr() { if (multitasking_enabled) { lock_scheduler(); if (current_task->sig_pending_user_space && registers->cs != KERNEL_CODE_SEGMENT) { unlock_scheduler(); task_handle_signal_to_userspace(registers); } else unlock_scheduler(); }  return; }
 
 void interrupt_handler(interrupt_registers_t* registers)
 {
@@ -27,12 +27,17 @@ void interrupt_handler(interrupt_registers_t* registers)
     }
     if (registers->interrupt_number < 32)       // * Fault
     {
+        #define EXCEPTION_LOG_DATA      "Fault : Exception number : %" PRIu64 " ; Error : %s ; Error code = %#" PRIx64 " ; cr2 = %#" PRIx64 " ; cr3 = %#" PRIx64 " ; rip = %#" PRIx64, \
+            registers->interrupt_number, get_error_message(registers->interrupt_number, registers->error_code), \
+            registers->error_code, registers->cr2, registers->cr3, registers->rip
+
         if (multitasking_enabled)
             LOG(WARNING, "[task \"%s\" (pid %u)]: ", current_task->name, current_task->pid);
 
-        CONTINUE_LOG(WARNING, "Fault : Exception number : %" PRIu64 " ; Error : %s ; Error code = %#" PRIx64 " ; cr2 = %#" PRIx64 " ; cr3 = %#" PRIx64 " ; rip = %#" PRIx64,
-            registers->interrupt_number, get_error_message(registers->interrupt_number, registers->error_code),
-            registers->error_code, registers->cr2, registers->cr3, registers->rip);
+        if (multitasking_enabled)
+            CONTINUE_LOG(WARNING, EXCEPTION_LOG_DATA);
+        else
+            LOG(WARNING, EXCEPTION_LOG_DATA);
 
         LOG(WARNING, "CS: %#.16" PRIx64 " DS: %#.16" PRIx64 " SS: %#.16" PRIx64, registers->cs, registers->ds, registers->ss);
         log_segbase();

@@ -4,6 +4,9 @@
 
 #define IA32_APIC_BASE_MSR          0x1B
 
+#define IA32_THERM_STATUS_MSR       0x19C
+#define MSR_TEMPERATURE_TARGET_MSR  0x1A2
+
 #define IA32_PAT_MSR                0x277
 
 #define IA32_X2APIC_APICID_MSR      0x802
@@ -32,7 +35,7 @@ static inline __attribute__((always_inline)) uint64_t rdmsr(uint32_t msr)
     return ((uint64_t)high << 32) | low;
 }
 
-static inline __attribute__((always_inline)) void wrmsr(uint32_t msr, uint64_t value) 
+static inline __attribute__((always_inline)) void wrmsr(uint32_t msr, uint64_t value)
 {
     uint32_t low = (uint32_t)(value & 0xffffffff);
     uint32_t high = (uint32_t)(value >> 32);

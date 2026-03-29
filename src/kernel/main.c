@@ -3,6 +3,7 @@
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "cpu/temp.h"
 #include "cpu/util.h"
 
 #include "boot/limine.h"
@@ -594,9 +595,25 @@ void _start()
 
     pci_scan_buses();
 
-    putchar('\n');
-
     LOG(INFO, "Done scanning PCI buses.");
+
+    LOG(INFO, "Reading CPU thermal sensor...");
+    printf("Reading CPU thermal sensor...\n");
+    cpu_init_sensor();
+    if (temperature_sensor)
+    {
+        cpu_read_tcc();
+        printf("TCC activation temperature : %dC\n", tcc_activation_temperature);
+        LOG(INFO, "TCC activation temperature : %dC", tcc_activation_temperature);
+        int cpu_temp = cpu_read_temp();
+        LOG(INFO, "CPU is at %d°C", cpu_temp);
+        printf("CPU is at %dC\n", cpu_temp);
+    }
+    else
+    {
+        LOG(INFO, "No temperature sensor");
+        printf("No temperature sensor\n");
+    }
 
     LOG(DEBUG, "VFS TREE:");
     vfs_log_tree(vfs_root, 0);
@@ -661,6 +678,7 @@ void _start()
     unlock_scheduler();
 
     LOG(DEBUG, "Starting multitasking...");
+    printf("Starting multitasking...\n\n");
 
     log_segbase();
 

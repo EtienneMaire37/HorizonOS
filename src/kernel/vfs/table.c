@@ -72,6 +72,7 @@ void vfs_remove_global_file(int fd)
         {
             if (file_table[fd].on_destroy)
                 file_table[fd].on_destroy(&file_table[fd]);
+            move_all_tasks_to_running_queue(&file_table[fd].blocked_on_io);
         }
 
 		unlock_scheduler();
