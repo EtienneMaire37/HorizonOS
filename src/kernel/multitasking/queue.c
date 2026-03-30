@@ -49,7 +49,7 @@ void copy_task_to_thread_queue(thread_queue_t* queue, thread_t* task)
     thread_queue_push_back(queue, task);
     unlock_scheduler();
 }
-void remove_task_copy_from_thread_queue(thread_queue_t* queue, thread_t* task)
+void remove_task_from_thread_queue(thread_queue_t* queue, thread_t* task)
 {
     lock_scheduler();
     thread_queue_remove(queue, ll_find_item_by_data(queue, task));
@@ -137,6 +137,24 @@ void move_all_tasks_to_running_queue(thread_queue_t* tq)
             thread_queue_item_t* cur = it;
             it = it->next;
             move_task_to_running_queue_by_item(tq, cur);
+        } while (*tq);
+    }
+    unlock_scheduler();
+}
+
+void remove_all_tasks_from_queue(thread_queue_t* tq)
+{
+    assert(tq);
+    lock_scheduler();
+    if (!*tq) { unlock_scheduler(); return; }
+    thread_queue_item_t* it = *tq;
+    if (it)
+    {
+        do
+        {
+            thread_queue_item_t* cur = it;
+            it = it->next;
+            ll_remove(tq, it);
         } while (*tq);
     }
     unlock_scheduler();

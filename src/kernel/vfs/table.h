@@ -28,6 +28,7 @@ typedef struct file_entry
     } tnode;
 
     thread_queue_t blocked_on_io;
+    thread_queue_t blocked_on_poll;
 
     ssize_t (*iofunc)(file_entry_t*, uint8_t* buf, size_t count, uint8_t direction);
     void (*on_destroy)(file_entry_t*);
@@ -38,6 +39,7 @@ static inline file_entry_t file_entry_create_empty()
     file_entry_t ent;
     memset(&ent, 0, sizeof(ent));
     ent.blocked_on_io = TQ_INIT;
+    ent.blocked_on_poll = TQ_INIT;
     return ent;
 }
 
