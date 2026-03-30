@@ -398,7 +398,7 @@ void cleanup_tasks()
             cur_forked_task = cur_forked_task->next;
             if (task_to_fork != current_task)
             {
-                move_task_to_running_queue(&forked_tasks, cur_forked_task);
+                move_task_to_running_queue_by_item(&forked_tasks, cur_forked_task);
                 fork_task(task_to_fork);
             }
         }
@@ -473,17 +473,17 @@ void waitpid_check_dead()
                 if (false)
                 {
                 found_task:
-                    move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
+                    move_task_from_to_thread_queue_by_item(&dead_tasks, &reapable_tasks, cur_dead_task);
 
                     parent->wstatus = thread->return_value;
                     parent->waitpid_ret = thread->pid;
-                    move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+                    move_task_to_running_queue(&waitpid_tasks, parent);
                 }
             }
             else
             {
                 if (!find_task_by_pid_anywhere(thread->ppid))
-                    move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, cur_dead_task);
+                    move_task_from_to_thread_queue_by_item(&dead_tasks, &reapable_tasks, cur_dead_task);
             }
         }
         while (dead_tasks != TQ_INIT && it != dead_tasks);
@@ -533,8 +533,8 @@ void kill_task(thread_t* task, int ret)
         {
             parent->waitpid_ret = task->pid;
             parent->wstatus = ret;
-            move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
-            move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, ll_find_item_by_data(&dead_tasks, task));
+            move_task_to_running_queue(&waitpid_tasks, parent);
+            move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, task);
         }
     }
 

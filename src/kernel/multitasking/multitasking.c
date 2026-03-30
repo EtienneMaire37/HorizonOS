@@ -192,7 +192,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
         {
             if (thread->pid == pid)
             {
-                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
+                move_task_from_to_thread_queue_by_item(&dead_tasks, &reapable_tasks, it);
                 if (wstatus) *wstatus = thread->return_value;
                 unlock_scheduler();
                 return thread->pid;
@@ -202,7 +202,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
         {
             if (thread->pgid == pgid_on_call)
             {
-                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
+                move_task_from_to_thread_queue_by_item(&dead_tasks, &reapable_tasks, it);
                 if (wstatus) *wstatus = thread->return_value;
                 unlock_scheduler();
                 return thread->pid;
@@ -210,7 +210,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
         }
         else if (pid == -1)
         {
-            move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
+            move_task_from_to_thread_queue_by_item(&dead_tasks, &reapable_tasks, it);
             if (wstatus) *wstatus = thread->return_value;
             unlock_scheduler();
             return thread->pid;
@@ -219,7 +219,7 @@ pid_t waitpid_find_child_in_tq(thread_queue_t* tq, pid_t pid, int* wstatus, int 
         {
             if (thread->pgid == -pid)
             {
-                move_task_from_to_thread_queue(&dead_tasks, &reapable_tasks, it);
+                move_task_from_to_thread_queue_by_item(&dead_tasks, &reapable_tasks, it);
                 if (wstatus) *wstatus = thread->return_value;
                 unlock_scheduler();
                 return thread->pid;
@@ -248,7 +248,7 @@ void task_stop(thread_t* thread, int sig)
     {
         parent->waitpid_ret = thread->pid;
         parent->wstatus = ((sig & 0xff) << 8) | 0x7f;
-        move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+        move_task_to_running_queue(&waitpid_tasks, parent);
     }
 
     move_task_to_queue(&stopped_tasks, thread);
@@ -274,7 +274,7 @@ void task_continue(thread_t* thread)
     {
         parent->waitpid_ret = thread->pid;
         parent->wstatus = 0xffff;
-        move_task_to_running_queue(&waitpid_tasks, ll_find_item_by_data(&waitpid_tasks, parent));
+        move_task_to_running_queue(&waitpid_tasks, parent);
     }
 }
 

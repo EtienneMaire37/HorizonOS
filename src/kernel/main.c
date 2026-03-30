@@ -319,6 +319,8 @@ void _start()
     printf("Paging setup done\n");
     LOG(INFO, "Set up paging");
 
+    LOG(INFO, "Detecting FPU");
+
     if (cpuid_highest_function_parameter >= 1)
     {
         uint32_t eax = 0, ebx, ecx = 0, edx;
@@ -337,8 +339,6 @@ void _start()
     {
         if (xsave_supported)
         {
-            LOG(INFO, "Detecting FPU");
-
             if (cpuid_highest_function_parameter >= 0x0d)
             {
                 uint32_t eax = 0, ebx, ecx = 0, edx;

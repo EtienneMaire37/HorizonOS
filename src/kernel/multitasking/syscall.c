@@ -1233,11 +1233,12 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         current_task->timeout_deadline = deadline;
         move_running_task_to_thread_queue(&waiting_for_time_tasks, current_task);
         switch_task();
-        if (global_timer <= deadline)
+        const precise_time_t timer = global_timer;
+        if (timer <= deadline)
         {
             sc_ret_errno = EINTR;
-            *arg1 = (deadline - global_timer) / PRECISE_SECONDS;
-            *arg2 = ((deadline - global_timer) / PRECISE_NANOSECONDS) % 1000000000;
+            *arg1 = (deadline - timer) / PRECISE_SECONDS;
+            *arg2 = ((deadline - timer) / PRECISE_NANOSECONDS) % 1000000000;
             break;
         }
         *arg1 = 0;

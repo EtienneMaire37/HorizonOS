@@ -43,10 +43,34 @@ void move_running_task_to_thread_queue(thread_queue_t* queue, thread_t* task)
     unlock_scheduler();
 }
 
-void move_task_to_running_queue(thread_queue_t* queue, thread_queue_item_t* item)
+void copy_task_to_thread_queue(thread_queue_t* queue, thread_t* task)
 {
-    if (queue == &dead_tasks || queue == &reapable_tasks)
-        return;
+    lock_scheduler();
+    thread_queue_push_back(queue, task);
+    unlock_scheduler();
+}
+void remove_task_copy_from_thread_queue(thread_queue_t* queue, thread_t* task)
+{
+    lock_scheduler();
+    thread_queue_remove(queue, ll_find_item_by_data(queue, task));
+    unlock_scheduler();
+}
+
+void move_task_to_running_queue(thread_queue_t* queue, thread_t* item)
+{
+    lock_scheduler();
+    thread_queue_item_t* it = ll_find_item_by_data(queue, item);
+    assert(it);
+    multitasking_add_task(item);
+    thread_queue_remove(queue, it);
+    item->queue = &running_tasks;
+    if (current_task == idle_task)
+        switch_task();
+    unlock_scheduler();
+}
+
+void move_task_to_running_queue_by_item(thread_queue_t* queue, thread_queue_item_t* item)
+{
     lock_scheduler();
     multitasking_add_task(item->data);
     thread_queue_remove(queue, item);
@@ -56,7 +80,17 @@ void move_task_to_running_queue(thread_queue_t* queue, thread_queue_item_t* item
     unlock_scheduler();
 }
 
-void move_task_from_to_thread_queue(thread_queue_t* queue1, thread_queue_t* queue2, thread_queue_item_t* item)
+void move_task_from_to_thread_queue(thread_queue_t* queue1, thread_queue_t* queue2, thread_t* item)
+{
+    lock_scheduler();
+    thread_queue_item_t* it = ll_find_item_by_data(queue1, item);
+    assert(it);
+    thread_queue_remove(queue1, it);
+    thread_queue_push_back(queue2, item);
+    item->queue = queue2;
+    unlock_scheduler();
+}
+void move_task_from_to_thread_queue_by_item(thread_queue_t* queue1, thread_queue_t* queue2, thread_queue_item_t* item)
 {
     lock_scheduler();
     thread_t* task = item->data;
@@ -74,6 +108,7 @@ void move_task_to_queue(void* queue, thread_t* task)
         unlock_scheduler();
         return;
     }
+    assert(task->queue != &dead_tasks && task->queue != &reapable_tasks);
     if (task->queue == &running_tasks)
     {
         if (queue != &running_tasks)
@@ -82,9 +117,9 @@ void move_task_to_queue(void* queue, thread_t* task)
     else
     {
         if (queue == &running_tasks)
-            move_task_to_running_queue(task->queue, ll_find_item_by_data(task->queue, task));
+            move_task_to_running_queue(task->queue, task);
         else
-            move_task_from_to_thread_queue(task->queue, queue, ll_find_item_by_data(task->queue, task));
+            move_task_from_to_thread_queue(task->queue, queue, task);
     }
     unlock_scheduler();
 }
@@ -101,7 +136,7 @@ void move_all_tasks_to_running_queue(thread_queue_t* tq)
         {
             thread_queue_item_t* cur = it;
             it = it->next;
-            move_task_to_running_queue(tq, cur);
+            move_task_to_running_queue_by_item(tq, cur);
         } while (*tq);
     }
     unlock_scheduler();
@@ -120,7 +155,7 @@ void move_n_tasks_to_running_queue(thread_queue_t* tq, int n)
         {
             thread_queue_item_t* cur = it;
             it = it->next;
-            move_task_to_running_queue(tq, cur);
+            move_task_to_running_queue_by_item(tq, cur);
             i++;
         } while (*tq && i <= n);
     }
@@ -141,7 +176,7 @@ void filter_tasks_to_running_queue(thread_queue_t* tq, bool (*test)(thread_t* ta
             thread_queue_item_t* cur = it;
             it = it->next;
             if (test(cur->data))
-                move_task_to_running_queue(tq, cur);
+                move_task_to_running_queue_by_item(tq, cur);
             else
                 first_item = false;
         } while (*tq && (it != *tq || first_item));

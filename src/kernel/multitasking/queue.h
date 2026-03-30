@@ -19,9 +19,13 @@ extern thread_queue_t   dead_tasks,
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data);
 void thread_queue_remove(thread_queue_t* queue, thread_queue_item_t* data);
 
+void copy_task_to_thread_queue(thread_queue_t* queue, thread_t* task);
+void remove_task_copy_from_thread_queue(thread_queue_t* queue, thread_t* task);
 void move_running_task_to_thread_queue(thread_queue_t* queue, thread_t* task);
-void move_task_to_running_queue(thread_queue_t* queue, thread_queue_item_t* task);
-void move_task_from_to_thread_queue(thread_queue_t* queue1, thread_queue_t* queue2, thread_queue_item_t* item);
+void move_task_to_running_queue(thread_queue_t* queue, thread_t* task);
+void move_task_to_running_queue_by_item(thread_queue_t* queue, thread_queue_item_t* task);
+void move_task_from_to_thread_queue(thread_queue_t* queue1, thread_queue_t* queue2, thread_t* item);
+void move_task_from_to_thread_queue_by_item(thread_queue_t* queue1, thread_queue_t* queue2, thread_queue_item_t* item);
 void move_task_to_queue(void* queue, thread_t* task);
 
 void move_all_tasks_to_running_queue(thread_queue_t* tq);
