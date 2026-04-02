@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <ctype.h>
 #include "../debug/out.h"
 #include "../multitasking/multitasking.h"
 
@@ -22,7 +23,10 @@ static inline void hexdump(void* addr, size_t bytes)
         {
             CONTINUE_LOG(DEBUG, " |  ");
             for (size_t j = i - 15; j <= i; j++)
-                CONTINUE_LOG(DEBUG, "%c ", ((uint8_t*)((uint64_t)addr - addr_off))[j]);
+            {
+                char ch = ((char*)((uint64_t)addr - addr_off))[j];
+                CONTINUE_LOG(DEBUG, "%c ", isprint(ch) ? ch : '.');
+            }
         }
     }
 }

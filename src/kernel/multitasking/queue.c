@@ -9,7 +9,7 @@ thread_queue_t reapable_tasks = TQ_INIT;
 thread_queue_t waitpid_tasks = TQ_INIT;
 thread_queue_t forked_tasks = TQ_INIT;
 thread_queue_t stopped_tasks = TQ_INIT;
-thread_queue_t waiting_for_stdin_tasks = TQ_INIT;
+thread_queue_t _waiting_for_stdin_tasks = TQ_INIT;
 thread_queue_t waiting_for_time_tasks = TQ_INIT;
 
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data)
@@ -196,6 +196,27 @@ void filter_tasks_to_running_queue(thread_queue_t* tq, bool (*test)(thread_t* ta
             if (test(cur->data))
                 move_task_to_running_queue_by_item(tq, cur);
             else
+                first_item = false;
+        } while (*tq && (it != *tq || first_item));
+    }
+    unlock_scheduler();
+}
+
+void run_it_on_queue(thread_queue_t* tq, void (*func)(thread_t* task))
+{
+    assert(tq);
+    lock_scheduler();
+    if (!*tq) { unlock_scheduler(); return; }
+    bool first_item = true;
+    thread_queue_item_t* it = *tq;
+    if (it)
+    {
+        do
+        {
+            thread_queue_item_t* cur = it;
+            it = it->next;
+            func(cur->data);
+            if (it->prev == cur)
                 first_item = false;
         } while (*tq && (it != *tq || first_item));
     }

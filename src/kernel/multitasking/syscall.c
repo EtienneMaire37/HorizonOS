@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include "task.h"
 #include <sys/select.h>
 #include <asm-generic/errno.h>
 #include "syscall.h"
@@ -30,6 +31,15 @@
 #include <sys/poll.h>
 
 extern void sigret();
+
+bool should_restart_syscall()
+{
+// * If a blocked call to one of the following interfaces is interrupted by a signal handler, then the call is automatically restarted
+// * after the signal handler returns if the SA_RESTART flag was used; otherwise the call fails with the error EINTR
+    if (current_task->sig_pending_user_space && (current_task->sig_act_array[current_task->pending_signal_number].sa_flags & SA_RESTART))
+        return true;
+    return false;
+}
 
 void task_handle_signal_to_userspace(interrupt_registers_t* registers)
 {
@@ -502,6 +512,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         else
         {
+        // TODO: Fix corrupted thread queues after execve
             pid_t old_pid = current_task->pid;
 
             task_set_pid(current_task, task_generate_pid());
@@ -716,7 +727,11 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             memset(arg4, 0, sizeof(struct rusage));
         if (arg2) *arg2 = current_task->wstatus;
         sc_ret(1) = current_task->waitpid_ret;
-        sc_ret_errno = current_task->waitpid_ret == -1 ? EINTR : 0;
+        // * Interrupted
+        if (current_task->waitpid_ret == -1)
+            sc_ret_errno = should_restart_syscall() ? ERESTART : EINTR;
+        else
+            sc_ret_errno = 0;
         unlock_scheduler();
         break;
     sc_case(SYS_TTYNAME, 3, int, char*, size_t)
@@ -1081,13 +1096,10 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         if (arg6)
             current_task->sig_mask = *arg6;
 
-        bool dont_block = arg5 && arg5->tv_nsec == 0 && arg5->tv_sec == 0;
-
-        sc_ret_errno = 0;
-        sc_ret(1) = 0;
-
         if (arg1 == 0 || (!arg2 && !arg3 && !arg4))
         {
+            sc_ret_errno = 0;
+            sc_ret(1) = 0;
             if (arg5)
             {
                 current_task->timeout_deadline = global_timer + arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS;
@@ -1099,74 +1111,110 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             else
                 current_task->timeout_deadline = 0;
             if (current_task->timeout_deadline >= global_timer)
-                sc_ret_errno = EINTR;
+                sc_ret_errno = should_restart_syscall() ? ERESTART : EINTR;
             current_task->sig_mask = saved_sigmask;
             unlock_scheduler();
             break;
         }
 
-        if (arg2)
-        {
-            for (int i = 0; i < arg1; i++)
-            {
-                if (!FD_ISSET(i, arg2)) continue;
-                file_entry_t* entry = get_global_file_entry(i);
-                if (!entry)
-                {
-                    FD_CLR(i, arg2);
-                    continue;
-                }
-                if (vfs_willblock(entry, POLLIN))
-                {
-                    if (!dont_block)
-                    {
-                        vfs_block(entry, arg5 ? arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX, POLLIN);
-                        dont_block = true;
-                        if (vfs_willblock(entry, POLLIN))
-                            sc_ret_errno = EINTR;
-                    }
-                    else
-                        FD_CLR(i, arg2);
-                }
-            }
-        }
-        if (arg3)
-        {
-            for (int i = 0; i < arg1; i++)
-            {
-                if (!FD_ISSET(i, arg3)) continue;
-                file_entry_t* entry = get_global_file_entry(i);
-                if (!entry)
-                {
-                    FD_CLR(i, arg3);
-                    continue;
-                }
-                if (vfs_willblock(entry, POLLOUT))
-                {
-                    if (!dont_block)
-                    {
-                        vfs_block(entry, arg5 ? arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : PRECISE_TIME_MAX, POLLOUT);
-                        dont_block = true;
-                        if (vfs_willblock(entry, POLLOUT))
-                            sc_ret_errno = EINTR;
-                    }
-                    else
-                        FD_CLR(i, arg3);
-                }
-            }
-        }
-        // * Ignore exceptional conditions
-        if (arg4)
-            FD_ZERO(arg4);
+        bool shouldblock = !(arg5 && arg5->tv_nsec == 0 && arg5->tv_sec == 0);
 
-        for (int i = 0; i < arg1; i++)
+        fd_set read_ret, write_ret;
+
+        do
         {
+            sc_ret_errno = 0;
+            sc_ret(1) = 0;
+
+            if (arg2) read_ret = *arg2;
+            if (arg3) write_ret = *arg3;
+
             if (arg2)
-                sc_ret(1) += FD_ISSET(i, arg2) ? 1 : 0;
+            {
+                for (int i = 0; i < arg1; i++)
+                {
+                    if (!FD_ISSET(i, &read_ret)) continue;
+                    file_entry_t* entry = get_global_file_entry(i);
+                    if (!entry)
+                    {
+                        FD_CLR(i, &read_ret);
+                        continue;
+                    }
+                    if (vfs_willblock(entry, POLLIN))
+                        FD_CLR(i, &read_ret);
+                    else
+                        shouldblock = false;
+                }
+            }
             if (arg3)
-                sc_ret(1) += FD_ISSET(i, arg3) ? 1 : 0;
+            {
+                for (int i = 0; i < arg1; i++)
+                {
+                    if (!FD_ISSET(i, &write_ret)) continue;
+                    file_entry_t* entry = get_global_file_entry(i);
+                    if (!entry)
+                    {
+                        FD_CLR(i, &write_ret);
+                        continue;
+                    }
+                    if (vfs_willblock(entry, POLLOUT))
+                        FD_CLR(i, &write_ret);
+                    else
+                        shouldblock = false;
+                }
+            }
+            // * Ignore exceptional conditions
             if (arg4)
-                sc_ret(1) += FD_ISSET(i, arg4) ? 1 : 0;
+                FD_ZERO(arg4);
+            if (shouldblock)
+            {
+                if (arg2 || arg3)
+                {
+                    for (int i = 0; i < arg1; i++)
+                    {
+                        if (!((arg2 ? FD_ISSET(i, arg2) : false) || (arg3 ? FD_ISSET(i, arg3) : false))) continue;
+                        file_entry_t* entry = get_global_file_entry(i);
+                        if (!entry)
+                            continue;
+                        if (arg2 ? FD_ISSET(i, arg2) : false)
+                            if (vfs_willblock(entry, POLLIN))
+                                goto pselect_monitor;
+                        if (arg3 ? FD_ISSET(i, arg3) : false)
+                            if (vfs_willblock(entry, POLLOUT))
+                                goto pselect_monitor;
+
+                        continue;
+
+                    pselect_monitor:
+                        task_monitor_entry(current_task, entry);
+                    }
+                }
+                task_start_polling(current_task, arg5 ? arg5->tv_nsec * PRECISE_NANOSECONDS + arg5->tv_sec * PRECISE_SECONDS : NO_TIMEOUT);
+                switch_task();
+                unlock_scheduler();
+                lock_scheduler();
+                if (current_task->sig_pending_user_space)
+                {
+                    sc_ret_errno = should_restart_syscall() ? ERESTART : EINTR;
+                    shouldblock = false;
+                }
+            }
+        } while (shouldblock);
+
+        if (sc_ret_errno != ERESTART)
+        {
+            if (arg2) *arg2 = read_ret;
+            if (arg3) *arg3 = write_ret;
+
+            for (int i = 0; i < arg1; i++)
+            {
+                if (arg2)
+                    sc_ret(1) += FD_ISSET(i, arg2) ? 1 : 0;
+                if (arg3)
+                    sc_ret(1) += FD_ISSET(i, arg3) ? 1 : 0;
+                if (arg4)
+                    sc_ret(1) += FD_ISSET(i, arg4) ? 1 : 0;
+            }
         }
 
         current_task->sig_mask = saved_sigmask;
@@ -1190,15 +1238,39 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
 
     sc_case(SYS_KILL, 2, int, int)
         SC_LOG("syscall SYS_KILL(%d, %d)", arg1, arg2);
-        lock_scheduler();
-        thread_t* task = find_task_by_pid_anywhere(arg1);
-        if (!task)
+        if (arg2 < 0 || arg2 >= NUM_SIGNALS)
         {
-            sc_ret_errno = ESRCH;
-            unlock_scheduler();
+            sc_ret_errno = EINVAL;
             break;
         }
-        task_send_signal(task, arg2);
+        lock_scheduler();
+        if (arg1 > 0)
+        {
+            thread_t* task = find_task_by_pid_anywhere(arg1);
+            if (!task)
+            {
+                sc_ret_errno = ESRCH;
+                unlock_scheduler();
+                break;
+            }
+            if (task->pid == 0)
+            {
+                sc_ret_errno = EPERM;
+                unlock_scheduler();
+                break;
+            }
+            task_send_signal(task, arg2);
+        }
+        else if (arg1 == 0 || arg1 < -1)
+        {
+            pid_t pgrp = arg1 ? -arg1 : current_task->pgid;
+            task_send_signal_to_pgrp(arg2, pgrp);
+        }
+        else    // arg1 == -1
+        {
+        // * then  sig is sent to every process for which the calling process has permission to send signals, except for process 1
+            assert(!"Not implemented");
+        }
         unlock_scheduler();
         sc_ret_errno = 0;
         break;
@@ -1248,58 +1320,73 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
 
     sc_case(SYS_POLL, 3, struct pollfd*, nfds_t, int)
         SC_LOG("syscall SYS_POLL(%p, %lu, %d)", arg1, arg2, arg3);
+        // TODO: Validate the full array AND THE KERNEL STACK SIZE
         sc_validate_pointer(arg1);
-        sc_ret_errno = 0;
-        sc_ret(1) = 0;
+        const size_t array_bytes = sizeof(struct pollfd) * arg2;
+        struct pollfd* ret = alloca(array_bytes);
         lock_scheduler();
-        for (nfds_t i = 0; i < arg2; i++)
+        bool shouldblock = arg3 != 0;
+        do
         {
-            struct pollfd* fds = &arg1[i];
-            file_entry_t* entry = get_global_file_entry(fds->fd);
-            bool dont_block = arg3 == 0;
-            int set = 0;
-            if (entry)
+            sc_ret_errno = 0;
+            sc_ret(1) = 0;
+            for (nfds_t i = 0; i < arg2; i++)
             {
-                fds->revents = 0;
-                if ((fds->events & POLLIN) || (fds->events & POLLRDNORM))
+                ret[i] = arg1[i];
+                struct pollfd* fds = &ret[i];
+                file_entry_t* entry = get_global_file_entry(fds->fd);
+                int set = 0;
+                if (entry)
                 {
-                    if (vfs_willblock(entry, POLLIN))
+                    fds->revents = 0;
+                    if ((fds->events & POLLIN) || (fds->events & POLLRDNORM))
                     {
-                        if (!dont_block)
-                        {
-                            vfs_block(entry, arg3 * PRECISE_MILLISECONDS, POLLIN);
-                            dont_block = true;
-                            if (vfs_willblock(entry, POLLIN))
-                                sc_ret_errno = EINTR;
-                            else
-                                fds->revents |= (set = 1, POLLIN | vfs_hup(entry));
-                        }
+                        if (!vfs_willblock(entry, POLLIN))
+                            fds->revents |= (set = 1, shouldblock = false, POLLIN | vfs_hup(entry));
                     }
-                    else
-                        fds->revents |= (set = 1, POLLIN | vfs_hup(entry));
+                    if ((fds->events & POLLOUT) || (fds->events & POLLWRNORM))
+                    {
+                        if (!vfs_willblock(entry, POLLOUT))
+                            fds->revents |= (set = 1, shouldblock = false, POLLOUT | vfs_hup(entry));
+                    }
                 }
-                if ((fds->events & POLLOUT) || (fds->events & POLLWRNORM))
+                else
+                    fds->revents = fds->fd < 0 ? 0 : (set = 1, POLLNVAL);
+                sc_ret(1) += set;
+            }
+            if (shouldblock)
+            {
+                for (nfds_t i = 0; i < arg2; i++)
                 {
-                    if (vfs_willblock(entry, POLLOUT))
-                    {
-                        if (!dont_block)
-                        {
-                            vfs_block(entry, arg3 * PRECISE_MILLISECONDS, POLLOUT);
-                            dont_block = true;
-                            if (vfs_willblock(entry, POLLOUT))
-                                sc_ret_errno = EINTR;
-                            else
-                                fds->revents |= (set = 1, POLLOUT | vfs_hup(entry));
-                        }
-                    }
-                    else
-                        fds->revents |= (set = 1, POLLOUT | vfs_hup(entry));
+                    struct pollfd* fds = &arg1[i];
+                    file_entry_t* entry = get_global_file_entry(fds->fd);
+                    if (!entry)
+                        continue;
+                    if ((fds->events & POLLIN) || (fds->events & POLLRDNORM))
+                        if (vfs_willblock(entry, POLLIN))
+                            goto poll_monitor;
+                    if ((fds->events & POLLOUT) || (fds->events & POLLWRNORM))
+                        if (vfs_willblock(entry, POLLOUT))
+                            goto poll_monitor;
+
+                    continue;
+
+                poll_monitor:
+                    task_monitor_entry(current_task, entry);
+                }
+                task_start_polling(current_task, PRECISE_MILLISECONDS * arg3);
+                switch_task();
+                unlock_scheduler();
+                lock_scheduler();
+                if (current_task->sig_pending_user_space)
+                {
+                    sc_ret_errno = should_restart_syscall() ? ERESTART : EINTR;
+                    shouldblock = false;
                 }
             }
-            else
-                fds->revents = fds->fd < 0 ? 0 : (set = 1, POLLNVAL);
-            sc_ret(1) += set;
-        }
+        } while (shouldblock);
+        if (sc_ret_errno != ERESTART)
+            memcpy(arg1, ret, array_bytes);
         unlock_scheduler();
         break;
 

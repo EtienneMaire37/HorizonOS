@@ -30,7 +30,7 @@ bool tty_bold = false;
 uint32_t tty_control_sequence_buffer[TTY_ESC_BUFFER] = {0};
 uint8_t tty_escape_sequence_index = 0;
 bool tty_reading_escape_sequence = false, tty_reading_control_sequence = false;
-bool tty_sequence_question_mark = false;
+bool tty_sequence_question_mark = false, tty_sequence_exclamation_mark = false;
 int tty_H_code_selector = 0;
 
 int tty_ignore_chars = 0;
@@ -43,11 +43,33 @@ bool tty_reading_operating_system_command = false, tty_reading_operating_system_
 #include "../vga/vga.h"
 #include "../graphics/linear_framebuffer.h"
 
-void tty_init()
+void __tty_soft_reset()
 {
     tty_data = tty_buffer;
-	tty_set_window_size(framebuffer.width / 8, framebuffer.height / (8 * TTY_AR));
     tty_color = FG_WHITE | BG_BLACK;
+    tty_reversed = false;
+    tty_bold = false;
+
+	tty_ignore_chars = 0;
+	tty_escape_sequence_index = 0;
+	tty_osc_index = 0;
+	tty_reading_escape_sequence = tty_reading_control_sequence = false;
+	tty_sequence_question_mark = tty_sequence_exclamation_mark = false;
+	tty_reading_operating_system_command = tty_reading_operating_system_command_string = false;
+
+	__tty_refresh_screen();
+}
+
+void __tty_full_reset()
+{
+	__tty_soft_reset();
+	tty_clear_screen(' ');
+}
+
+void tty_init()
+{
+	__tty_full_reset();
+	tty_set_window_size(framebuffer.width / 8, framebuffer.height / (8 * TTY_AR));
 	tty_clear_screen(' ');
 }
 
@@ -254,6 +276,7 @@ void __tty_render_cursor(uint32_t cursor)
 
 void __tty_refresh_screen()
 {
+    assert(tty_data);
 	for (uint32_t i = 0; i < MAX_TTY_X * tty_res_y; i++)
 		if (i % MAX_TTY_X < tty_res_x) __tty_render_character(i, tty_data[i]);
 	if (tty_cursor_blink)
@@ -262,13 +285,14 @@ void __tty_refresh_screen()
 
 void __tty_ansi_m_code(uint32_t code)
 {
-	if (tty_sequence_question_mark)
+	if (tty_sequence_question_mark || tty_sequence_exclamation_mark)
 		return;
 
 	if (code == 0)
 	{
 		tty_color = FG_WHITE | BG_BLACK;
 		tty_bold = false;
+		tty_reversed = false;
 		return;
 	}
 
@@ -323,7 +347,7 @@ void __tty_ansi_m_code(uint32_t code)
 
 void __tty_ansi_J_code(uint32_t code)
 {
-	if (tty_sequence_question_mark)
+	if (tty_sequence_question_mark || tty_sequence_exclamation_mark)
 		return;
 
 	if (code != 0 && code != 2 && code != 3)
@@ -343,7 +367,7 @@ void __tty_ansi_J_code(uint32_t code)
 
 void __tty_ansi_H_code(uint32_t code)
 {
-	if (tty_sequence_question_mark)
+	if (tty_sequence_question_mark || tty_sequence_exclamation_mark)
 		return;
 
 	static int32_t n = 1, m = 1;
@@ -422,7 +446,7 @@ void __tty_ansi_l_code(uint32_t code)
 
 void __tty_ansi_K_code(uint32_t code)
 {
-	if (tty_sequence_question_mark)
+	if (tty_sequence_question_mark || tty_sequence_exclamation_mark)
 		return;
 
 	if (code != 0 && code != 1 && code != 2)
@@ -439,7 +463,7 @@ void __tty_ansi_K_code(uint32_t code)
 
 void __tty_ansi_P_code(uint32_t code)
 {
-	if (tty_sequence_question_mark)
+	if (tty_sequence_question_mark || tty_sequence_exclamation_mark)
 		return;
 
 	if (code == 0)
@@ -450,7 +474,7 @@ void __tty_ansi_P_code(uint32_t code)
 
 void __tty_ansi_t_code(uint32_t code)
 {
-	if (tty_sequence_question_mark)
+	if (tty_sequence_question_mark || tty_sequence_exclamation_mark)
 		return;
 
 	// TODO: Push/pop title
@@ -459,7 +483,7 @@ void __tty_ansi_t_code(uint32_t code)
 
 void __tty_ansi_at_code(uint32_t code)
 {
-	if (tty_sequence_question_mark)
+	if (tty_sequence_question_mark || tty_sequence_exclamation_mark)
 		return;
 
 	if (code == 0)
@@ -554,7 +578,9 @@ void tty_outc(char c)
 		return;
 	#else
         unlock_scheduler();
+    #ifdef PRINT_UNRECOGNIZED_ANSI
 		tty_outc('^');
+	#endif
 		return;
 	#endif
 	}
@@ -566,7 +592,7 @@ void tty_outc(char c)
     	{
     	case '[':
             tty_reading_control_sequence = true;
-           	tty_sequence_question_mark = false;
+           	tty_sequence_question_mark = tty_sequence_exclamation_mark = false;
            	unlock_scheduler();
            	return;
         case ']':
@@ -583,14 +609,28 @@ void tty_outc(char c)
        	    __tty_ignore_next_characters(1);
             unlock_scheduler();
             return;
+
 		case '=':
 		    // * Alternate keypad notation
 		    unlock_scheduler();
 		    return;
+    	case '>':
+    	    // * Normal keypad notation
+    	    unlock_scheduler();
+    	    return;
+
+         case 'c':
+            // * Full reset
+            __tty_full_reset();
+            unlock_scheduler();
+            return;
+
     	default:
            	unlock_scheduler();
+        #ifdef PRINT_UNRECOGNIZED_ANSI
            	tty_outc('^');
            	tty_outc(c);
+        #endif
            	return;
     	}
 	}
@@ -615,6 +655,9 @@ void tty_outc(char c)
 		{
 		case '?':
 			tty_sequence_question_mark = true;
+			break;
+		case '!':
+			tty_sequence_exclamation_mark = true;
 			break;
 		case ';':
 			if (tty_escape_sequence_index >= TTY_ESC_BUFFER - 1)
@@ -764,17 +807,26 @@ void tty_outc(char c)
 			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
 			tty_reading_control_sequence = false;
 			break;
+		case 'p':
+		    if (tty_sequence_exclamation_mark)
+				__tty_soft_reset();
+			tty_escape_sequence_index = 0;
+			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
+			tty_reading_control_sequence = false;
+			break;
 		default:
 			tty_reading_control_sequence = false;
 			tty_reading_operating_system_command = false;
 			tty_reading_operating_system_command_string = false;
 			tty_osc_index = 0;
+		#ifdef PRINT_UNRECOGNIZED_ANSI
 			tty_outc('^');
 			tty_outc('[');
 			if (!(tty_escape_sequence_index == 0 && tty_control_sequence_buffer[0] == 0))
 				for (uint8_t i = 0; i <= tty_escape_sequence_index; i++)
 					dprintf(STDOUT_FILENO, "%u%s", tty_control_sequence_buffer[i], i == tty_escape_sequence_index ? "" : ";");
 			tty_outc(c);
+		#endif
 			tty_escape_sequence_index = 0;
 			tty_control_sequence_buffer[tty_escape_sequence_index] = 0;
 		}

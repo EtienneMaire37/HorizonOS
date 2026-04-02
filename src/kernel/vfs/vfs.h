@@ -1,5 +1,6 @@
 #pragma once
 
+#define _GNU_SOURCE
 #include <dirent.h>
 #include "../multitasking/mutex.h"
 #include "../initrd/initrd.h"

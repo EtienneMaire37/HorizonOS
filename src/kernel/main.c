@@ -414,8 +414,8 @@ void _start()
         LOG(INFO, "Using x2APIC");
     }
 
-    printf("%" PRIu64 " core%s running\n", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
-    LOG(INFO, "%" PRIu64 " core%s running", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
+    printf("1/%" PRIu64 " core%s running\n", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
+    LOG(INFO, "1/%" PRIu64 " core%s running", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
 
     printf("CPU manufacturer id : ");
     tty_set_color(FG_LIGHTRED, BG_BLACK);
@@ -646,6 +646,7 @@ void _start()
     };
 
     assert((sizeof(interrupt_registers_t) % 16) == 0);
+    assert(OPEN_MAX >= 256);
 
     LOG(DEBUG, "sizeof(interrupt_registers_t): %zu", sizeof(interrupt_registers_t));
     LOG(DEBUG, "sizeof(thread_t): %zu", sizeof(thread_t));

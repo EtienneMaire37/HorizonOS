@@ -5,6 +5,7 @@
 #include <elf.h>
 #include <stdint.h>
 #include "../vfs/vfs.h"
+#include "../util/linked_list.h"
 
 #define THREAD_NAME_MAX 64
 #define NUM_SIGNALS     (SIGRTMAX + 1)
@@ -13,6 +14,8 @@ typedef struct thread thread_t;
 
 typedef struct thread
 {
+    ll_t _poll_tqs;
+
     precise_time_t timeout_deadline;
 
     uint32_t return_value;

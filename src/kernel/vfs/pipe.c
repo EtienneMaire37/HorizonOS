@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include "../cpu/units.h"
+#include "../util/lambda.h"
 
 bool vfs_isapipe(file_entry_t* entry)
 {
@@ -56,6 +57,11 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
         }
         if (entry->file_data.pipe_data.other_end != -1 && count > 0)
             move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
+        run_it_on_queue(&entry->blocked_on_poll, lambda(void, (thread_t* thread)
+        {
+            ll_remove(&thread->_poll_tqs, ll_find_item_by_data(&thread->_poll_tqs, &entry->blocked_on_poll));
+            task_stop_polling(thread);
+        }));
         unlock_scheduler();
         return count;
     case IO_DIR_WRITE:
@@ -86,6 +92,11 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
         }
         if (count > 0)
             move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
+        run_it_on_queue(&entry->blocked_on_poll, lambda(void, (thread_t* thread)
+        {
+            ll_remove(&thread->_poll_tqs, ll_find_item_by_data(&thread->_poll_tqs, &entry->blocked_on_poll));
+            task_stop_polling(thread);
+        }));
         unlock_scheduler();
         return count;
     default:

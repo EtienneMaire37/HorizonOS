@@ -24,6 +24,8 @@ static const precise_time_t precise_time_ticks_per_second = 1000000000;  // * na
 #define PRECISE_MICROSECONDS    (precise_time_ticks_per_second / 1000000ULL)
 #define PRECISE_NANOSECONDS     (precise_time_ticks_per_second / 1000000000ULL)
 
+#define NO_TIMEOUT              PRECISE_TIME_MAX
+
 static inline uint64_t precise_time_to_milliseconds(precise_time_t time)
 {
     return time / PRECISE_MILLISECONDS;

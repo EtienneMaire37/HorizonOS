@@ -6,8 +6,10 @@
 #include "../multitasking/task.h"
 #include "../multitasking/multitasking.h"
 #include "../terminal/textio.h"
-
+#include "../util/lambda.h"
 #include <assert.h>
+#include "../vfs/table.h"
+#include "keyboard.h"
 
 const keyboard_layout_t* current_keyboard_layout = &us_qwerty;
 
@@ -98,7 +100,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         && vk != VK_HOME && vk != VK_END
         && vk != VK_INSERT && vk != VK_DELETE
         && vk != VK_PAGEUP && vk != VK_PAGEDOWN
-        && ascii != '\n' && ascii != '\t' && ascii != '\b' && ascii != tty_ts.c_cc[VEOF]
+        && ascii != '\n' && ascii != '\t' && ascii != '\b'
         )
         return;
     lock_scheduler();
@@ -121,6 +123,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         size_t max_characters = keyboard_input_buffer.size - 1;
         size_t character_len;
 
+        // TODO: Rewrite this more cleanly and add proper modifier calculation (1 + SHIFT + 2LALT + 4CTRL + 8META)
         switch (vk)
         {
         case VK_TAB:    character_len = !echo ? 1 : TAB_LENGTH; break;
@@ -261,8 +264,9 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
                         utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
                         if (echo) putchar('^');
                     }
-                    utf32_buffer_putchar(&keyboard_input_buffer, character);
-                    if (echo) putchar(ascii);
+                    utf32_char_t actual_char = ctrl && ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')) ? character & 0x1f : character;
+                    utf32_buffer_putchar(&keyboard_input_buffer, actual_char);
+                    if (echo) putchar(actual_char);
                 }
             }
         }
@@ -274,7 +278,10 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         keyboard_buffered_input_buffer.get_index = keyboard_input_buffer.get_index;
         keyboard_buffered_input_buffer.put_index = keyboard_input_buffer.put_index;
         keyboard_input_buffer.get_index = keyboard_input_buffer.put_index = 0;
-        move_all_tasks_to_running_queue(&waiting_for_stdin_tasks);
+        run_it_on_queue(&_waiting_for_stdin_tasks, lambda(void, (thread_t* task)
+        {
+            task_stop_polling(task);
+        }));
     }
     unlock_scheduler();
 

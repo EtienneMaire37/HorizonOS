@@ -13,7 +13,7 @@ extern thread_queue_t   dead_tasks,
                         waitpid_tasks,
                         forked_tasks,
                         stopped_tasks,
-                        waiting_for_stdin_tasks,
+                        _waiting_for_stdin_tasks,
                         waiting_for_time_tasks;
 
 void thread_queue_push_back(thread_queue_t* queue, thread_t* data);
@@ -31,3 +31,4 @@ void remove_all_tasks_from_queue(thread_queue_t* tq);
 void move_all_tasks_to_running_queue(thread_queue_t* tq);
 void move_n_tasks_to_running_queue(thread_queue_t* tq, int n);
 void filter_tasks_to_running_queue(thread_queue_t* tq, bool (*test)(thread_t* task));
+void run_it_on_queue(thread_queue_t* tq, void (*func)(thread_t* task));

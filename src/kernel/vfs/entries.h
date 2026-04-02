@@ -1,9 +1,11 @@
 #pragma once
 
+#define _GNU_SOURCE
+
+#include <dirent.h>
 #include "vfs.h"
 #include <assert.h>
 #include <stdlib.h>
-#include <dirent.h>
 
 #include "../vfs/table.h"
 
@@ -31,6 +33,7 @@ static inline unsigned char get_dirent_dt(struct stat* st)
 
 // !!!! HORRIBLE WAY TO DO THINGS
 // TODO: Rewrite the whole vfs
+// * Should probably allocate on the stack with alloca anyways if we're doing it this way
 static inline struct dirent64 vfs_find_new_child_entry(file_entry_t* entry)
 {
     struct dirent64 dir_entry = {.d_ino = 0, .d_off = 0, .d_reclen = sizeof(struct dirent64), .d_type = 0, .d_name = {0}};

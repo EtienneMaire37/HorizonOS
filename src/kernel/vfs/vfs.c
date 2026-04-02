@@ -677,7 +677,8 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
         if (no_buffered_characters(keyboard_buffered_input_buffer))
         {
             current_task->timeout_deadline = PRECISE_TIME_MAX;
-            move_running_task_to_thread_queue(&waiting_for_stdin_tasks, current_task);
+            copy_task_to_thread_queue(&_waiting_for_stdin_tasks, current_task);
+            move_running_task_to_thread_queue(&waiting_for_time_tasks, current_task);
             switch_task();
             unlock_scheduler();
             lock_scheduler();

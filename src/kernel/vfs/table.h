@@ -56,5 +56,8 @@ static inline file_entry_t* get_global_file_entry(int fd)
 }
 
 bool vfs_willblock(file_entry_t* entry, short events);
-void vfs_block(file_entry_t* entry, precise_time_t timeout, short events);
 int vfs_hup(file_entry_t* entry);
+
+void task_monitor_entry(thread_t* task, file_entry_t* entry);
+void task_start_polling(thread_t* task, precise_time_t timeout);
+void task_stop_polling(thread_t* task);

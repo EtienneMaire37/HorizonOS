@@ -29,6 +29,8 @@ thread_t* task_create_empty()
 
     memset(task, 0, sizeof(*task));
 
+    task->_poll_tqs = LL_INIT;
+
     task->pid = -1;
     task->ppid = -1;
     task->pgid = -1;
@@ -97,6 +99,10 @@ void task_destroy(thread_t* task)
     	if (task->file_table[i].index != invalid_fd)
             vfs_remove_global_file(task->file_table[i].index);
     }
+
+    task_stop_polling(task);
+
+    assert(task->_poll_tqs == TQ_INIT);
     fpu_state_destroy(&task->fpu_state);
     task_free_vas((physical_address_t)task->cr3);
     free(task);
@@ -374,7 +380,11 @@ void fork_task(thread_t* task)
     task_set_pgid(new_task, task->pgid);
     hashmap_set_item(pid_to_task_hashmap, new_task->pid, new_task);
 
-    tq_hashmap_push_back(pid_to_children_tq_hashmap, task->pid, new_task);
+    {
+        thread_t* parent = find_task_by_pid_anywhere(new_task->ppid);
+        if (parent)
+            tq_hashmap_push_back(pid_to_children_tq_hashmap, parent->pid, new_task);
+    }
 
     // LOG(DEBUG, "Pid to children tq hashmap after fork:");
     // tq_hashmap_log(pid_to_children_tq_hashmap);

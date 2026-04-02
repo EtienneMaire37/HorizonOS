@@ -29,7 +29,7 @@ static inline void tq_hashmap_remove(hashmap_t* hmp, uint64_t key, thread_t* thr
     lock_scheduler();
 
     thread_queue_t* tq = hashmap_get_item(hmp, key);
-    if (!tq || !*tq) 
+    if (!tq || !*tq)
     {
         unlock_scheduler();
         return;

@@ -280,7 +280,7 @@ void task_continue(thread_t* thread)
 
 void task_send_signal_to_pgrp(int sig, pid_t pgrp)
 {
-    LOG(DEBUG, "Sending signal %d to pgrp %d", sig, pgrp);
+    LOG(TRACE, "Sending signal %d to pgrp %d", sig, pgrp);
     lock_scheduler();
     thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, pgrp);
     if (!tq || !*tq)
@@ -310,23 +310,20 @@ void task_send_signal(thread_t* thread, int sig)
 
 void task_handle_signal(thread_t* thread, int sig)
 {
-    if (sig >= NUM_SIGNALS || sig < 0) return;
-    if (sig >= SIGRTMIN && sig <= SIGRTMAX) abort();
-
-    lock_scheduler();
-    if (thread == idle_task)
-    {
-        unlock_scheduler();
-        return;
-    }
     if (sig < 0 || sig >= NUM_SIGNALS)
     {
-        LOG(WARNING, "task_send_signal: Invalid signal number %d", sig);
-        unlock_scheduler();
+        // LOG(WARNING, "task_send_signal: Invalid signal number %d", sig);
         return;
     }
 
-    LOG(DEBUG, "pid %d receiving signal %d", thread->pid, sig);
+    assert(!(sig >= SIGRTMIN && sig <= SIGRTMAX));
+
+    if (thread == idle_task)
+        return;
+
+    lock_scheduler();
+
+    LOG(TRACE, "pid %d receiving signal %d", thread->pid, sig);
 
     task_unset_pending_signal(thread, sig);
 
@@ -334,6 +331,9 @@ void task_handle_signal(thread_t* thread, int sig)
 
     if (sig == SIGCONT)
         task_continue(thread);
+
+    if (thread->_poll_tqs)
+        task_stop_polling(thread);
 
     switch (act->sa_flags & SA_SIGINFO ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler)
     {
