@@ -564,6 +564,8 @@ void _start()
 
         ps2_flush_buffer();
     }
+    else
+        printf("No PS/2 Controller\n");
 
     LOG(INFO, "Setting up the VFS...");
     printf("Mounting initrd at root...\n");
