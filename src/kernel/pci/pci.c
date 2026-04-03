@@ -61,11 +61,11 @@ void pci_scan_buses()
                     // if (class_code == 0x01 && subclass == 0x01) // * PCI IDE Controller
                     //     pci_connect_ide_controller(i, j, k);
 
-                    LOG(INFO, "PCI Device at %#x:%#x:%#x (Header type : %u) :", i, j, k, header_type);
+                    LOG(INFO, "PCI Device at %#x:%#x:%#x (Header type : %u) [class %2x.%2x] :", i, j, k, header_type, class_code, subclass);
                     LOG(INFO, "    Vendor : [id = %#04x] \"", vendor_id);
 
                 #ifdef PRINT_PCI_INFO
-                    printf("PCI Device at %#x:%#x:%#x (Header type : %u) :\n", i, j, k, header_type);
+                    printf("PCI Device at %#x:%#x:%#x (Header type : %u) [class %2x.%2x] :\n", i, j, k, header_type, class_code, subclass);
                     printf("    Vendor : [id = %#04x] ", vendor_id);
 
                     tty_set_color(FG_LIGHTGREEN, BG_BLACK);
