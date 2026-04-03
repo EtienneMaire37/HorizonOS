@@ -1,4 +1,5 @@
-// #include <stdint.h>
+#define _GNU_SOURCE
+
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <stdint.h>

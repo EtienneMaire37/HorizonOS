@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include "hashmap.h"
 #include "task.h"
 #include <sys/select.h>
 #include <asm-generic/errno.h>
@@ -512,7 +513,6 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         else
         {
-        // TODO: Fix corrupted thread queues after execve
             pid_t old_pid = current_task->pid;
 
             task_set_pid(current_task, task_generate_pid());
@@ -524,6 +524,10 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             task_copy_file_table(current_task, new_task, true);
 
             move_running_task_to_thread_queue(&reapable_tasks, current_task);
+
+            thread_t* parent = find_task_by_pid_anywhere(new_task->ppid);
+            if (parent)
+                tq_hashmap_push_back(pid_to_children_tq_hashmap, parent->pid, new_task);
 
             unlock_scheduler();
             assert(task_lock_depth == 0);

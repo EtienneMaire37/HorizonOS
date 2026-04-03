@@ -3,6 +3,9 @@
 #include "../util/hashmap.h"
 #include "queue.h"
 
+#include <stdlib.h>
+#include "multitasking.h"
+
 static inline void tq_hashmap_push_back(hashmap_t* hmp, uint64_t key, thread_t* thread)
 {
     if (!hmp) return;
