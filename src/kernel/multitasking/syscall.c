@@ -50,36 +50,10 @@ void task_handle_signal_to_userspace(interrupt_registers_t* registers)
         if (current_task->pending_signal_handler)
         {
             setup_user_signal_stack_frame__interrupt(registers);
+            current_task->sig_pending_user_space = false;
         }
         else
-        {
-            int dfl_action = sig_default_action(current_task->pending_signal_number);
-            SC_LOG("Signal action defaulted to %s",
-                dfl_action == SIGDEF_IGN ? "\"ignore\"" :
-               (dfl_action == SIGDEF_STOP ? "\"stop\"" :
-               (dfl_action == SIGDEF_CONT ? "\"continue\"" :
-               (dfl_action == SIGDEF_TERM ? "\"kill\"" :
-               (dfl_action == SIGDEF_CORE ? "\"core dump\"" :
-                "\"invalid action\"")))));
-            switch (dfl_action)
-            {
-            case SIGDEF_IGN:
-                break;
-            case SIGDEF_STOP:
-                task_stop(current_task, current_task->pending_signal_number);
-                break;
-            case SIGDEF_CONT:
-                task_continue(current_task);
-                break;
-            case SIGDEF_TERM:
-            case SIGDEF_CORE:
-            default:
-                unlock_scheduler();
-                kill_task(current_task, current_task->pending_signal_number);
-                assert(!"Fatal error handling signal");
-            }
-        }
-        current_task->sig_pending_user_space = false;
+            task_handle_sig_dfl(current_task, current_task->pending_signal_number);
     }
     unlock_scheduler();
 }

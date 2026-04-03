@@ -48,12 +48,14 @@ typedef struct thread
 
     file_table_index_t file_table[OPEN_MAX];
 
-    uint16_t stored_cpu_ticks, current_cpu_ticks;   // * In milliseconds
+    int lock_depth;
 
-    char name[THREAD_NAME_MAX];
+    uint16_t stored_cpu_ticks, current_cpu_ticks;   // * In milliseconds
 
     uint64_t rsp, cr3;
     uint64_t fs_base, gs_base;
+
+    char name[THREAD_NAME_MAX];
 
     // * We still have to keep them here in the case
     // * where the current process is blocked before context switching

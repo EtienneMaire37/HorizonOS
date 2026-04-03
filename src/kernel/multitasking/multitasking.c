@@ -308,6 +308,33 @@ void task_send_signal(thread_t* thread, int sig)
     unlock_scheduler();
 }
 
+void task_handle_sig_dfl(thread_t* task, int sig)
+{
+    int dfl_action = sig_default_action(sig);
+    SC_LOG("Signal action defaulted to %s",
+        dfl_action == SIGDEF_IGN ? "\"ignore\"" :
+       (dfl_action == SIGDEF_STOP ? "\"stop\"" :
+       (dfl_action == SIGDEF_CONT ? "\"continue\"" :
+       (dfl_action == SIGDEF_TERM ? "\"kill\"" :
+       (dfl_action == SIGDEF_CORE ? "\"core dump\"" :
+        "\"invalid action\"")))));
+    switch (dfl_action)
+    {
+    case SIGDEF_IGN:
+        break;
+    case SIGDEF_STOP:
+        task_stop(task, sig);
+        break;
+    case SIGDEF_CONT:
+        task_continue(task);
+        break;
+    case SIGDEF_TERM:
+    case SIGDEF_CORE:
+    default:
+        kill_task(task, sig);
+    }
+}
+
 void task_handle_signal(thread_t* thread, int sig)
 {
     if (sig < 0 || sig >= NUM_SIGNALS)
@@ -346,10 +373,15 @@ void task_handle_signal(thread_t* thread, int sig)
     }
 
 dfl:
-    thread->pending_signal_handler = 0;
-    thread->sig_pending_user_space = true;
-    thread->pending_signal_number = sig;
-    move_task_to_queue(&running_tasks, thread);
+    if (thread->lock_depth)
+    {
+        thread->pending_signal_handler = 0;
+        thread->sig_pending_user_space = true;
+        thread->pending_signal_number = sig;
+        move_task_to_queue(&running_tasks, thread);
+    }
+    else
+        task_handle_sig_dfl(thread, sig);
     unlock_scheduler();
     return;
 

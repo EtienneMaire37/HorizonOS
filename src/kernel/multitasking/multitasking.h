@@ -123,6 +123,7 @@ thread_t* find_running_task_by_pid(pid_t pid);
 thread_t* find_task_by_pid_in_queue(void* queue, pid_t pid);
 thread_t* find_task_by_pid_anywhere(pid_t pid);
 
+void task_handle_sig_dfl(thread_t* task, int sig);
 void task_send_signal_to_pgrp(int sig, pid_t pgrp);
 void task_send_signal(thread_t* thread, int sig);
 void task_handle_signal(thread_t* thread, int sig);

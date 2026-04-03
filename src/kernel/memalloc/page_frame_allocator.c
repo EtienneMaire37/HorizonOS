@@ -25,7 +25,7 @@ uint64_t memory_allocated, allocatable_memory;
 
 atomic_flag pfa_lock = ATOMIC_FLAG_INIT;
 
-void pfa_detect_usable_memory() 
+void pfa_detect_usable_memory()
 {
     usable_memory = usable_memory_blocks = 0;
     bitmap = NULL;
@@ -35,10 +35,10 @@ void pfa_detect_usable_memory()
 
     LOG(INFO, "Usable memory map:");
 
-    for (int i = 0; i < mmap_request.response->entry_count; i++) 
+    for (int i = 0; i < mmap_request.response->entry_count; i++)
     {
         struct limine_memmap_entry* entry = mmap_request.response->entries[i];
-        LOG(DEBUG, "   Limine memory block : address : %#" PRIx64 " ; length : %" PRIu64 " | type : %" PRIu64, 
+        LOG(DEBUG, "   Limine memory block : address : %#" PRIx64 " ; length : %" PRIu64 " | type : %" PRIu64,
             entry->base, entry->length, entry->type);
         if (entry->type != LIMINE_MEMMAP_USABLE)
             continue;
@@ -58,14 +58,14 @@ void pfa_detect_usable_memory()
             if (len == 0)
                 continue;
         }
-        
+
         if (addr >= MAX_MEMORY)
             break;
         if (addr > MAX_MEMORY - len)
             len = MAX_MEMORY - addr;
 
         uint64_t align = addr & 0xfff;
-        if (align != 0) 
+        if (align != 0)
         {
             uint64_t adjust = 0x1000 - align;
             addr += adjust;
@@ -78,7 +78,7 @@ void pfa_detect_usable_memory()
         if (len == 0)
             continue;
 
-        if (usable_memory_blocks >= MAX_USABLE_MEMORY_BLOCKS) 
+        if (usable_memory_blocks >= MAX_USABLE_MEMORY_BLOCKS)
         {
             LOG(WARNING, "Too many memory blocks detected");
             break;
@@ -100,10 +100,10 @@ void pfa_detect_usable_memory()
 
     bitmap_size = total_pages / 8; // * Align to qwords (and round down)
     uint64_t bitmap_pages = bitmap_size / 0x1000;
-    
+
     LOG(TRACE, "Bitmap size: %" PRIu64, bitmap_size);
     printf("PFA: Bitmap size: %" PRIu64 "\n", bitmap_size);
-    
+
     while (first_alloc_block < usable_memory_blocks && usable_memory_map[first_alloc_block].length / 0x1000 <= bitmap_pages)
         first_alloc_block++;
 
@@ -113,10 +113,10 @@ void pfa_detect_usable_memory()
 
     LOG(TRACE, "PFA: bitmap address: %p", bitmap);
     printf("PFA: bitmap address: %p\n", bitmap);
-    
-    if (first_alloc_block >= usable_memory_blocks) 
+
+    if (first_alloc_block >= usable_memory_blocks)
     goto no_memory;
-    
+
     if (usable_memory_map[first_alloc_block].length <= 0x1000 * bitmap_pages)
         first_alloc_block++;
     else
@@ -124,11 +124,11 @@ void pfa_detect_usable_memory()
         usable_memory_map[first_alloc_block].length -= 0x1000 * bitmap_pages;
         usable_memory_map[first_alloc_block].address += 0x1000 * bitmap_pages;
     }
-    
+
     if (first_alloc_block >= usable_memory_blocks)
         goto no_memory;
     LOG(TRACE, "PFA: First alloc address: %#" PRIx64, usable_memory_map[first_alloc_block].address + PHYS_MAP_BASE);
-        
+
     memset(bitmap, 0, bitmap_size);
 
     for (uint8_t i = first_alloc_block; i < usable_memory_blocks; i++)
@@ -142,7 +142,7 @@ no_memory:
     abort();
 }
 
-physical_address_t pfa_allocate_physical_page() 
+physical_address_t pfa_allocate_physical_page()
 {
     return pfa_allocate_physical_contiguous_pages(1);
 }
@@ -150,8 +150,8 @@ physical_address_t pfa_allocate_physical_page()
 physical_address_t pfa_allocate_physical_contiguous_pages(size_t pages)
 {
 //     LOG(TRACE, "pfa_allocate_physical_contiguous_pages(%zu)", pages);
-    
-    if (memory_allocated + 0x1000 * pages > allocatable_memory) 
+
+    if (memory_allocated + 0x1000 * pages > allocatable_memory)
     {
         LOG(CRITICAL, "pfa_allocate_physical_contiguous_pages: Out of memory at start!");
         kernel_panic_ex(NULL, PANIC_OUT_OF_MEMORY);
@@ -163,7 +163,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(size_t pages)
         lock_scheduler();
         static int page_index = 0;
         uint64_t remaining = page_index;
-        for (uint8_t j = first_alloc_block; j < usable_memory_blocks; j++) 
+        for (uint8_t j = first_alloc_block; j < usable_memory_blocks; j++)
         {
             uint64_t block_pages = usable_memory_map[j].length / 0x1000;
             if (remaining + pages <= block_pages)
@@ -183,12 +183,12 @@ physical_address_t pfa_allocate_physical_contiguous_pages(size_t pages)
     }
     #endif
 
-//     if (memory_allocated + 0x1000 * pages > allocatable_memory * 9 / 10) 
+//     if (memory_allocated + 0x1000 * pages > allocatable_memory * 9 / 10)
 //         LOG(WARNING, "pfa_allocate_physical_contiguous_pages: Over 90%% of memory used!");
 
     lock_scheduler();
 
-    for (uint64_t qword_index = first_free_page_index_hint / 64; qword_index < bitmap_size / 8; qword_index++) 
+    for (uint64_t qword_index = first_free_page_index_hint / 64; qword_index < bitmap_size / 8; qword_index++)
     {
     loop_start:
         uint64_t* qword = (uint64_t*)&bitmap[8 * qword_index];
@@ -226,7 +226,7 @@ physical_address_t pfa_allocate_physical_contiguous_pages(size_t pages)
         offset = 0;
 
         uint64_t remaining = page_index;
-        for (uint8_t j = first_alloc_block; j < usable_memory_blocks; j++) 
+        for (uint8_t j = first_alloc_block; j < usable_memory_blocks; j++)
         {
             uint64_t block_pages = usable_memory_map[j].length / 0x1000;
             if (remaining + pages <= block_pages)
@@ -263,9 +263,9 @@ physical_address_t pfa_allocate_physical_contiguous_pages(size_t pages)
     abort();
 }
 
-void pfa_free_physical_page(physical_address_t address) 
+void pfa_free_physical_page(physical_address_t address)
 {
-    if (address == physical_null) 
+    if (address == physical_null)
     {
         LOG(WARNING, "pfa_free_physical_page: Kernel tried to free NULL");
         return;
@@ -278,10 +278,10 @@ void pfa_free_physical_page(physical_address_t address)
     #endif
 
     uint64_t page_index = 0;
-    for (uint32_t i = first_alloc_block; i < usable_memory_blocks; i++) 
+    for (uint32_t i = first_alloc_block; i < usable_memory_blocks; i++)
     {
-        if (address >= usable_memory_map[i].address && 
-            address < usable_memory_map[i].address + usable_memory_map[i].length) 
+        if (address >= usable_memory_map[i].address &&
+            address < usable_memory_map[i].address + usable_memory_map[i].length)
         {
             page_index += (address - usable_memory_map[i].address) / 0x1000;
             break;
@@ -311,7 +311,7 @@ void pfa_free_physical_contiguous_pages(physical_address_t address, size_t pages
         pfa_free_physical_page(address + 0x1000ULL * i);
 }
 
-void* pfa_allocate_page()
+__attribute__((malloc, malloc(pfa_free_page, 1))) void* pfa_allocate_page()
 {
     physical_address_t paddr = pfa_allocate_physical_page();
     if (!paddr) return NULL;
@@ -324,7 +324,7 @@ void pfa_free_page(const void* ptr)
     pfa_free_physical_page((physical_address_t)ptr - PHYS_MAP_BASE);
 }
 
-void* pfa_allocate_contiguous_pages(size_t pages)
+__attribute__((malloc, malloc(pfa_free_contiguous_pages, 1))) void* pfa_allocate_contiguous_pages(size_t pages)
 {
     physical_address_t paddr = pfa_allocate_physical_contiguous_pages(pages);
     if (!paddr) return NULL;

@@ -224,7 +224,7 @@ $(LESS_DL_STAMP):
 	mkdir -p $(LESS_DIR)
 	git clone https://github.com/gwsw/less $(LESS_DIR)
 	cd $(LESS_DIR) && git checkout 7bd865254d3520ca6f2272ca37849d0de05fd7c7
-	cd $(LESS_DIR) && make -f Makefile.aut distfiles
+	cd $(LESS_DIR) && $(MAKE) -f Makefile.aut distfiles
 	touch $@
 
 $(HOSGCC): $(LINUX_HEADERS_STAMP)
@@ -247,7 +247,7 @@ $(LINUX_HEADERS_STAMP):
 	rm -rf linux-headers linux-kernel-headers
 	git clone https://github.com/sabotage-linux/kernel-headers linux-headers
 	cd linux-headers && git checkout 22bba01
-	cd linux-headers && make ARCH=x86_64 prefix=/usr DESTDIR=${MAKE_DIR}/linux-kernel-headers install
+	cd linux-headers && $(MAKE) ARCH=x86_64 prefix=/usr DESTDIR=${MAKE_DIR}/linux-kernel-headers install
 	touch $@
 
 rmkernelbin:
