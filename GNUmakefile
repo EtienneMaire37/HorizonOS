@@ -19,10 +19,11 @@ MAKE := make
 override BASH_DIR := ${MAKE_DIR}/src/tasks/src/bash
 override COREUTILS_DIR := ${MAKE_DIR}/src/tasks/src/coreutils
 override LESS_DIR := ${MAKE_DIR}/src/tasks/src/less
+override CMATRIX_DIR := ${MAKE_DIR}/src/tasks/src/cmatrix
 
 override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no \
-		fu_cv_sys_mounted_getmntinfo=yes ac_cv_func_splice=no
-
+		fu_cv_sys_mounted_getmntinfo=yes ac_cv_func_splice=no ac_cv_file__usr_lib_kbd_consolefonts=no ac_cv_file__usr_share_consolefonts=no \
+		ac_cv_file__usr_X11R6_lib_X11_fonts_misc=no ac_cv_file__usr_share_X11_fonts_misc=no ac_cv_file__usr_share_fonts_misc=no
 override KERNEL_SRC := $(shell find src/kernel -name '*.c')
 override KERNEL_OBJ := $(KERNEL_SRC:src/kernel/%.c=bin/%.o)
 
@@ -39,6 +40,8 @@ override LESS_DL_STAMP := $(LESS_DIR)/.downloaded
 override LESS_BUILD_STAMP := $(LESS_DIR)/.built
 override COREUTILS_DL_STAMP := ${MAKE_DIR}/src/tasks/src/coreutils/.downloaded
 override COREUTILS_BUILD_STAMP := ${MAKE_DIR}/src/tasks/src/coreutils/.built
+override CMATRIX_DL_STAMP := $(CMATRIX_DIR)/.downloaded
+override CMATRIX_BUILD_STAMP := $(CMATRIX_DIR)/.built
 
 override LINUX_HEADERS_STAMP := ${MAKE_DIR}/linux-headers/.built
 
@@ -173,7 +176,7 @@ horizonos.iso: $(shell find src/system -type f) $(MLIBC_STAMP) $(HOSGCC) resourc
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(HOSGCC)
+src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) $(CMATRIX_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
@@ -225,6 +228,21 @@ $(LESS_DL_STAMP):
 	git clone https://github.com/gwsw/less $(LESS_DIR)
 	cd $(LESS_DIR) && git checkout 7bd865254d3520ca6f2272ca37849d0de05fd7c7
 	cd $(LESS_DIR) && $(MAKE) -f Makefile.aut distfiles
+	touch $@
+
+$(CMATRIX_BUILD_STAMP): $(CMATRIX_DL_STAMP) $(HOSGCC) $(NCURSES_STAMP)
+	cd $(CMATRIX_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
+	cd $(CMATRIX_DIR) && $(MAKE) -j$(nproc)
+	cd $(CMATRIX_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
+	touch $@
+
+$(CMATRIX_DL_STAMP):
+	rm -rf $(CMATRIX_DIR)
+	mkdir -p $(CMATRIX_DIR)
+	git clone https://github.com/abishekvashok/cmatrix $(CMATRIX_DIR)
+	cd $(CMATRIX_DIR) && git checkout 5c082c64a1296859a11bee60c8c086655953a416
+	cd $(CMATRIX_DIR) && autoreconf -i
+	patch -d src/tasks/src/cmatrix < diffs/cmatrix/cmatrix.diff
 	touch $@
 
 $(HOSGCC): $(LINUX_HEADERS_STAMP)
