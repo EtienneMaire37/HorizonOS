@@ -558,10 +558,7 @@ void kill_task(thread_t* task, int ret)
         task_send_signal(global_parent, SIGCHLD);
 
     if (task == current_task)
-    {
         switch_task();
-        assert(task_lock_depth == 1);
-    }
     unlock_scheduler();
 }
 
