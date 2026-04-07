@@ -48,6 +48,7 @@
 #define SYS_FSYNC           43
 #define SYS_SLEEP           44
 #define SYS_POLL            45
+#define SYS_GETAFFINITY     46
 
 #define SYS_LOG                 0x1000
 #define SYS_HOS_SET_KB_LAYOUT   0x2000

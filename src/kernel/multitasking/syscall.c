@@ -30,6 +30,7 @@
 #include "../system/info.h"
 #include "../vfs/pipe.h"
 #include <sys/poll.h>
+#include <sched.h>
 
 extern void sigret();
 
@@ -1366,6 +1367,24 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         if (sc_ret_errno != ERESTART)
             memcpy(arg1, ret, array_bytes);
         unlock_scheduler();
+        break;
+    sc_case(SYS_GETAFFINITY, 3, pid_t, size_t, cpu_set_t*)
+        SC_LOG("syscall SYS_GETAFFINITY(%d, %zu, %p)", arg1, arg2, arg3);
+        sc_validate_pointer(arg3);
+        if (arg2 < sizeof(cpu_set_t))
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        thread_t* task = arg1 == 0 ? current_task : find_task_by_pid_anywhere(arg1);
+        if (!task)
+        {
+            sc_ret_errno = ESRCH;
+            break;
+        }
+        sc_ret_errno = 0;
+        CPU_ZERO(arg3);
+        CPU_SET(0, arg3);   // * No SMP for now
         break;
 
     sc_case(SYS_LOG, 1, const char*)

@@ -24,3 +24,4 @@ diff -u src/tasks/src/cmatrix_base/config.sub src/tasks/src/cmatrix/config.sub
  	| hpux* \
  	| ieee* \
  	| interix* \
+

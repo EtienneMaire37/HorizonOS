@@ -481,4 +481,9 @@ namespace mlibc
         *num_events = (int)_num_events;
         return ret;
 	}
+
+	int sys_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t* mask)
+	{
+	    return syscall3_1(SYS_GETAFFINITY, (uint64_t)pid, (uint64_t)cpusetsize, (uint64_t)mask);
+	}
 }
