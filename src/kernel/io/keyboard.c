@@ -11,6 +11,9 @@
 #include "../vfs/table.h"
 #include "keyboard.h"
 
+#define bufpri(...) do { character_len = snprintf(buffer, sizeof(buffer), __VA_ARGS__); assert(character_len != sizeof(buffer)); \
+    if ((ssize_t)num_characters < (ssize_t)max_characters - character_len) { for (int i = 0; i < character_len; i++) { utf32_buffer_putchar(&keyboard_input_buffer, buffer[i]); if (echo) putchar(buffer[i] < 0x40 ? buffer[i] + 0x40 : buffer[i]); } } } while (0)
+
 const keyboard_layout_t* current_keyboard_layout = &us_qwerty;
 
 void utf32_buffer_init(utf32_buffer_t* buffer)
@@ -91,8 +94,10 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     int noncanonical_read_minimum_count = ts->c_cc[VMIN];
     int raw_timeout = ts->c_cc[VTIME];
 
+    bool shift = keyboard_is_key_pressed(VK_LSHIFT) || keyboard_is_key_pressed(VK_RSHIFT);
     bool ctrl = keyboard_is_key_pressed(VK_LCONTROL) || keyboard_is_key_pressed(VK_RCONTROL);
-    bool alt = keyboard_is_key_pressed(VK_LALT);
+    bool lalt = keyboard_is_key_pressed(VK_LALT);
+    bool meta = false;
 
     char ascii = utf32_to_bios_oem(character);
     if (!is_printable_character(ascii)
@@ -121,153 +126,71 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     {
         size_t num_characters = get_buffered_characters(keyboard_input_buffer);
         size_t max_characters = keyboard_input_buffer.size - 1;
-        size_t character_len;
+        char buffer[16] = {0};
+        size_t character_len = sizeof(buffer);
+        char arrow_csi = tty_application_cursor_mode ? 'O' : '[';
 
-        // TODO: Rewrite this more cleanly and add proper modifier calculation (1 + SHIFT + 2LALT + 4CTRL + 8META)
+        assert(character_len != sizeof(buffer));
+
+        int modifier = 1 + shift + 2 * lalt + 4 * ctrl + 8 * meta;
+
         switch (vk)
         {
-        case VK_TAB:    character_len = !echo ? 1 : TAB_LENGTH; break;
-
-        case VK_UP:     character_len = 3 + 3 * ctrl; break;
-        case VK_DOWN:   character_len = 3 + 3 * ctrl; break;
-        case VK_RIGHT:  character_len = 3 + 3 * ctrl; break;
-        case VK_LEFT:   character_len = 3 + 3 * ctrl; break;
-
-        case VK_HOME:   character_len = 3; break;
-        case VK_END:    character_len = 3; break;
-
-        case VK_INSERT:   character_len = 4; break;
-        case VK_DELETE:   character_len = 4; break;
-
-        case VK_PAGEUP:   character_len = 4; break;
-        case VK_PAGEDOWN: character_len = 4; break;
-
-        default:        character_len = 1 + alt;
-        }
-
-        if ((ssize_t)num_characters < (ssize_t)max_characters - character_len)
-        {
-            switch (vk)
+        case VK_TAB:
+            if (!echo)
+                bufpri("\t");
+            else
             {
-            case VK_TAB:
-                if (!echo)
-                    utf32_buffer_putchar(&keyboard_input_buffer, '\t');
-                else
                 for (uint8_t j = 0; j < TAB_LENGTH; j++)
-                {
-                    utf32_buffer_putchar(&keyboard_input_buffer, ' ');
-                    if (echo) putchar(' ');
-                }
-                break;
-            case VK_UP:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, tty_application_cursor_mode ? 'O' : '[');
-                if (echo) printf("^[");
-                if (ctrl)
-                {
-                    utf32_buffer_putchar(&keyboard_input_buffer, '1');
-                    utf32_buffer_putchar(&keyboard_input_buffer, ';');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
-                    if (echo) printf("1;5");
-                }
-                utf32_buffer_putchar(&keyboard_input_buffer, 'A');
-                if (echo) printf("A");
-                break;
-            case VK_DOWN:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, tty_application_cursor_mode ? 'O' : '[');
-                if (echo) printf("^[");
-                if (ctrl)
-                {
-                    utf32_buffer_putchar(&keyboard_input_buffer, '1');
-                    utf32_buffer_putchar(&keyboard_input_buffer, ';');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
-                    if (echo) printf("1;5");
-                }
-                utf32_buffer_putchar(&keyboard_input_buffer, 'B');
-                if (echo) printf("B");
-                break;
-            case VK_RIGHT:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, tty_application_cursor_mode ? 'O' : '[');
-                if (echo) printf("^[");
-                if (ctrl)
-                {
-                    utf32_buffer_putchar(&keyboard_input_buffer, '1');
-                    utf32_buffer_putchar(&keyboard_input_buffer, ';');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
-                    if (echo) printf("1;5");
-                }
-                utf32_buffer_putchar(&keyboard_input_buffer, 'C');
-                if (echo) printf("C");
-                break;
-            case VK_LEFT:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, tty_application_cursor_mode ? 'O' : '[');
-                if (echo) printf("^[");
-                if (ctrl)
-                {
-                    utf32_buffer_putchar(&keyboard_input_buffer, '1');
-                    utf32_buffer_putchar(&keyboard_input_buffer, ';');
-                    utf32_buffer_putchar(&keyboard_input_buffer, '5');
-                    if (echo) printf("1;5");
-                }
-                utf32_buffer_putchar(&keyboard_input_buffer, 'D');
-                if (echo) printf("D");
-                break;
-            case VK_HOME:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                utf32_buffer_putchar(&keyboard_input_buffer, 'H');
-                if (echo) printf("^[H");
-                break;
-            case VK_END:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                utf32_buffer_putchar(&keyboard_input_buffer, 'F');
-                if (echo) printf("^[F");
-                break;
-            case VK_INSERT:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                utf32_buffer_putchar(&keyboard_input_buffer, '2');
-                utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                if (echo) printf("^[2~");
-                break;
-            case VK_DELETE:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                utf32_buffer_putchar(&keyboard_input_buffer, '3');
-                utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                if (echo) printf("^[3");
-                if (echo) printf("~");
-                break;
-            case VK_PAGEUP:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                utf32_buffer_putchar(&keyboard_input_buffer, '5');
-                utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                if (echo) printf("^[5~");
-                break;
-            case VK_PAGEDOWN:
-                utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                utf32_buffer_putchar(&keyboard_input_buffer, '[');
-                utf32_buffer_putchar(&keyboard_input_buffer, '6');
-                utf32_buffer_putchar(&keyboard_input_buffer, '~');
-                if (echo) printf("^[6~");
-                break;
-            default:
-                if (ascii)
-                {
-                    if (alt)
-                    {
-                        utf32_buffer_putchar(&keyboard_input_buffer, '\x1b');
-                        if (echo) putchar('^');
-                    }
-                    utf32_char_t actual_char = ctrl && ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')) ? character & 0x1f : character;
-                    utf32_buffer_putchar(&keyboard_input_buffer, actual_char);
-                    if (echo) putchar(actual_char);
-                }
+                    bufpri(" ");
+            }
+            break;
+        case VK_UP:
+            if (modifier != 1)  bufpri("\x1b%c1;%dA", arrow_csi, modifier);
+            else                bufpri("\x1b%cA", arrow_csi);
+            break;
+        case VK_DOWN:
+            if (modifier != 1)  bufpri("\x1b%c1;%dB", arrow_csi, modifier);
+            else                bufpri("\x1b%cB", arrow_csi);
+            break;
+        case VK_RIGHT:
+            if (modifier != 1)  bufpri("\x1b%c1;%dC", arrow_csi, modifier);
+            else                bufpri("\x1b%cC", arrow_csi);
+            break;
+        case VK_LEFT:
+            if (modifier != 1)  bufpri("\x1b%c1;%dD", arrow_csi, modifier);
+            else                bufpri("\x1b%cD", arrow_csi);
+            break;
+        case VK_HOME:
+            if (modifier != 1)  bufpri("\x1b[1;%dH", modifier);
+            else                bufpri("\x1b[H");
+            break;
+        case VK_END:
+            if (modifier != 1)  bufpri("\x1b[1;%dF", modifier);
+            else                bufpri("\x1b[F");
+            break;
+        case VK_INSERT:
+            if (modifier != 1)  bufpri("\x1b[2;%d~", modifier);
+            else                bufpri("\x1b[2~");
+            break;
+        case VK_DELETE:
+            if (modifier != 1)  bufpri("\x1b[3;%d~", modifier);
+            else                bufpri("\x1b[3~");
+            break;
+        case VK_PAGEUP:
+            if (modifier != 1)  bufpri("\x1b[5;%d~", modifier);
+            else                bufpri("\x1b[5~");
+            break;
+        case VK_PAGEDOWN:
+            if (modifier != 1)  bufpri("\x1b[6;%d~", modifier);
+            else                bufpri("\x1b[6~");
+            break;
+        default:
+            if (ascii)
+            {
+                if (lalt)
+                    bufpri("\x1b");
+                bufpri("%c", ctrl && ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')) ? character & 0x1f : character);
             }
         }
     }
