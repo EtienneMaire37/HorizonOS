@@ -131,6 +131,7 @@ static inline int get_signal_from_exception(interrupt_registers_t* registers)
 
     default:
         assert(!"Unknown exception");
+        abort();
     }
 }
 

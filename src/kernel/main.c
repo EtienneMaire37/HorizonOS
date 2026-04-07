@@ -539,30 +539,28 @@ void _start()
         ksleep(10 * PRECISE_MILLISECONDS);
 
         ps2_controller_init();
-        ps2_detect_keyboards();
+        ps2_detect_devices();
         ps2_init_keyboards();
 
         ksleep(10 * PRECISE_MILLISECONDS);
 
         ps2_enable_interrupts();
 
-        if (ps2_device_1_connected)
-        {
-            LOG(INFO, "PS/2 device 1 connected");
-            printf("PS/2 device 1 connected\n");
-        }
-        if (ps2_device_2_connected)
-        {
-            LOG(INFO, "PS/2 device 2 connected");
-            printf("PS/2 device 2 connected\n");
-        }
-        if (!(ps2_device_1_connected || ps2_device_2_connected))
-        {
-            LOG(INFO, "No PS/2 devices detected");
-            printf("No PS/2 devices detected\n");
-        }
-
-        ps2_flush_buffer();
+        // if (ps2_device_1_connected)
+        // {
+        //     LOG(INFO, "PS/2 device 1 connected");
+        //     printf("PS/2 device 1 connected\n");
+        // }
+        // if (ps2_device_2_connected)
+        // {
+        //     LOG(INFO, "PS/2 device 2 connected");
+        //     printf("PS/2 device 2 connected\n");
+        // }
+        // if (!(ps2_device_1_connected || ps2_device_2_connected))
+        // {
+        //     LOG(INFO, "No PS/2 devices detected");
+        //     printf("No PS/2 devices detected\n");
+        // }
     }
     else
         printf("No PS/2 Controller\n");

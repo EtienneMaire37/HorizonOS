@@ -18,11 +18,11 @@ extern uint8_t preferred_power_management_profile;
 extern acpi_revision_t acpi_revision;
 extern uint32_t sdt_count;
 
-static const char* preferred_power_management_profile_text[8] = 
+static const char* preferred_power_management_profile_text[8] =
 {
     "Unspecified",
     "Desktop",
-    "Mobile",
+    "Laptop",
     "Workstation",
     "Enterprise Server",
     "SOHO Server",

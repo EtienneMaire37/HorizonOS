@@ -85,7 +85,7 @@ void ps2_read_data(uint8_t expected_bytes);
 void ps2_read_additional_data();
 void ps2_controller_init();
 // void ps2_detect_devices();
-void ps2_detect_keyboards();
+void ps2_detect_devices();
 void ps2_enable_interrupts();
 uint8_t ps2_send_command(uint8_t command);
 uint8_t ps2_send_command_with_data(uint8_t command, uint8_t data);

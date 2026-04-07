@@ -58,11 +58,13 @@ void acpi_find_tables()
     {
     case ACPI_1_0:
         LOG(INFO, "ACPI version: 1.0");
+        printf("ACPI version: 1.0\n");
         rsdt = (struct rsdt_table*)(rsdp->rsdt_address + PHYS_MAP_BASE);
         sdt_count = (rsdt->header.length - sizeof(struct sdt_header)) / 4;
         break;
     case ACPI_2_0_PLUS:
         LOG(INFO, "ACPI version: 2.0+");
+        printf("ACPI version: 2.0+\n");
         xsdt = (struct xsdt_table*)(rsdp->xsdt_address + PHYS_MAP_BASE);
         sdt_count = (xsdt->header.length - sizeof(struct sdt_header)) / 8;
         break;
@@ -139,14 +141,7 @@ void* read_rsdt_ptr(uint32_t index)
 
 void fadt_extract_data()
 {
-    preferred_power_management_profile = 0;
-
-    if (!fadt)
-    {
-        LOG(DEBUG, "No FADT found");
-        ps2_controller_connected = true;
-        return;
-    }
+    assert(fadt);
 
     LOG(DEBUG, "Extracting data from the FADT");
 

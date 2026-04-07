@@ -12,7 +12,12 @@ uint8_t ps2_device_2_type = PS2_DEVICE_UNKNOWN;
 
 bool ps2_device_1_interrupt = true, ps2_device_2_interrupt = true;
 
-bool ps2_controller_connected;
+/*
+ * Check bit 1 (value = 2, the "8042" flag) in the "IA PC Boot Architecture Flags" field at offset 109 in the Fixed ACPI Description Table (FADT).
+ * If this bit is clear, then there is no PS/2 Controller to configure.
+ * Otherwise, if the bit is set, or the system doesn't support ACPI (no ACPI tables and no FADT) then there is a PS/2 Controller.
+ */
+bool ps2_controller_connected = true;
 bool ps2_device_1_connected, ps2_device_2_connected;
 uint8_t ps2_data_buffer[PS2_READ_BUFFER_SIZE];
 uint8_t ps2_data_bytes_received;
@@ -379,12 +384,12 @@ void ps2_controller_init()
         ps2_device_1_connected, ps2_device_2_connected);
 }
 
-void ps2_detect_keyboards()
+void ps2_detect_devices()
 {
     if (!ps2_controller_connected)
         return;
 
-    LOG(INFO, "Detecting PS/2 keyboards");
+    LOG(INFO, "Detecting PS/2 devices");
 
     if (ps2_device_1_connected)
         ps2_send_device_full_command(1, PS2_DISABLE_SCANNING, 1);
@@ -408,11 +413,28 @@ void ps2_detect_keyboards()
                 LOG(INFO, "Keyboard detected on port 1");
                 printf("Keyboard detected on port 1\n");
             }
+            else if (ps2_data_bytes_received == 2 && (ps2_data_buffer[1] == 0x00 || ps2_data_buffer[1] == 0x03 || ps2_data_buffer[1] == 0x04)) // PS/2 mouse
+            {
+                ps2_device_1_type = PS2_DEVICE_MOUSE;
+                LOG(INFO, "Mouse detected on port 1");
+                printf("Mouse detected on port 1\n");
+            }
+            else
+            {
+                LOG(INFO, "Unknown device on port 1");
+                printf("Unknown device on port 1 (");
+                for (int i = 1; i < ps2_data_bytes_received; i++)
+                    printf("%#2x%s", ps2_data_buffer[i], i == (ps2_data_bytes_received - 1) ? ")\n" : ", ");
+            }
         }
+        else
+            goto invalid_port_1;
     }
 
     goto valid_port_1;
 invalid_port_1:
+    LOG(ERROR, "Device 1 didn't respond to Identify correctly");
+    printf("Device 1 didn't respond to Identify correctly\n");
     ps2_device_1_connected = false;
 valid_port_1:
     ps2_flush_buffer();
@@ -433,11 +455,28 @@ valid_port_1:
                 LOG(INFO, "Keyboard detected on port 2");
                 printf("Keyboard detected on port 2\n");
             }
+            else if (ps2_data_bytes_received == 2 && (ps2_data_buffer[1] == 0x00 || ps2_data_buffer[1] == 0x03 || ps2_data_buffer[1] == 0x04)) // PS/2 mouse
+            {
+                ps2_device_2_type = PS2_DEVICE_MOUSE;
+                LOG(INFO, "Mouse detected on port 2");
+                printf("Mouse detected on port 2\n");
+            }
+            else
+            {
+                LOG(INFO, "Unknown device on port 2");
+                printf("Unknown device on port 2 (");
+                for (int i = 1; i < ps2_data_bytes_received; i++)
+                    printf("%#2x%s", ps2_data_buffer[i], i == (ps2_data_bytes_received - 1) ? ")\n" : ", ");
+            }
         }
+        else
+            goto invalid_port_2;
     }
 
     goto valid_port_2;
 invalid_port_2:
+    LOG(ERROR, "Device 2 didn't respond to Identify correctly");
+    printf("Device 2 didn't respond to Identify correctly\n");
     ps2_device_2_connected = false;
 valid_port_2:
 
