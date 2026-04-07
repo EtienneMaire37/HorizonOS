@@ -4,6 +4,7 @@ horizonos.vdi
 debug/*
 bin/*
 src/tasks/bin/*
+src/tasks/src/gnulib
 src/tasks/src/bash
 src/tasks/src/coreutils
 src/tasks/src/grep

@@ -130,8 +130,6 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         size_t character_len = sizeof(buffer);
         char arrow_csi = tty_application_cursor_mode ? 'O' : '[';
 
-        assert(character_len != sizeof(buffer));
-
         int modifier = 1 + shift + 2 * lalt + 4 * ctrl + 8 * meta;
 
         switch (vk)

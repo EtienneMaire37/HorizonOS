@@ -5,6 +5,7 @@ export TOOLCHAIN_DIR := ${MAKE_DIR}/hostoolchain
 export PATH := "${PATH}:${MAKE_DIR}/pkg-config:$(SYSROOT_DIR)/usr/bin:$(SYSROOT_DIR)/usr/include"
 export PKG_CONFIG := x86_64-horizonos-pkg-config
 export PKG_CONFIG_FOR_BUILD := pkg-config
+export GNULIB_SRCDIR=${MAKE_DIR}/src/tasks/src/gnulib
 
 DATE := `date +"%Y-%m-%d"`
 CROSSLD := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-ld
@@ -36,6 +37,7 @@ override KERNEL_ELF := ${MAKE_DIR}/bin/kernel.elf
 override MLIBC_STAMP := ${MAKE_DIR}/mlibc/.built
 override NCURSES_STAMP := ${MAKE_DIR}/ncurses/.built
 
+override GNULIB_DL_STAMP := $(GNULIB_SRCDIR)/.downloaded
 override BASH_DL_STAMP := $(BASH_DIR)/.downloaded
 override LESS_DL_STAMP := $(LESS_DIR)/.downloaded
 override LESS_BUILD_STAMP := $(LESS_DIR)/.built
@@ -187,21 +189,27 @@ src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(HOSGCC)
 	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
+$(GNULIB_DL_STAMP):
+	rm -rf $(GNULIB_SRCDIR)
+	mkdir -p $(GNULIB_SRCDIR)
+	git clone https://github.com/coreutils/gnulib $(GNULIB_SRCDIR)
+	cp build-aux/config.sub $(GNULIB_SRCDIR)/build-aux/config.sub
+	patch $(GNULIB_SRCDIR)/lib/getlocalename_l-unsafe.c < diffs/coreutils/getlocalename.diff
+	touch $@
+
 $(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(HOSGCC)
 	cd $(COREUTILS_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
 	cd $(COREUTILS_DIR) && $(MAKE) -j$(nproc)
 	cd $(COREUTILS_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
 	touch $@
 
-$(COREUTILS_DL_STAMP):
+$(COREUTILS_DL_STAMP): $(GNULIB_DL_STAMP)
 	rm -rf $(COREUTILS_DIR)
 	mkdir -p $(COREUTILS_DIR)
 	git clone git://git.sv.gnu.org/coreutils $(COREUTILS_DIR)
 	cd $(COREUTILS_DIR) && git checkout e644eea122462aa7fa98cbe9b8f93088074588a0
 	cd $(COREUTILS_DIR) && ./bootstrap
-	cp build-aux/config.sub $(COREUTILS_DIR)/gnulib/build-aux/config.sub
 	patch $(COREUTILS_DIR)/src/tail.c < diffs/coreutils/tail.diff
-	patch $(COREUTILS_DIR)/gnulib/lib/getlocalename_l-unsafe.c < diffs/coreutils/getlocalename.diff
 	touch $@
 
 root/usr/bin/bash: $(BASH_DL_STAMP) $(NCURSES_STAMP) $(HOSGCC)
