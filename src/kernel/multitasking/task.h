@@ -23,6 +23,8 @@ typedef struct thread
     uid_t ruid, euid, suid;
     gid_t rgid, egid, sgid;
 
+    mode_t umask;
+
     uint64_t pending_signal_handler;
     int pending_signal_number;
 

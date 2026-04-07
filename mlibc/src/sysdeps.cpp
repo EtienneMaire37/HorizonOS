@@ -486,4 +486,9 @@ namespace mlibc
 	{
 	    return syscall3_1(SYS_GETAFFINITY, (uint64_t)pid, (uint64_t)cpusetsize, (uint64_t)mask);
 	}
+
+	int sys_umask(mode_t mode, mode_t* old)
+	{
+	    return syscall2_1(SYS_UMASK, (uint64_t)mode, (uint64_t)old);
+	}
 }

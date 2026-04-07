@@ -12,16 +12,4 @@ diff -u src/tasks/src/cmatrix_base/cmatrix.c src/tasks/src/cmatrix/cmatrix.c
                          }
                          if (bold == 2 ||
                              (bold == 1 && matrix[i][j].val % 2 == 0)) {
-                             
-diff -u src/tasks/src/cmatrix_base/config.sub src/tasks/src/cmatrix/config.sub
---- src/tasks/src/cmatrix_base/config.sub	2026-04-06 19:17:14.953053687 +0200
-+++ src/tasks/src/cmatrix/config.sub	2026-04-06 18:40:52.822900343 +0200
-@@ -2016,6 +2016,7 @@
- 	| hcos* \
- 	| hiux* \
- 	| hms* \
-+	| horizonos* \
- 	| hpux* \
- 	| ieee* \
- 	| interix* \
 

@@ -198,7 +198,7 @@ $(COREUTILS_DL_STAMP):
 	git clone git://git.sv.gnu.org/coreutils $(COREUTILS_DIR)
 	cd $(COREUTILS_DIR) && git checkout e644eea122462aa7fa98cbe9b8f93088074588a0
 	cd $(COREUTILS_DIR) && ./bootstrap
-	patch $(COREUTILS_DIR)/gnulib/build-aux/config.sub < diffs/coreutils/config.diff
+	cp build-aux/config.sub $(COREUTILS_DIR)/gnulib/build-aux/config.sub
 	patch $(COREUTILS_DIR)/src/tail.c < diffs/coreutils/tail.diff
 	patch $(COREUTILS_DIR)/gnulib/lib/getlocalename_l-unsafe.c < diffs/coreutils/getlocalename.diff
 	touch $@
@@ -213,7 +213,7 @@ $(BASH_DL_STAMP):
 	mkdir -p $(BASH_DIR)
 	git clone https://git.savannah.gnu.org/git/bash.git $(BASH_DIR)
 	cd $(BASH_DIR) && git checkout 637f5c8696a6adc9b4519f1cd74aa78492266b7f
-	git -C $(BASH_DIR) apply $(MAKE_DIR)/diffs/bash/bash.diff
+	cp build-aux/config.sub $(BASH_DIR)/support/config.sub
 	touch $@
 
 $(LESS_BUILD_STAMP): $(LESS_DL_STAMP) $(HOSGCC) $(NCURSES_STAMP)
@@ -243,6 +243,7 @@ $(CMATRIX_DL_STAMP):
 	cd $(CMATRIX_DIR) && git checkout 5c082c64a1296859a11bee60c8c086655953a416
 	cd $(CMATRIX_DIR) && autoreconf -i
 	patch -d src/tasks/src/cmatrix < diffs/cmatrix/cmatrix.diff
+	cp build-aux/config.sub $(CMATRIX_DIR)/config.sub
 	touch $@
 
 $(HOSGCC): $(LINUX_HEADERS_STAMP)

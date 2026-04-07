@@ -40,6 +40,8 @@ thread_t* task_create_empty()
     task->ruid = task->euid = task->suid = 0;
     task->rgid = task->egid = task->sgid = 0;
 
+    task->umask = S_IWGRP | S_IWOTH;
+
     task->system_task = true;
 
     task->fpu_state = fpu_state_create();

@@ -1387,6 +1387,15 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         CPU_SET(0, arg3);   // * No SMP for now
         break;
 
+    sc_case(SYS_UMASK, 2, mode_t, mode_t*)
+        SC_LOG("syscall SYS_UMASK(%#o, %p)", arg1, arg2);
+        sc_validate_pointer(arg2);
+        if (arg2)
+            *arg2 = current_task->umask;
+        current_task->umask = arg1 & 0777;
+        sc_ret_errno = 0;
+        break;
+
     sc_case(SYS_LOG, 1, const char*)
         sc_validate_pointer(arg1);
     #ifdef PRINT_MLIBC_LOGS
