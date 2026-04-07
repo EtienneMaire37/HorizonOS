@@ -341,8 +341,8 @@ void __tty_ansi_m_code(uint32_t code)
 		tty_color |= tty_ansi_to_vga(code) & color_mask;
 		return;
 	}
-
-	return;
+	else
+	    return;
 }
 
 void __tty_ansi_J_code(uint32_t code)

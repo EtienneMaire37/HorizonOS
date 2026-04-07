@@ -65,7 +65,7 @@ void fpu_save_state(uint8_t* s)
         asm volatile("fsave [rdi]" :: "D"(s) : "memory");
         break;
     default:
-        abort();
+        assert(!"Unknown XSAVE instruction");
     }
 }
 
@@ -92,13 +92,13 @@ void fpu_restore_state(uint8_t* s)
         asm volatile("frstor [rdi]" :: "D"(s) : "memory");
         break;
     default:
-        abort();
+        assert(!"Unknown XRSTOR instruction");
     }
 }
 
 void fpu_state_init(uint8_t* s)
 {
-    if (!s) 
+    if (!s)
     {
         LOG(WARNING, "fpu_state_init: s == NULL");
         return;

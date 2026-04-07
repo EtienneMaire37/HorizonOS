@@ -116,7 +116,7 @@ void* read_rsdt_ptr(uint32_t index)
     if (index >= sdt_count)
     {
         LOG(CRITICAL, "Kernel tried to read an invalid SDT (%u / %u)", index + 1, sdt_count);
-        abort();
+        assert(!"Kernel tried to read an invalid SDT");
         return NULL;
     }
 

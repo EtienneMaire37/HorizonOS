@@ -139,7 +139,7 @@ void pfa_detect_usable_memory()
 
 no_memory:
     LOG(CRITICAL, "Not enough usable memory detected");
-    abort();
+    assert(!"Not enough usable memory detected");
 }
 
 physical_address_t pfa_allocate_physical_page()

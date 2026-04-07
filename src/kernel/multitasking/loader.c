@@ -98,6 +98,12 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
         if (ph->p_type != PT_LOAD)
             continue;
 
+        if (ph->p_vaddr >= TASK_STACK_TOP_ADDRESS || ph->p_vaddr + ph->p_memsz >= TASK_STACK_TOP_ADDRESS)
+        {
+            task_destroy(task);
+            return NULL;
+        }
+
         if (ph->p_offset <= header->e_phoff)
             at_phdr = ph->p_vaddr + header->e_phoff - ph->p_offset;
 
@@ -216,6 +222,12 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
             if (ph->p_type != PT_LOAD)
                 continue;
 
+            if (ph->p_vaddr >= TASK_STACK_TOP_ADDRESS || ph->p_vaddr + ph->p_memsz >= TASK_STACK_TOP_ADDRESS)
+            {
+                task_destroy(task);
+                return NULL;
+            }
+
             virtual_address_t start_address = ph->p_vaddr & ~0xfff;
             virtual_address_t end_address = ph->p_vaddr + ph->p_memsz;
             uint64_t num_pages = (end_address - start_address + 0xfff) >> 12;
@@ -294,7 +306,7 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     if (!data)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: data is NULL");
-        abort();
+        assert(!"multitasking_add_task_from_vfs: data is NULL");
     }
 
     if (strlen(path) == 0) return NULL;
@@ -314,7 +326,7 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     if (!simplified_path)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: Out of memory");
-        abort();
+        assert(!"multitasking_add_task_from_vfs: Out of memory");
     }
 
     vfs_realpath_from_file_tnode(tnode, simplified_path);
@@ -336,7 +348,7 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     if (!prefix)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: Out of memory");
-        abort();
+        assert(!"multitasking_add_task_from_vfs: Out of memory");
     }
     vfs_realpath_from_folder_tnode(mount_point, prefix);
     size_t prefix_length = strlen(prefix);

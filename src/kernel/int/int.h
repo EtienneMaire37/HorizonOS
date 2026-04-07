@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "../initrd/initrd.h"
 #include "../util/defs.h"
 
@@ -100,8 +101,7 @@ static inline const char* get_error_message(uint32_t fault, uint32_t error_code)
 }
 static inline int get_signal_from_exception(interrupt_registers_t* registers)
 {
-    if (!registers)
-        abort();
+    assert(registers);
 
     switch (registers->interrupt_number)
     {
@@ -130,7 +130,7 @@ static inline int get_signal_from_exception(interrupt_registers_t* registers)
         return SIGSEGV;
 
     default:
-        abort();
+        assert(!"Unknown exception");
     }
 }
 

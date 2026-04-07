@@ -13,6 +13,7 @@ CROSSAR := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-ar
 CROSSSTRIP := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-strip
 HOSGCC := $(SYSROOT_DIR)/usr/bin/x86_64-horizonos-gcc
 USER_CFLAGS :=
+USER_LDFLAGS :=
 
 MAKE := make
 
@@ -101,7 +102,7 @@ $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ)
 	$(HOSGCC) -nostdlib -T src/kernel/link.ld -ffreestanding -pie -static \
 	-o $@ \
 	$(KERNEL_OBJ) $(ASM_OBJ) \
-	-lgcc
+	-lgcc $(USER_LDFLAGS)
 # 	$(CROSSSTRIP) $@
 
 run:	bios-run

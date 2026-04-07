@@ -215,8 +215,7 @@ void allocate_range(uint64_t* pml4,
         uint64_t* pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pd_entry));
 
         uint64_t* pt_entry = &pt[pte];
-        if (is_pdpt_entry_present(pt_entry))
-            abort();
+        assert(!is_pdpt_entry_present(pt_entry));
 
         set_pdpt_entry(pt_entry, pfa_allocate_physical_page(),
             privilege, read_write,

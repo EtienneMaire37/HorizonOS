@@ -19,15 +19,15 @@ physical_address_t task_create_empty_vas(uint8_t privilege)
     return paddr;
 }
 
-void task_free_vas(physical_address_t pml4_address)
+void task_free_vas(physical_address_t cr3)
 {
-    uint64_t* cr3 = (uint64_t*)(pml4_address + PHYS_MAP_BASE);
+    uint64_t* pml4_address = (uint64_t*)(cr3 + PHYS_MAP_BASE);
 // * Skip kernel mappings
     for (uint16_t pml4e = 0; pml4e < 256; pml4e++)
     {
-        if (!is_pdpt_entry_present(&cr3[pml4e])) continue;
+        if (!is_pdpt_entry_present(&pml4_address[pml4e])) continue;
 
-        uint64_t* pdpt_address = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(&cr3[pml4e]));
+        uint64_t* pdpt_address = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(&pml4_address[pml4e]));
         for (uint16_t pdpte = 0; pdpte < 512; pdpte++)
         {
             if (!is_pdpt_entry_present(&pdpt_address[pdpte])) continue;
@@ -44,13 +44,13 @@ void task_free_vas(physical_address_t pml4_address)
 
                     pfa_free_physical_page(get_pdpt_entry_address(&pt_address[pte]));
                 }
-                pfa_free_physical_page((physical_address_t)pt_address);
+                pfa_free_physical_page(get_pdpt_entry_address(&pd_address[pde]));
             }
-            pfa_free_physical_page((physical_address_t)pd_address);
+            pfa_free_physical_page(get_pdpt_entry_address(&pdpt_address[pdpte]));
         }
-        pfa_free_physical_page((physical_address_t)pdpt_address);
+        pfa_free_physical_page(get_pdpt_entry_address(&pml4_address[pml4e]));
     }
-    pfa_free_physical_page(pml4_address);
+    pfa_free_physical_page(cr3);
 }
 
 void task_vas_copy(uint64_t* src, uint64_t* dst,
