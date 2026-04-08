@@ -2,6 +2,7 @@
 #include <abi-bits/errno.h>
 #include <bits/ensure.h>
 #include <bits/syscall.h>
+#include <fcntl.h>
 #include <mlibc/all-sysdeps.hpp>
 #include <pwd.h>
 #include <termios.h>
@@ -79,7 +80,14 @@ namespace mlibc
 	int sys_open(const char* path, int oflags, unsigned int mode, int* fd)
 	{
 		uint64_t _fd;
-		int ret = syscall3_2(SYS_OPEN, (uint64_t)path, (uint64_t)oflags, (uint64_t)mode, &_fd);
+		int ret = syscall4_2(SYS_OPENAT, (uint64_t)AT_FDCWD, (uint64_t)path, (uint64_t)oflags, (uint64_t)mode, &_fd);
+		*fd = (int)_fd;
+		return ret;
+	}
+	int sys_openat(int dirfd, const char* path, int oflags, unsigned int mode, int* fd)
+	{
+		uint64_t _fd;
+		int ret = syscall4_2(SYS_OPENAT, (uint64_t)dirfd, (uint64_t)path, (uint64_t)oflags, (uint64_t)mode, &_fd);
 		*fd = (int)_fd;
 		return ret;
 	}

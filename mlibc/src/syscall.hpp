@@ -9,7 +9,7 @@
 #define SYS_VM_MAP          4
 #define SYS_VM_UNMAP        5
 #define SYS_SEEK            6
-#define SYS_OPEN            7
+#define SYS_OPENAT          7
 #define SYS_CLOSE           8
 #define SYS_READ            9
 #define SYS_IOCTL           10

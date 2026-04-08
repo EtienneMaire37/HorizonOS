@@ -246,41 +246,47 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         sc_ret_errno = 0;
         break;
-    sc_case(SYS_OPEN, 3, const char*, int, unsigned int)
-        SC_LOG("syscall SYS_OPEN(\"%s\", %d, %u)", arg1, arg2, arg3);
-        sc_validate_pointer(arg1);
+    sc_case(SYS_OPENAT, 4, int, const char*, int, unsigned int)
+        SC_LOG("syscall SYS_OPENAT(%d, \"%s\", %d, %u)", arg1, arg2, arg3, arg4);
+        sc_validate_pointer(arg2);
 
         // * Only supported flags for now
-        if (arg2 & ~(O_CLOEXEC | O_ACCMODE))
+        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY))
         {
             sc_ret_errno = EINVAL;
-            sc_ret(1) = (uint64_t)(-1);
             break;
         }
 
         lock_scheduler();
-
+        bool relative = arg2[0] != '/';
+        if (relative && arg1 != AT_FDCWD && !is_fd_valid(arg1))
+        {
+            unlock_scheduler();
+            sc_ret_errno = EBADF;
+            break;
+        }
         int fd = vfs_allocate_global_file();
 
         if (fd == -1)
         {
             unlock_scheduler();
             sc_ret_errno = ENFILE;
-            sc_ret(1) = (uint64_t)(-1);
             break;
         }
 
-        file_table[fd].flags = arg2;
+        file_table[fd].flags = arg3;
         file_table[fd].position = 0;
 
+        file_entry_t* entry = get_global_file_entry(arg1);
+        vfs_folder_tnode_t* cwd = arg1 == AT_FDCWD ? current_task->cwd : (entry && entry->entry_type == VFS_ET_FOLDER ? entry->tnode.folder : NULL);
+
         struct stat st;
-        int stat_ret = vfs_stat(arg1, current_task->cwd, &st);
+        int stat_ret = vfs_stat(arg2, cwd, &st);
         if (stat_ret != 0)
         {
             vfs_remove_global_file(fd);
             unlock_scheduler();
             sc_ret_errno = stat_ret;
-            sc_ret(1) = (uint64_t)(-1);
             break;
         }
 
@@ -289,7 +295,6 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             vfs_remove_global_file(fd);
             unlock_scheduler();
             sc_ret_errno = EACCES;
-            sc_ret(1) = (uint64_t)(-1);
             break;
         }
 
@@ -300,14 +305,14 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
 
         if (file_table[fd].entry_type == VFS_ET_FILE)
         {
-            file_table[fd].tnode.file = vfs_get_file_tnode(arg1, current_task->cwd);
+            file_table[fd].tnode.file = vfs_get_file_tnode(arg2, current_task->cwd);
             file_table[fd].iofunc = file_table[fd].tnode.file->inode->io_func;
 
             file_table[fd].st = file_table[fd].tnode.file->inode->st;
         }
         else if (file_table[fd].entry_type == VFS_ET_FOLDER)
         {
-            file_table[fd].tnode.folder = vfs_get_folder_tnode(arg1, current_task->cwd);
+            file_table[fd].tnode.folder = vfs_get_folder_tnode(arg2, current_task->cwd);
             file_table[fd].iofunc = NULL;
 
             file_table[fd].st = file_table[fd].tnode.folder->inode->st;
@@ -327,12 +332,11 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             unlock_scheduler();
 
             sc_ret_errno = EMFILE;
-            sc_ret(1) = (uint64_t)(-1);
         }
         else
         {
             current_task->file_table[ret].index = fd;
-            current_task->file_table[ret].flags = (arg2 & O_CLOEXEC) ? FD_CLOEXEC : 0;
+            current_task->file_table[ret].flags = (arg3 & O_CLOEXEC) ? FD_CLOEXEC : 0;
             unlock_scheduler();
             sc_ret_errno = 0;
             sc_ret(1) = (uint64_t)ret;
