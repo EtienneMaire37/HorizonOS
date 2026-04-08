@@ -88,6 +88,7 @@ bool keyboard_is_key_pressed(virtual_address_t vk)
 void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct termios* ts)
 {
     if (!multitasking_enabled) return;
+    if (get_buffered_characters(keyboard_input_buffer) >= keyboard_input_buffer.size - 1) return;
 
     bool echo = (ts->c_lflag & ECHO) != 0;
     bool raw = (ts->c_lflag & ICANON) == 0;
