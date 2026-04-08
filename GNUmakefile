@@ -22,6 +22,7 @@ override BASH_DIR := ${MAKE_DIR}/src/tasks/src/bash
 override COREUTILS_DIR := ${MAKE_DIR}/src/tasks/src/coreutils
 override LESS_DIR := ${MAKE_DIR}/src/tasks/src/less
 override CMATRIX_DIR := ${MAKE_DIR}/src/tasks/src/cmatrix
+override GREP_DIR := ${MAKE_DIR}/src/tasks/src/grep
 
 override GNU_FLAGS := bash_cv_getcwd_malloc=yes bash_cv_func_strchrnul_works=yes bash_cv_getenv_redef=no cf_cv_wcwidth_graphics=no \
 		fu_cv_sys_mounted_getmntinfo=yes ac_cv_func_splice=no ac_cv_file__usr_lib_kbd_consolefonts=no ac_cv_file__usr_share_consolefonts=no \
@@ -45,6 +46,8 @@ override COREUTILS_DL_STAMP := ${MAKE_DIR}/src/tasks/src/coreutils/.downloaded
 override COREUTILS_BUILD_STAMP := ${MAKE_DIR}/src/tasks/src/coreutils/.built
 override CMATRIX_DL_STAMP := $(CMATRIX_DIR)/.downloaded
 override CMATRIX_BUILD_STAMP := $(CMATRIX_DIR)/.built
+override GREP_DL_STAMP := $(GREP_DIR)/.downloaded
+override GREP_BUILD_STAMP := $(GREP_DIR)/.built
 
 override LINUX_HEADERS_STAMP := ${MAKE_DIR}/linux-headers/.built
 
@@ -179,7 +182,7 @@ horizonos.iso: $(shell find src/system -type f) $(MLIBC_STAMP) $(HOSGCC) resourc
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) $(CMATRIX_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(HOSGCC)
+src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) $(CMATRIX_BUILD_STAMP) $(GREP_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(HOSGCC)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
@@ -253,6 +256,20 @@ $(CMATRIX_DL_STAMP):
 	cd $(CMATRIX_DIR) && autoreconf -i
 	patch -d src/tasks/src/cmatrix < diffs/cmatrix/cmatrix.diff
 	cp build-aux/config.sub $(CMATRIX_DIR)/config.sub
+	touch $@
+
+$(GREP_BUILD_STAMP): $(GREP_DL_STAMP) $(HOSGCC)
+	cd $(GREP_DIR) && CC=x86_64-horizonos-gcc CC_FOR_BUILD=gcc ./configure --host=x86_64-horizonos --prefix=/usr $(GNU_FLAGS)
+	cd $(GREP_DIR) && $(MAKE) -j$(nproc) CFLAGS="-Wno-error"
+	cd $(GREP_DIR) && $(MAKE) DESTDIR=${SYSROOT_DIR} -j$(nproc) install
+	touch $@
+
+$(GREP_DL_STAMP): $(GNULIB_DL_STAMP)
+	rm -rf $(GREP_DIR)
+	mkdir -p $(GREP_DIR)
+	git clone https://git.savannah.gnu.org/git/grep.git $(GREP_DIR)
+	# cd $(GREP_DIR) && git checkout 7b894c48b2fba94c0f8f21f9d464fab864df038a # ! Fails for some reason
+	cd $(GREP_DIR) && GNULIB_SRCDIR=$(GNULIB_SRCDIR) ./bootstrap
 	touch $@
 
 $(HOSGCC): $(LINUX_HEADERS_STAMP)

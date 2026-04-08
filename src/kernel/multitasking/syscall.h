@@ -35,17 +35,18 @@
 
 #define SC_ARGS_SELECT(count, ...) SC_ARG##count(__VA_ARGS__)
 
-#define sc_case(syscall_id, argc, ...) } \
-    case syscall_id: \
-    { \
-        SC_ARGS_SELECT(argc, __VA_ARGS__)
-
 #define SC_RET0         registers->rax
 #define SC_RET1         registers->rbx
 #define SC_RET2         registers->rdx
 
 #define sc_ret(n)       SC_RET##n
 #define sc_ret_errno    sc_ret(0)
+
+#define sc_case(syscall_id, argc, ...) } \
+    case syscall_id: \
+    { \
+        SC_ARGS_SELECT(argc, __VA_ARGS__) \
+        sc_ret_errno = 0;
 
 #define SC_LOG_SCHED_DEPTH  0
 

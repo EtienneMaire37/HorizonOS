@@ -149,9 +149,8 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 
     startup_data_struct_t data_cpy = *data;
 
-    for (int i = 0; i <= data->envc; i++)
-        task_stack_push(task, (uint64_t)data->environ[data->envc - i]);
-
+    // * Allocate space on the stack for the environment pointers
+    task->rsp -= 8 * (data->envc + 1);
     data_cpy.environ = (char**)task->rsp;
 
     for (int i = 0; i <= data->envc; i++)
@@ -165,9 +164,8 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
             task_write_at_address_8b(task, (uint64_t)&data_cpy.environ[i], 0);
     }
 
-    for (int i = 0; i <= data->argc; i++)
-        task_stack_push(task, (uint64_t)data->cmd[data->argc - i]);
-
+    // * Allocate space on the stack for the argv[i] pointers
+    task->rsp -= 8 * (data->argc + 1);
     data_cpy.cmd = (char**)task->rsp;
 
     for (int i = 0; i <= data->argc; i++)
@@ -183,7 +181,7 @@ thread_t* multitasking_add_task_from_initrd(const char* name, const char* path, 
 
     assert(!(task->rsp & 0x7));
     if ((data->envc + data->argc + (task->rsp / 8) + 1) % 2 != 0)
-        task_stack_push(task, 0);
+        task->rsp -= 8;
 
     task_stack_push_auxv(task, (Elf64_auxv_t){.a_type = AT_NULL, .a_un.a_val = 0});
 

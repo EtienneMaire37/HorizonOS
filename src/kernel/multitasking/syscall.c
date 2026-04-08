@@ -142,8 +142,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             break;
         }
 
-        void* addr = arg4 & MAP_FIXED ? arg1 : vmm_find_free_user_space_pages(arg1, arg2 / 4096);
-        SC_LOG("MMAP: Found %zu free pages at %p", arg2 / 4096, addr);
+        void* addr = (arg4 & MAP_FIXED) ? arg1 : vmm_find_free_user_space_pages(arg1, arg2 / 4096);
 
         if (!addr)
         {
@@ -151,6 +150,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret(1) = (uint64_t)MAP_FAILED;
             break;
         }
+
+        SC_LOG("MMAP: Found %zu free pages at %p", arg2 / 4096, addr);
 
         allocate_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), (uint64_t)addr, arg2 / 4096, PG_USER, (arg3 & PROT_WRITE) ? PG_READ_WRITE : PG_READ_ONLY, CACHE_WB);
 
@@ -243,6 +244,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret(1) = (uint64_t)entry->position;
             break;
         }
+        sc_ret_errno = 0;
         break;
     sc_case(SYS_OPEN, 3, const char*, int, unsigned int)
         SC_LOG("syscall SYS_OPEN(\"%s\", %d, %u)", arg1, arg2, arg3);
