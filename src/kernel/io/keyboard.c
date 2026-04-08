@@ -12,7 +12,7 @@
 #include "keyboard.h"
 
 #define bufpri(...) do { character_len = snprintf(buffer, sizeof(buffer), __VA_ARGS__); assert(character_len != sizeof(buffer)); \
-    if ((ssize_t)num_characters < (ssize_t)max_characters - character_len) { for (int i = 0; i < character_len; i++) { utf32_buffer_putchar(&keyboard_input_buffer, buffer[i]); if (echo) putchar(buffer[i] < 0x40 ? buffer[i] + 0x40 : buffer[i]); } } } while (0)
+    if ((ssize_t)num_characters < (ssize_t)max_characters - character_len) { for (int i = 0; i < character_len; i++) { utf32_buffer_putchar(&keyboard_input_buffer, buffer[i]); if (echo) putchar((buffer[i] < 0x20) ? buffer[i] + 0x40 : buffer[i]); } } } while (0)
 
 const keyboard_layout_t* current_keyboard_layout = &us_qwerty;
 
@@ -121,6 +121,11 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
             if (echo) printf("\b \b");
             utf32_buffer_unputchar(&keyboard_input_buffer);
         }
+    }
+    else if (character >= 0x07 && character <= 0x0f)
+    {
+        utf32_buffer_putchar(&keyboard_input_buffer, character);
+        if (echo) printf("%c", character);
     }
     else
     {
