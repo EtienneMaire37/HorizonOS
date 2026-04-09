@@ -99,6 +99,7 @@ void set_pdpt_entry(uint64_t* entry, uint64_t address, uint8_t privilege, uint8_
     if (masked_address != address)
     {
         LOG(CRITICAL, "Kernel tried to map physical address %#" PRIx64 " but it doesn't fit in %u bits", address, physical_address_width);
+        printf("Kernel tried to map physical address %#" PRIx64 " but it doesn't fit in %u bits\n", address, physical_address_width);
         abort();
     }
 

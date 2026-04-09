@@ -237,6 +237,12 @@ void _start()
     puts((const char*)commit_file->data);
     tty_set_color(FG_WHITE, BG_BLACK);
 
+    printf("Physical address is ");
+    tty_set_color(FG_LIGHTBLUE, BG_BLACK);
+    printf("%u ", physical_address_width);
+    tty_set_color(FG_WHITE, BG_BLACK);
+    printf("bits long\n");
+
     printf("Detected ");
     tty_set_color(FG_LIGHTBLUE, BG_BLACK);
     printf("%" PRIu64 " ", allocatable_memory);
@@ -426,12 +432,6 @@ void _start()
     printf("CPUID highest function parameter: %#x\n", cpuid_highest_function_parameter);
     printf("CPUID highest extended function parameter: %#x\n", cpuid_highest_extended_function_parameter);
 
-    printf("Physical address is ");
-    tty_set_color(FG_LIGHTBLUE, BG_BLACK);
-    printf("%u ", physical_address_width);
-    tty_set_color(FG_WHITE, BG_BLACK);
-    printf("bits long\n");
-
     LOG(INFO, "Loading a GDT with TSS...");
     printf("Loading a GDT with TSS...");
     fflush(stdout);
@@ -575,11 +575,7 @@ void _start()
         S_IROTH | S_IXOTH,
         0, 0,
         (drive_t){.type = DT_INITRD});
-    if (!vfs_root)
-    {
-        LOG(DEBUG, "Couldn't create VFS root");
-        abort();
-    }
+    assert(vfs_root);
     vfs_root->inode->parent = vfs_root;
     vfs_explore(vfs_root);
 
