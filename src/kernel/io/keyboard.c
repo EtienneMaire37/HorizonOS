@@ -12,7 +12,7 @@
 #include "keyboard.h"
 
 #define bufpri(...) do { character_len = snprintf(buffer, sizeof(buffer), __VA_ARGS__); assert(character_len != sizeof(buffer)); \
-    if ((ssize_t)num_characters < (ssize_t)max_characters - character_len) { for (int i = 0; i < character_len; i++) { utf32_buffer_putchar(&keyboard_input_buffer, buffer[i]); if (echo) putchar((buffer[i] < 0x20) ? buffer[i] + 0x40 : buffer[i]); } } } while (0)
+    if ((ssize_t)num_characters < (ssize_t)max_characters - character_len) { for (int i = 0; i < character_len; i++) { utf32_buffer_putchar(&keyboard_input_buffer, buffer[i]); if (echo) { if (buffer[i] < 0x20) tty_outc('^'); tty_outc_ex((buffer[i] < 0x20) ? buffer[i] + 0x40 : buffer[i], buffer[i] < 0x20 ? TTY_CONTINUE_CHAR : 0); } } } } while (0)
 
 const keyboard_layout_t* current_keyboard_layout = &us_qwerty;
 
@@ -85,8 +85,9 @@ bool keyboard_is_key_pressed(virtual_address_t vk)
     return ps2_kb_is_key_pressed(vk);
 }
 
-void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct termios* ts)
+void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct termios* ts, bool* sigint)
 {
+    assert(sigint);
     if (!multitasking_enabled) return;
     if (get_buffered_characters(keyboard_input_buffer) >= keyboard_input_buffer.size - 1) return;
 
@@ -114,7 +115,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
     {
         if (raw)
         {
-            utf32_buffer_putchar(&keyboard_input_buffer, ts->c_cc[VERASE]);
+            utf32_buffer_putchar(&keyboard_input_buffer, character);
             if (echo) printf("\b \b");
         }
         else if (!no_buffered_characters(keyboard_input_buffer))
@@ -194,7 +195,9 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
             {
                 if (lalt)
                     bufpri("\x1b");
-                bufpri("%c", ctrl && ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')) ? character & 0x1f : character);
+                bufpri("%c", ctrl && (character >= 0x20) ? character & 0x1f : character);
+                if (ctrl && ((character & 0x1f) == 3))
+                    *sigint = true;
             }
         }
     }

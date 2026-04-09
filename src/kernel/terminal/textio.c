@@ -232,6 +232,8 @@ void __tty_render_character(uint32_t cursor, tty_char_t c)
 
 	bool bold = (c >> 16) & 1;
 	uint8_t color = c >> 8;
+	// if (c & TTY_CONTINUE_CHAR)
+	//     color = BG_RED | (color & 0x0f);
 	c &= 0x7f;
 
 	uint32_t width = __tty_get_character_width();
@@ -544,7 +546,7 @@ void __tty_scroll()
 		__tty_refresh_screen();
 }
 
-void tty_outc(char c)
+void tty_outc_ex(char c, int flags)
 {
 	if (!tty_font.f)
 		return;
@@ -841,7 +843,27 @@ void tty_outc(char c)
         return;
 	}
 
-	if (c != '\b' && c != 7 && c != '\n' && c != '\r') tty_data[tty_cursor] = c | ((tty_char_t)tty_color << 8) | ((tty_char_t)tty_bold << 16);
+	if (c != '\b' && c != 7 && c != '\n' && c != '\r')
+	{
+	    tty_data[tty_cursor] = c | ((tty_char_t)tty_color << 8) | (tty_bold ? TTY_BOLD : 0) | (flags & ~0xffff);
+		int i = tty_cursor + 1;
+		if (i % MAX_TTY_X >= tty_res_x)
+		{
+		    i -= i % MAX_TTY_X;
+			i += MAX_TTY_X;
+		}
+		while (i < MAX_TTY_X * tty_res_y && (tty_data[i] & TTY_CONTINUE_CHAR))
+		{
+		    tty_data[i] = ' ' | ((tty_char_t)tty_color << 8);
+            __tty_render_character(i, tty_data[i]);
+		    i++;
+			if (i % MAX_TTY_X >= tty_res_x)
+			{
+			    i -= i % MAX_TTY_X;
+				i += MAX_TTY_X;
+			}
+		}
+	}
 
 	__tty_render_character(tty_cursor, tty_data[tty_cursor]);
 
@@ -865,15 +887,19 @@ void tty_outc(char c)
 
 	case '\b':
 	{
-	    bool scroll = false;
-		if (tty_cursor <= 0)
-		    scroll = true;
-	    if ((tty_cursor % MAX_TTY_X) == 0)
-			tty_cursor = tty_cursor - MAX_TTY_X + tty_res_x - 1;
-	    else
-			tty_cursor--;
-		if (scroll)
-			__tty_scroll();
+	    do
+    	{
+    	    bool scroll = false;
+    		if (tty_cursor <= 0)
+    		    scroll = true;
+    	    if ((tty_cursor % MAX_TTY_X) == 0)
+    			tty_cursor = tty_cursor - MAX_TTY_X + tty_res_x - 1;
+    	    else
+    			tty_cursor--;
+    		if (scroll)
+    			__tty_scroll();
+    	}
+        while ((tty_data[tty_cursor] & TTY_CONTINUE_CHAR) && (tty_cursor % MAX_TTY_X) < tty_res_x);
 		break;
 	}
 	case 7: // * DEL
@@ -896,4 +922,9 @@ void tty_outc(char c)
 	__tty_scroll();
 
 	unlock_scheduler();
+}
+
+void tty_outc(char c)
+{
+    tty_outc_ex(c, 0);
 }

@@ -22,6 +22,9 @@ typedef uint32_t tty_char_t;
 
 #define TTY_AR      2
 
+#define TTY_BOLD            ((tty_char_t)0x10000)
+#define TTY_CONTINUE_CHAR   ((tty_char_t)0x20000)
+
 extern uint32_t tty_res_x, tty_res_y;
 
 extern int32_t tty_cursor;
@@ -44,6 +47,7 @@ void __tty_clear_screen(char c);
 void __tty_clear_section(uint32_t start_char, uint32_t end_char, uint8_t clear_color);
 void tty_set_color(uint8_t fg_color, uint8_t bg_color);
 void tty_set_window_size(int sx, int sy);
+void tty_outc_ex(char c, int flags);
 void tty_outc(char c);
 void __tty_render_cursor(uint32_t cursor);
 void __tty_render_character(uint32_t cursor, tty_char_t c);

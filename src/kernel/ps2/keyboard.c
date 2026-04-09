@@ -247,36 +247,12 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                     else
                         goto key;
                 }
-                else
-                {
-                    if (!current_ps2_keyboard_scancodes[port_index].extended)
-                    switch (current_keyboard_layout->ps2_layout_data.char_table[current_ps2_keyboard_scancodes[port_index].scancode])
-                    {
-                    case 'c':
-                        if (tty_ts.c_lflag & ISIG)
-                        {
-                            lock_scheduler();
-                            if (!multitasking_is_pgrp_empty(tty_foreground_pgrp))
-                            {
-                                printf("^C");
-                                fflush(stdout);
-                                *send_sigint = true;
-                            }
-                            unlock_scheduler();
-                            return;
-                        }
-                        break;
-                    default:
-                        goto key;
-                    }
-                    else
-                        goto key;
-                }
+                goto key;
             }
             else
             {
             key:
-                keyboard_handle_character(character, vk, &tty_ts);
+                keyboard_handle_character(character, vk, &tty_ts, send_sigint);
             }
         }
 
