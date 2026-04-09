@@ -255,7 +255,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_validate_pointer(arg2);
 
         // * Only supported flags for now
-        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY))
+        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK))
         {
             sc_ret_errno = EINVAL;
             break;
@@ -299,6 +299,14 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             vfs_remove_global_file(fd);
             unlock_scheduler();
             sc_ret_errno = EACCES;
+            break;
+        }
+
+        if ((arg3 & O_DIRECTORY) && !S_ISDIR(st.st_mode))
+        {
+            vfs_remove_global_file(fd);
+            unlock_scheduler();
+            sc_ret_errno = ENOTDIR;
             break;
         }
 
