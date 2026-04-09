@@ -73,12 +73,15 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     sc_case(SYS_READ, 3, int, void*, size_t)
         SC_LOG("syscall SYS_READ(%d, %p, %zu)", arg1, arg2, arg3);
         sc_validate_pointer(arg2);
+        lock_scheduler();
         if (!is_fd_valid(arg1))
         {
+            unlock_scheduler();
             sc_ret_errno = EBADF;
             sc_ret(1) = (uint64_t)-1;
             break;
         }
+        unlock_scheduler();
         ssize_t ret;
         sc_ret_errno = (uint64_t)vfs_read(arg1, arg2, arg3, &ret);
         sc_ret(1) = (uint64_t)ret;
@@ -86,14 +89,15 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     sc_case(SYS_WRITE, 3, int, const void*, size_t)
         SC_LOG("syscall SYS_WRITE(%d, %p, %zu)", arg1, arg2, arg3);
         sc_validate_pointer(arg2);
+        lock_scheduler();
         if (!is_fd_valid(arg1))
         {
+            unlock_scheduler();
             sc_ret_errno = EBADF;
             sc_ret(1) = (uint64_t)-1;
             break;
         }
-        // if (arg3 == 1)
-        //     LOG(TRACE, "%c (%d)", ((char*)arg2)[0], ((char*)arg2)[0]);
+        unlock_scheduler();
         ssize_t ret;
         sc_ret_errno = vfs_write(arg1, arg2, arg3, &ret);
         sc_ret(1) = (uint64_t)ret;
@@ -298,7 +302,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             break;
         }
 
-        file_table[fd].entry_type = S_ISDIR(stat_ret) ? VFS_ET_FOLDER : VFS_ET_FILE;
+        file_table[fd].entry_type = S_ISDIR(st.st_mode) ? VFS_ET_FOLDER : VFS_ET_FILE;
 
         file_table[fd].tnode.file = NULL;
         file_table[fd].tnode.folder = NULL;

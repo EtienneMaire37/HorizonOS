@@ -564,6 +564,8 @@ int vfs_access(const char* path, vfs_folder_tnode_t* pwd, int mode)
 int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
 {
     assert(bytes_read);
+    // !!! EXTREMELY UNSAFE
+    // TODO: Rewrite all of the locked paths everywhere
     if (!is_fd_valid(fd))
     {
         *bytes_read = -1;
