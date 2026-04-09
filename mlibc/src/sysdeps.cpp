@@ -346,10 +346,9 @@ namespace mlibc
 			return -1;
 		}
 	}
-
 	int sys_sysconf(int num, long* ret)
 	{
-		int _errno;
+	    int _errno = 0;
 		*ret = sysconf_helper(num, &_errno);
 		return _errno;
 	}
