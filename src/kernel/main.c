@@ -294,8 +294,15 @@ void _start()
 
             if (ptr >= MAX_MEMORY)
                 continue;
+            if (ptr >= (1ULL << physical_address_width))
+                continue;
+            if (len > (1ULL << physical_address_width) - ptr)
+                len = (1ULL << physical_address_width) - ptr;
             if (len > MAX_MEMORY - ptr)
                 len = MAX_MEMORY - ptr;
+
+            if (len == 0)
+                continue;
 
             // ? Write-combining cache for the framebuffer
             // ? Write-back for usable memory
@@ -315,7 +322,9 @@ void _start()
         // * signal handler wrapper function
         LOG(DEBUG, "Setting %#" PRIx64 "-%#" PRIx64 " as user accessible", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
         printf("Setting %#" PRIx64 "-%#" PRIx64 " as user accessible\n", (uint64_t)sighandler, (uint64_t)sighandler + 0x1000);
-        uint64_t paddr = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler) - PHYS_MAP_BASE;
+        uint64_t addr_off = (uint64_t)virtual_to_physical(global_cr3, (uintptr_t)sighandler);
+        assert(addr_off);
+        uint64_t paddr = addr_off - PHYS_MAP_BASE;
         unmap_range(global_cr3, (uintptr_t)sighandler, 1);
         remap_range(global_cr3, (uintptr_t)sighandler, paddr, 1, PG_USER, PG_READ_ONLY, CACHE_WB);
     }

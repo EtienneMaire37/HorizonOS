@@ -7,7 +7,7 @@
 
 #include <stdatomic.h>
 
-#define MAX_MEMORY (1 * TB)
+#define MAX_MEMORY (128 * TB)
 
 extern uint64_t usable_memory;
 

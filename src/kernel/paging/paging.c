@@ -444,7 +444,10 @@ void copy_mapping(uint64_t* src, uint64_t* dst,
 void* virtual_to_physical(uint64_t* cr3, uint64_t vaddr)
 {
     if (!cr3)
+    {
+        LOG(TRACE, "virtual_to_physical: cr3 address NULL");
         return NULL;
+    }
 
     uint64_t pte = (vaddr >> 12) & 0x1ff;
     uint64_t pde = (vaddr >> (12 + 9)) & 0x1ff;
@@ -453,25 +456,37 @@ void* virtual_to_physical(uint64_t* cr3, uint64_t vaddr)
 
     uint64_t* pml4_entry = &cr3[pml4e];
     if (!is_pdpt_entry_present(pml4_entry))
+    {
+        LOG(TRACE, "virtual_to_physical: pml4 entry not present");
         return NULL;
+    }
 
     uint64_t* pdpt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pml4_entry));
 
     uint64_t* pdpt_entry = &pdpt[pdpte];
     if (!is_pdpt_entry_present(pdpt_entry))
+    {
+        LOG(TRACE, "virtual_to_physical: pdpt entry not present");
         return NULL;
+    }
 
     uint64_t* pd = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pdpt_entry));
 
     uint64_t* pd_entry = &pd[pde];
     if (!is_pdpt_entry_present(pd_entry))
+    {
+        LOG(TRACE, "virtual_to_physical: pd entry not present");
         return NULL;
+    }
 
     uint64_t* pt = (uint64_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pd_entry));
 
     uint64_t* pt_entry = &pt[pte];
     if (!is_pdpt_entry_present(pt_entry))
+    {
+        LOG(TRACE, "virtual_to_physical: pt entry not present");
         return NULL;
+    }
 
     uint8_t* page = (uint8_t*)(PHYS_MAP_BASE + get_pdpt_entry_address(pt_entry));
 
