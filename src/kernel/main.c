@@ -223,7 +223,7 @@ void _start()
 
     pfa_detect_usable_memory();
 
-    tty_init();
+    tty_init(true);
 
 // * vvv Now we can use stdout
 

@@ -24,6 +24,9 @@ typedef uint32_t tty_char_t;
 
 #define TTY_BOLD            ((tty_char_t)0x10000)
 #define TTY_CONTINUE_CHAR   ((tty_char_t)0x20000)
+#define TTY_DIRTY           ((tty_char_t)0x40000)
+
+extern uint32_t tty_dirty;
 
 extern uint32_t tty_res_x, tty_res_y;
 
@@ -40,15 +43,15 @@ extern psf_font_t tty_font, tty_font_bold;
 
 extern bool tty_application_cursor_mode;
 
-void tty_init();
-void __tty_refresh_screen();
-void tty_clear_screen(char c);
-void __tty_clear_screen(char c);
-void __tty_clear_section(uint32_t start_char, uint32_t end_char, uint8_t clear_color);
+void tty_init(bool refresh);
+void __tty_refresh_screen(bool refresh);
+void tty_clear_screen(char c, bool refresh);
+void __tty_clear_screen(char c, bool refresh);
+void __tty_clear_section(uint32_t start_char, uint32_t end_char, uint8_t clear_color, bool refresh);
 void tty_set_color(uint8_t fg_color, uint8_t bg_color);
-void tty_set_window_size(int sx, int sy);
-void tty_outc_ex(char c, int flags);
+void tty_set_window_size(int sx, int sy, bool refresh);
+void tty_outc_ex(char c, int flags, bool refresh);
 void tty_outc(char c);
-void __tty_render_cursor(uint32_t cursor);
-void __tty_render_character(uint32_t cursor, tty_char_t c);
-void __tty_move_characters(uint32_t start, int offset);
+void __tty_render_cursor(uint32_t cursor, bool refresh);
+void __tty_render_character(uint32_t cursor, tty_char_t c, bool refresh);
+void __tty_move_characters(uint32_t start, int offset, bool refresh);

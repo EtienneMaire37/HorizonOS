@@ -211,7 +211,7 @@ static inline void __attribute__((noreturn)) kernel_panic_ex(interrupt_registers
     LOG(CRITICAL, "Kernel panic");
 
     tty_set_color(FG_WHITE, BG_BLACK);
-    tty_clear_screen(' ');
+    tty_clear_screen(' ', true);
 
     tty_cursor_blink = false;
 

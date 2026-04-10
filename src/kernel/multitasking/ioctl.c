@@ -105,7 +105,7 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
             break;
         }
         struct winsize* ws = arg;
-        tty_set_window_size(ws->ws_col, ws->ws_row);
+        tty_set_window_size(ws->ws_col, ws->ws_row, true);
         task_send_signal_to_pgrp(SIGWINCH, tty_foreground_pgrp);
         sc_ret(1) = 0;
         break;
