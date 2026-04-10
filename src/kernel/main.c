@@ -195,7 +195,7 @@ void _start()
 
     init_pat();
 
-    LOG(INFO, "cpu_id : %u", cpuid_get_cpu_id());
+    LOG(INFO, "cpu_id : %u", lapic_get_cpu_id());
 
     struct limine_file* initrd = NULL;
     for (int i = 0; i < module_request.response->module_count; i++)

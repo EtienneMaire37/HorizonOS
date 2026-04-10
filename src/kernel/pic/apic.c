@@ -43,7 +43,7 @@ void apic_init()
     wrmsr(IA32_APIC_BASE_MSR, apic_base_msr);
 }
 
-uint32_t apic_get_cpu_id()
+uint32_t lapic_get_cpu_id()
 {
     if (lapic)
         return (lapic->id_register >> 24) & 0xff;
@@ -255,7 +255,7 @@ void madt_extract_data()
             return false;
         }));
 
-        uint64_t lapic_id = apic_get_cpu_id();
+        uint64_t lapic_id = lapic_get_cpu_id();
         // ! Horrible way to do things
         // TODO: Use logical destination mode
         assert(lapic_id == (lapic_id & 0xff));
