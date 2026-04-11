@@ -121,7 +121,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret_errno = ENOTTY;
         break;
     sc_case(SYS_VM_MAP, 6, void*, size_t, int, int, int, off_t)
-        SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#x, %#x, %d, %" PRId64 ")", arg1, arg2, arg3, arg4, arg5, arg6);
+        SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#o, %#o, %d, %" PRId64 ")", arg1, arg2, arg3, arg4, arg5, arg6);
 
         if (arg2 & 0xfff || arg2 == 0 || (uint64_t)arg1 & 0xfff)
         {
@@ -133,6 +133,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         // * Only support READ/WRITE for now
         if (arg3 & ~(PROT_READ | PROT_WRITE | PROT_EXEC))
         {
+            LOG(WARNING, "SYS_VM_MAP: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)MAP_FAILED;
             break;
@@ -141,6 +142,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         // * Don't support file mapping/sharing shenanigans for now
         if (arg4 & ~(MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED))
         {
+            LOG(WARNING, "SYS_VM_MAP: Invalid or unsupported argument %#o", arg4);
             sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)MAP_FAILED;
             break;
@@ -178,7 +180,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         free_range((uint64_t*)(get_cr3_address() + PHYS_MAP_BASE), (virtual_address_t)arg1, (arg2 + 0xfff) >> 12);
         break;
     sc_case(SYS_VM_PROTECT, 3, void*, size_t, int)
-        SC_LOG("syscall SYS_VM_PROTECT(%p, %zu, %d)", arg1, arg2, arg3);
+        SC_LOG("syscall SYS_VM_PROTECT(%p, %zu, %#o)", arg1, arg2, arg3);
         sc_ret_errno = 0;
         arg2 = (arg2 + 0xfff) & ~0xfffULL;
         if (arg2 == 0 || (uint64_t)arg1 & 0xfff)
@@ -189,6 +191,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         if (arg3 & ~(PROT_NONE | PROT_READ | PROT_WRITE | PROT_EXEC))
         {
+            LOG(WARNING, "SYS_VM_PROTECT: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)MAP_FAILED;
             break;
@@ -251,12 +254,13 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_ret_errno = 0;
         break;
     sc_case(SYS_OPENAT, 4, int, const char*, int, unsigned int)
-        SC_LOG("syscall SYS_OPENAT(%d, \"%s\", %d, %u)", arg1, arg2, arg3, arg4);
+        SC_LOG("syscall SYS_OPENAT(%d, \"%s\", %#o, %u)", arg1, arg2, arg3, arg4);
         sc_validate_pointer(arg2);
 
         // * Only supported flags for now
         if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK))
         {
+            LOG(WARNING, "SYS_OPENAT: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
             break;
         }
@@ -675,7 +679,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         unlock_scheduler();
     	break;
     sc_case(SYS_WAIT4, 4, pid_t, int*, int, struct rusage*)
-        SC_LOG("syscall SYS_WAIT4(%d, %p, %d, %p)", arg1, arg2, arg3, arg4);
+        SC_LOG("syscall SYS_WAIT4(%d, %p, %#o, %p)", arg1, arg2, arg3, arg4);
         sc_validate_pointer(arg2);
         sc_validate_pointer(arg4);
         if (arg3 & WNOWAIT)
@@ -685,6 +689,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         if (arg3 & ~(WNOHANG | WUNTRACED | WCONTINUED))
         {
+            LOG(WARNING, "SYS_WAIT4: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
             break;
         }
@@ -831,12 +836,13 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_ret_errno = 0;
         break;
     sc_case(SYS_FSTATAT, 4, int, const char*, int, struct stat*)
-        SC_LOG("syscall SYS_FSTATAT(%d, \"%s\", %d, %p)", arg1, arg2, arg3, arg4);
+        SC_LOG("syscall SYS_FSTATAT(%d, \"%s\", %#o, %p)", arg1, arg2, arg3, arg4);
         sc_validate_pointer(arg2);
         sc_validate_pointer(arg4);
         // TODO: Implement symbolic links
         if (arg3 & ~(AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW))
         {
+            LOG(WARNING, "SYS_FSTATAT: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
             break;
         }
@@ -930,10 +936,11 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         break;
     sc_case(SYS_ACCESS, 2, const char*, int)
-        SC_LOG("syscall SYS_ACCESS(\"%s\", %d)", arg1, arg2);
+        SC_LOG("syscall SYS_ACCESS(\"%s\", %#o)", arg1, arg2);
         sc_validate_pointer(arg1);
         if (arg2 & ~(R_OK | W_OK | X_OK)) // * F_OK is 0
         {
+            LOG(WARNING, "SYS_ACCESS: Invalid or unsupported argument %#o", arg2);
             sc_ret_errno = EINVAL;
             break;
         }
@@ -1003,7 +1010,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_ret(1) = newfd;
         break;
     sc_case(SYS_DUP3, 3, int, int, int)
-        SC_LOG("syscall SYS_DUP3(%d, %d, %d)", arg1, arg2, arg3);
+        SC_LOG("syscall SYS_DUP3(%d, %#o, %d)", arg1, arg2, arg3);
         if (arg1 == arg3)
         {
             sc_ret_errno = EINVAL;
@@ -1011,6 +1018,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         if (arg2 & ~O_CLOEXEC)
         {
+            LOG(WARNING, "SYS_DUP3: Invalid or unsupported argument %#o", arg2);
             sc_ret_errno = EINVAL;
             break;
         }
@@ -1222,11 +1230,12 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_ret_errno = 0;
         break;
     sc_case(SYS_PIPE2, 2, int*, int)
-        SC_LOG("syscall SYS_PIPE2(%p, %d)", arg1, arg2);
+        SC_LOG("syscall SYS_PIPE2(%p, %#o)", arg1, arg2);
         sc_validate_pointer(arg1);
         // * Don't support packet mode for now
         if (arg2 & ~(O_CLOEXEC | O_NONBLOCK))
         {
+            LOG(WARNING, "SYS_PIPE2: Invalid or unsupported argument %#o", arg2);
             sc_ret_errno = EINVAL;
             break;
         }
