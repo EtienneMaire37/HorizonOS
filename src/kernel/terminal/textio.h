@@ -12,7 +12,7 @@ static inline bool is_printable_character(char c)
 
 typedef uint32_t tty_char_t;
 
-#define TAB_LENGTH       4
+#define TAB_LENGTH       8
 
 #define TTY_ESC_BUFFER     32
 #define TTY_OSC_BUFFER     128
@@ -42,6 +42,9 @@ extern bool tty_cursor_blink;
 extern psf_font_t tty_font, tty_font_bold;
 
 extern bool tty_application_cursor_mode;
+
+#define tty_set_dirty(ch) do { if (!((ch) & TTY_DIRTY)) tty_dirty++; (ch) |= TTY_DIRTY; } while (0)
+#define tty_unset_dirty(ch) do { if ((ch) & TTY_DIRTY) tty_dirty--; (ch) &= ~(tty_char_t)TTY_DIRTY; } while (0)
 
 void tty_init(bool refresh);
 void __tty_refresh_screen(bool refresh);

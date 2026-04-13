@@ -24,6 +24,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
     while (initrd_offset < initrd_size)
     {
         uint64_t file_size = 0;
+        uint64_t real_file_size = 0;
 
         struct ustar_header* header = (struct ustar_header*)(initrd_start + initrd_offset);
 
@@ -53,7 +54,8 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
             goto do_loop;
         }
 
-        file_size = ustar_get_number(header->size, 12);
+        real_file_size = ustar_get_number(header->size, 12);
+        file_size = header->type == USTAR_TYPE_FILE_1 ? real_file_size : 4096;
 
         if (strcmp(header->name, ".") == 0)
             goto do_loop;
@@ -92,6 +94,8 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 
         st.st_size = file_size;
 
+        st.st_blocks = ((st.st_size + st.st_blksize - 1) / st.st_blksize) * (st.st_blksize / 512);
+
         // LOG(DEBUG, "header->last_modification: %.12s", header->last_modification);
 
         initrd_files[initrd_files_count].st = st;
@@ -101,7 +105,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
         assert(initrd_files_count < MAX_INITRD_FILES);
 
     do_loop:
-        initrd_offset += (file_size + USTAR_BLOCK_SIZE - 1) / USTAR_BLOCK_SIZE * USTAR_BLOCK_SIZE + USTAR_BLOCK_SIZE;
+        initrd_offset += (real_file_size + USTAR_BLOCK_SIZE - 1) / USTAR_BLOCK_SIZE * USTAR_BLOCK_SIZE + USTAR_BLOCK_SIZE;
     }
 
     for (uint16_t i = 0; i < initrd_files_count; i++)

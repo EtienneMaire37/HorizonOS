@@ -131,7 +131,7 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
         break;
     }
     default:
-        LOG(DEBUG, "Unknown ioctl request: %#lx, %p", request, arg);
+        LOG(WARNING, "Unknown ioctl request: %#lx, %p", request, arg);
         // task_send_signal(current_task, SIGILL);
         sc_ret_errno = ENOSYS;
     }

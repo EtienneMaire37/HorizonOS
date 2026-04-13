@@ -61,3 +61,5 @@ int vfs_hup(file_entry_t* entry);
 void task_monitor_entry(thread_t* task, file_entry_t* entry);
 void task_start_polling(thread_t* task, precise_time_t timeout);
 void task_stop_polling(thread_t* task);
+
+int vfs_dup(int fd);

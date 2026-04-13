@@ -62,7 +62,10 @@ void task_handle_signal_to_userspace(interrupt_registers_t* registers)
 uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_address)
 {
     // SC_LOG("syscall %" PRIu64, registers->rax);
-    switch (registers->rax)
+    uint64_t syscall_num = registers->rax;
+    sc_ret_errno = -1;
+    bool sc_no_errno = syscall_num == SYS_GETPID || syscall_num == SYS_GETPPID;
+    switch (syscall_num)
     {
     {
     sc_case(SYS_SETFS, 1, uint64_t)
@@ -258,7 +261,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_validate_pointer(arg2);
 
         // * Only supported flags for now
-        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK))
+        // NOTE: A few of these aren't actually handled in the code but are supported as a byproduct of missing features (eg. symbolic links)
+        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW))
         {
             LOG(WARNING, "SYS_OPENAT: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
@@ -266,7 +270,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
 
         lock_scheduler();
-        bool relative = arg2[0] != '/';
+        bool relative = *arg2 != '/';
         if (relative && arg1 != AT_FDCWD && !is_fd_valid(arg1))
         {
             unlock_scheduler();
@@ -286,7 +290,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         file_table[fd].position = 0;
 
         file_entry_t* entry = get_global_file_entry(arg1);
-        vfs_folder_tnode_t* cwd = arg1 == AT_FDCWD ? current_task->cwd : (entry && entry->entry_type == VFS_ET_FOLDER ? entry->tnode.folder : NULL);
+        vfs_folder_tnode_t* cwd = (arg1 == AT_FDCWD) ? current_task->cwd : ((entry && (entry->entry_type == VFS_ET_FOLDER)) ? entry->tnode.folder : NULL);
 
         struct stat st;
         int stat_ret = vfs_stat(arg2, cwd, &st);
@@ -321,20 +325,22 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
 
         if (file_table[fd].entry_type == VFS_ET_FILE)
         {
-            file_table[fd].tnode.file = vfs_get_file_tnode(arg2, current_task->cwd);
+            file_table[fd].tnode.file = vfs_get_file_tnode(arg2, cwd);
+            assert(file_table[fd].tnode.file);
             file_table[fd].iofunc = file_table[fd].tnode.file->inode->io_func;
 
             file_table[fd].st = file_table[fd].tnode.file->inode->st;
         }
         else if (file_table[fd].entry_type == VFS_ET_FOLDER)
         {
-            file_table[fd].tnode.folder = vfs_get_folder_tnode(arg2, current_task->cwd);
+            file_table[fd].tnode.folder = vfs_get_folder_tnode(arg2, cwd);
+            assert(file_table[fd].tnode.folder);
             file_table[fd].iofunc = NULL;
 
             file_table[fd].st = file_table[fd].tnode.folder->inode->st;
         }
         else
-            assert(!"open fatal error");
+            assert(!"openat fatal error");
 
         file_table[fd].on_destroy = NULL;
 
@@ -836,13 +842,13 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_ret_errno = 0;
         break;
     sc_case(SYS_FSTATAT, 4, int, const char*, int, struct stat*)
-        SC_LOG("syscall SYS_FSTATAT(%d, \"%s\", %#o, %p)", arg1, arg2, arg3, arg4);
+        SC_LOG("syscall SYS_FSTATAT(%d, \"%s\", %#x, %p)", arg1, arg2, arg3, arg4);
         sc_validate_pointer(arg2);
         sc_validate_pointer(arg4);
         // TODO: Implement symbolic links
         if (arg3 & ~(AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW))
         {
-            LOG(WARNING, "SYS_FSTATAT: Invalid or unsupported argument %#o", arg3);
+            LOG(WARNING, "SYS_FSTATAT: Invalid or unsupported argument %#x", arg3);
             sc_ret_errno = EINVAL;
             break;
         }
@@ -850,24 +856,18 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         file_entry_t* entry = get_global_file_entry(arg1);
         if (arg1 != AT_FDCWD && !entry)
         {
-            sc_ret_errno = EBADF;
             unlock_scheduler();
+            sc_ret_errno = EBADF;
             break;
         }
-        if (strcmp(arg2, "") == 0 && (arg3 & AT_EMPTY_PATH))
+        if ((strcmp(arg2, "") == 0) && (arg3 & AT_EMPTY_PATH))
         {
             *arg4 = entry->st;
-            sc_ret_errno = 0;
             unlock_scheduler();
+            sc_ret_errno = 0;
             break;
         }
         bool relative_path = *arg2 != '/';
-        if (relative_path && !entry && arg1 != AT_FDCWD)
-        {
-            unlock_scheduler();
-            sc_ret_errno = EBADF;
-            break;
-        }
         vfs_folder_tnode_t* cwd = NULL;
         if (relative_path)
         {
@@ -884,54 +884,26 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             }
             if (entry->entry_type == VFS_ET_FOLDER)
             {
-                cwd = entry->tnode.file->inode->parent;
-                if (*arg2 == 0) // * empty path
-                {
-                    if (arg3 & AT_EMPTY_PATH)
-                    {
-                        *arg4 = entry->st;
-                        sc_ret_errno = 0;
-                        unlock_scheduler();
-                        break;
-                    }
-                    else
-                    {
-                        sc_ret_errno = ENOENT;
-                        unlock_scheduler();
-                        break;
-                    }
-                }
-                else
-                    goto fstatat_get_st;
-            }
-            else
-            {
-                sc_ret_errno = ENOTDIR;
-                unlock_scheduler();
-                break;
+                cwd = entry->tnode.folder;
+                goto fstatat_get_st;
             }
             assert(!"fstatat fatal error");
         }
         else
         {
         fstatat_get_st:
-            vfs_folder_tnode_t* foldertnode = vfs_get_folder_tnode(arg2, cwd);
-            if (!foldertnode)
-            {
-                vfs_file_tnode_t* filetnode = vfs_get_file_tnode(arg2, cwd);
-                if (!filetnode)
-                {
-                    sc_ret_errno = ENOENT;
-                    unlock_scheduler();
-                    break;
-                }
-                *arg4 = filetnode->inode->st;
-            }
-            else
-                *arg4 = foldertnode->inode->st;
-
-            sc_ret_errno = 0;
+            ;
+            struct stat st;
+            int stat_ret = vfs_stat(arg2, cwd, &st);
             unlock_scheduler();
+            if (stat_ret != 0)
+            {
+                sc_ret_errno = stat_ret;
+                break;
+            }
+
+            *arg4 = st;
+            sc_ret_errno = 0;
             break;
         }
         break;
@@ -988,26 +960,14 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_DUP, 1, int)
         SC_LOG("syscall SYS_DUP(%d)", arg1);
-        lock_scheduler();
-        if (!is_fd_valid(arg1))
+        int ret = vfs_dup(arg1);
+        if (ret >= 0)
         {
-            unlock_scheduler();
-            sc_ret_errno = EBADF;
-            break;
+            sc_ret_errno = 0;
+            sc_ret(1) = ret;
         }
-        int newfd = vfs_allocate_thread_file(current_task);
-        if (newfd == -1)
-        {
-            unlock_scheduler();
-            sc_ret_errno = EMFILE;
-            break;
-        }
-        current_task->file_table[newfd].index = current_task->file_table[arg1].index;
-        current_task->file_table[newfd].flags = 0;
-        file_table[current_task->file_table[newfd].index].used++;
-        unlock_scheduler();
-        sc_ret_errno = 0;
-        sc_ret(1) = newfd;
+        else
+            sc_ret_errno = -ret;
         break;
     sc_case(SYS_DUP3, 3, int, int, int)
         SC_LOG("syscall SYS_DUP3(%d, %#o, %d)", arg1, arg2, arg3);
@@ -1044,7 +1004,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_ret_errno = 0;
         break;
     sc_case(SYS_FCNTL, 3, int, int, uint64_t)
-        SC_LOG("syscall SYS_FCNTL(%d, %d, %" PRId64 ")", arg1, arg2, arg3);
+        SC_LOG("syscall SYS_FCNTL(%d, %d, %" PRIu64 ")", arg1, arg2, arg3);
         lock_scheduler();
         switch (arg2)
         {
@@ -1075,8 +1035,22 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret_errno = 0;
             sc_ret(1) = file_table[current_task->file_table[arg1].index].flags;
             break;
+        case F_DUPFD_CLOEXEC:
+        case F_DUPFD:
+            ;
+            int ret = vfs_dup(arg1);
+            if (ret >= 0)
+            {
+                sc_ret_errno = 0;
+                sc_ret(1) = ret;
+                if (arg2 == F_DUPFD_CLOEXEC)
+                    current_task->file_table[ret].flags |= FD_CLOEXEC;
+            }
+            else
+                sc_ret_errno = -ret;
+            break;
         default:
-            LOG(DEBUG, "Unknown fcntl request");
+            LOG(WARNING, "Unknown fcntl request (%d, %d, %" PRIu64 ")", arg1, arg2, arg3);
             // task_send_signal(current_task, SIGILL);
             sc_ret_errno = ENOSYS;
         }
@@ -1085,6 +1059,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     sc_case(SYS_SIGRET, 0)
         SC_LOG("syscall SYS_SIGRET()");
         *return_address = sigret;
+        sc_ret_errno = 0;
         // LOG(TRACE, "poped ret rsp:  %#16" PRIx64, registers->rsp);
         // hexdump((void*)registers->rsp, sizeof(interrupt_registers_t));
         break;
@@ -1443,10 +1418,13 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     }
     default:
-        LOG(DEBUG, "syscall %" PRIu64 " not implemented", registers->rax);
+        LOG(WARNING, "syscall %" PRIu64 " not implemented", registers->rax);
         // task_send_signal(current_task, SIGILL);
         sc_ret_errno = ENOSYS;
     }
+
+    if (sc_ret_errno != 0 && !sc_no_errno)
+        SC_LOG("errno: %" PRId64 ": %s", sc_ret_errno, strerror(sc_ret_errno));
 
     if (registers->rax != SYS_SIGRET)
         task_handle_signal_to_userspace(registers);

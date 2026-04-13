@@ -40,7 +40,6 @@ Here's a (non exhaustive) list of the supported options:
 | -DLOG_TO_TTY | N/A | Write logs to the screen instead of port E9 |
 | -DNO_STDOUT | N/A | Disable text output (but keep log output if LOG_TO_TTY is specified) |
 | -DDEBUG_ALLOCATOR | N/A | Enable a simple memory allocator (doesn't even allow for freeing pages, should never be used in practice) |
-| -DDEBUG_SCREEN | N/A | Will ALWAYS reload the full framebuffer when any character is printed to the screen |
 | -DIGNORE_ANSI | N/A | If set, all ANSI control sequences will be ignored |
 | -DPRINT_UNRECOGNIZED_ANSI | N/A | If set, will print any unsupported escape sequence to the screen |
 | -DTTY_CURSOR_BLINK | N/A | If set, the terminal cursor will blink. If not, it will be a solid white color |

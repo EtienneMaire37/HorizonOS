@@ -40,7 +40,7 @@
 #define SC_RET2         registers->rdx
 
 #define sc_ret(n)       SC_RET##n
-#define sc_ret_errno    sc_ret(0)
+#define sc_ret_errno    SC_RET0
 
 #define sc_case(syscall_id, argc, ...) } \
     case syscall_id: \

@@ -4,6 +4,7 @@
 #include <time.h>
 #include <sys/poll.h>
 #include "../util/lambda.h"
+#include <asm-generic/errno.h>
 
 file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 
@@ -163,4 +164,25 @@ bool vfs_willblock(file_entry_t* entry, short events)
 int vfs_hup(file_entry_t* entry)
 {
     return (vfs_isapipe(entry) && entry->file_data.pipe_data.other_end == -1) ? POLLHUP : 0;
+}
+
+int vfs_dup(int fd)
+{
+    lock_scheduler();
+    if (!is_fd_valid(fd))
+    {
+        unlock_scheduler();
+        return -EBADF;
+    }
+    int newfd = vfs_allocate_thread_file(current_task);
+    if (newfd == -1)
+    {
+        unlock_scheduler();
+        return -EMFILE;
+    }
+    current_task->file_table[newfd].index = current_task->file_table[fd].index;
+    current_task->file_table[newfd].flags = 0;
+    file_table[current_task->file_table[newfd].index].used++;
+    unlock_scheduler();
+    return newfd;
 }
