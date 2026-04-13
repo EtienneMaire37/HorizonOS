@@ -2,6 +2,7 @@
 
 #include "../files/psf.h"
 #include "../boot/limine.h"
+#include "../util/likely.h"
 
 #include <stdlib.h>
 
@@ -19,9 +20,9 @@ extern linear_framebuffer_t framebuffer;
 
 static inline uint32_t framebuffer_encode_color_data(linear_framebuffer_t* buffer, uint8_t red, uint8_t green, uint8_t blue)
 {
-    if (!buffer)
+    if (unlikely(!buffer))
         return 0;
-    if (!buffer->address)
+    if (unlikely(!buffer->address))
         return 0;
 
     switch (buffer->format)

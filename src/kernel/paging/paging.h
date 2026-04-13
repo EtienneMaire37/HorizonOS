@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "../cpu/util.h"
+#include "../util/likely.h"
 
 #include <stdbool.h>
 
@@ -61,7 +62,7 @@ extern bool pat_enabled;
 static inline uint64_t get_physical_address_mask()
 {
     assert(physical_address_width != 0);
-    return physical_address_width >= 64 ? UINT64_MAX : ((1ULL << physical_address_width) - 1);
+    return unlikely(physical_address_width >= 64) ? UINT64_MAX : ((1ULL << physical_address_width) - 1);
 }
 
 static inline void init_pat()

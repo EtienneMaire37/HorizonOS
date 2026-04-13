@@ -445,6 +445,7 @@ void __tty_ansi_h_code(uint32_t code, bool refresh)
 			for (int i = 0; i < MAX_TTY_X * tty_res_y; i++)
 			    tty_data[i] = ' ' | (tty_color << 8) | TTY_DIRTY;
 			tty_dirty = MAX_TTY_X * tty_res_y;
+			__tty_refresh_screen(refresh);
 			return;
 		}
 
@@ -473,6 +474,7 @@ void __tty_ansi_l_code(uint32_t code, bool refresh)
             for (int i = 0; i < MAX_TTY_X * tty_res_y; i++)
 			    tty_data[i] |= TTY_DIRTY;
             tty_dirty = MAX_TTY_X * tty_res_y;
+            __tty_refresh_screen(refresh);
     		return;
     	}
 

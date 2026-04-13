@@ -14,7 +14,7 @@ bool pat_enabled = false;
 uint64_t* create_empty_pdpt()
 {
     uint64_t* pdpt = pfa_allocate_page();
-    if (!pdpt)
+    if (unlikely(!pdpt))
     {
         LOG(ERROR, "Couldn't create PDPT!!!");
         return NULL;
@@ -29,7 +29,7 @@ physical_address_t create_empty_pdpt_phys()
 {
     physical_address_t paddr = pfa_allocate_physical_page();
     uint64_t* pdpt = (uint64_t*)(paddr + PHYS_MAP_BASE);
-    if (!paddr)
+    if (unlikely(!paddr))
     {
         LOG(ERROR, "Couldn't create PDPT!!!");
         return physical_null;
@@ -96,7 +96,7 @@ void set_pdpt_entry(uint64_t* entry, uint64_t address, uint8_t privilege, uint8_
              pwt_bit = (pdpt_pat_bits[cache_type] & 3) & 1;
 
     uint64_t masked_address = (address & 0xfffffffffffff000) & get_physical_address_mask();
-    if (masked_address != address)
+    if (unlikely(masked_address != address))
     {
         LOG(CRITICAL, "Kernel tried to map physical address %#" PRIx64 " but it doesn't fit in %u bits", address, physical_address_width);
         printf("Kernel tried to map physical address %#" PRIx64 " but it doesn't fit in %u bits\n", address, physical_address_width);

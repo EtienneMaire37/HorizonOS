@@ -1,25 +1,26 @@
 #include "linear_framebuffer.h"
+#include "../util/likely.h"
 
 linear_framebuffer_t framebuffer;
 
 void framebuffer_setpixel(linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint8_t red, uint8_t green, uint8_t blue)
 {
-    if (!buffer)
+    if (unlikely(!buffer))
         return;
-    if (!buffer->address)
+    if (unlikely(!buffer->address))
         return;
 
-    if (x >= buffer->width) return;
-    if (y >= buffer->height) return;
+    if (unlikely(x >= buffer->width)) return;
+    if (unlikely(y >= buffer->height)) return;
 
     *(uint32_t*)&((uint8_t*)(buffer->address + buffer->stride * y))[buffer->bytes_per_pixel * x] = framebuffer_encode_color_data(buffer, red, green, blue);
 }
 
 void framebuffer_fill_rect(linear_framebuffer_t* buffer, uint32_t x, uint32_t y, uint32_t size_x, uint32_t size_y, uint8_t red, uint8_t green, uint8_t blue)
 {
-    if (!buffer)
+    if (unlikely(!buffer))
         return;
-    if (!buffer->address)
+    if (unlikely(!buffer->address))
         return;
 
     if (x > buffer->width - size_x) return;
@@ -67,9 +68,9 @@ void framebuffer_render_psf2_char(
     uint8_t r, uint8_t g, uint8_t b,
     bool transparent, uint8_t bgr, uint8_t bgg, uint8_t bgb)
 {
-    if (!font) return;
-    if (!font->f) return;
-    if (!font->f->data) return;
+    if (unlikely(!font)) return;
+    if (unlikely(!font->f)) return;
+    if (unlikely(!font->f->data)) return;
 
     void* glyph_data = (void*)psf_get_glyph_data(font);
 
