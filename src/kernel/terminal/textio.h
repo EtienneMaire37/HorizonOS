@@ -26,6 +26,8 @@ typedef uint32_t tty_char_t;
 #define TTY_CONTINUE_CHAR   ((tty_char_t)0x20000)
 #define TTY_DIRTY           ((tty_char_t)0x40000)
 
+extern tty_char_t* tty_data;
+
 extern uint32_t tty_dirty;
 
 extern uint32_t tty_res_x, tty_res_y;
