@@ -262,7 +262,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
 
         // * Only supported flags for now
         // NOTE: A few of these aren't actually handled in the code but are supported as a byproduct of missing features (eg. symbolic links, writeable fs, ...)
-        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW | O_ACCMODE | O_CREAT | O_EXCL))
+        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW | O_ACCMODE | O_CREAT | O_EXCL | O_TRUNC))
         {
             LOG(WARNING, "SYS_OPENAT: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
@@ -330,7 +330,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             {
                 vfs_remove_global_file(fd);
                 unlock_scheduler();
-                sc_ret_errno = EISDIR;
+                sc_ret_errno = EROFS;
                 break;
             }
 
