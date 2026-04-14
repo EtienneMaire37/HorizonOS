@@ -141,15 +141,6 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
 
         switch (vk)
         {
-        case VK_TAB:
-            if (!echo)
-                bufpri("\t");
-            else
-            {
-                for (uint8_t j = 0; j < TAB_LENGTH; j++)
-                    bufpri(" ");
-            }
-            break;
         case VK_UP:
             if (modifier != 1)  bufpri("\x1b%c1;%dA", arrow_csi, modifier);
             else                bufpri("\x1b%cA", arrow_csi);

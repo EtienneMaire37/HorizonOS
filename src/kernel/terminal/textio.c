@@ -960,9 +960,13 @@ void tty_outc_ex(char c, int flags, bool refresh)
 	case '\t':
 	{
 	    int32_t new_cursor = ((tty_cursor - (tty_cursor / MAX_TTY_X) * MAX_TTY_X + TAB_LENGTH) / TAB_LENGTH) * TAB_LENGTH + (tty_cursor / MAX_TTY_X) * MAX_TTY_X;
-		for (int32_t i = tty_cursor; i < new_cursor; i++)
-		    __tty_render_character(tty_cursor, ' ' | ((tty_char_t)tty_color << 8), refresh);
-		tty_cursor = new_cursor;
+		int32_t start_cursor = tty_cursor;
+		for (int32_t i = start_cursor; i < new_cursor; i++)
+        {
+            if (i >= MAX_TTY_X * tty_res_y)
+                new_cursor -= MAX_TTY_X;
+            tty_outc_ex(' ', i == start_cursor ? 0 : TTY_CONTINUE_CHAR, refresh);
+        }
 		break;
 	}
 
