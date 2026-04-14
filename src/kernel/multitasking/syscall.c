@@ -261,8 +261,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_validate_pointer(arg2);
 
         // * Only supported flags for now
-        // NOTE: A few of these aren't actually handled in the code but are supported as a byproduct of missing features (eg. symbolic links)
-        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW | O_ACCMODE | O_CREAT))
+        // NOTE: A few of these aren't actually handled in the code but are supported as a byproduct of missing features (eg. symbolic links, writeable fs, ...)
+        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW | O_ACCMODE | O_CREAT | O_EXCL))
         {
             LOG(WARNING, "SYS_OPENAT: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
@@ -306,14 +306,6 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             break;
         }
 
-        if ((((arg3 & O_ACCMODE) == O_WRONLY || (arg3 & O_ACCMODE) == O_RDWR)))
-        {
-            vfs_remove_global_file(fd);
-            unlock_scheduler();
-            sc_ret_errno = EROFS;
-            break;
-        }
-
         if ((arg3 & O_DIRECTORY) && !S_ISDIR(st.st_mode))
         {
             vfs_remove_global_file(fd);
@@ -327,18 +319,38 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         file_table[fd].tnode.file = NULL;
         file_table[fd].tnode.folder = NULL;
 
+        bool wr = ((arg3 & O_ACCMODE) == O_WRONLY || (arg3 & O_ACCMODE) == O_RDWR);
+
         if (file_table[fd].entry_type == VFS_ET_FILE)
         {
             file_table[fd].tnode.file = vfs_get_file_tnode(arg2, cwd);
             assert(file_table[fd].tnode.file);
+
+            if (wr && file_table[fd].tnode.file->inode->drive.type == DT_INITRD)
+            {
+                vfs_remove_global_file(fd);
+                unlock_scheduler();
+                sc_ret_errno = EISDIR;
+                break;
+            }
+
             file_table[fd].iofunc = file_table[fd].tnode.file->inode->io_func;
 
             file_table[fd].st = file_table[fd].tnode.file->inode->st;
         }
         else if (file_table[fd].entry_type == VFS_ET_FOLDER)
         {
+            if (wr)
+            {
+                vfs_remove_global_file(fd);
+                unlock_scheduler();
+                sc_ret_errno = EISDIR;
+                break;
+            }
+
             file_table[fd].tnode.folder = vfs_get_folder_tnode(arg2, cwd);
             assert(file_table[fd].tnode.folder);
+
             file_table[fd].iofunc = NULL;
 
             file_table[fd].st = file_table[fd].tnode.folder->inode->st;
