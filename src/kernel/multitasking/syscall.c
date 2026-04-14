@@ -262,7 +262,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
 
         // * Only supported flags for now
         // NOTE: A few of these aren't actually handled in the code but are supported as a byproduct of missing features (eg. symbolic links)
-        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW))
+        if (arg3 & ~(O_CLOEXEC | O_ACCMODE | O_NOCTTY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW | O_ACCMODE | O_CREAT))
         {
             LOG(WARNING, "SYS_OPENAT: Invalid or unsupported argument %#o", arg3);
             sc_ret_errno = EINVAL;
@@ -290,6 +290,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         file_table[fd].position = 0;
 
         file_entry_t* entry = get_global_file_entry(arg1);
+        assert(entry);
         vfs_folder_tnode_t* cwd = (arg1 == AT_FDCWD) ? current_task->cwd : ((entry && (entry->entry_type == VFS_ET_FOLDER)) ? entry->tnode.folder : NULL);
 
         struct stat st;
@@ -298,15 +299,18 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         {
             vfs_remove_global_file(fd);
             unlock_scheduler();
-            sc_ret_errno = stat_ret;
+            if (stat_ret == ENOENT && (arg3 & O_CREAT))
+                sc_ret_errno = EROFS;
+            else
+                sc_ret_errno = stat_ret;
             break;
         }
 
-        if (false) // * Assume we're root
+        if ((((arg3 & O_ACCMODE) == O_WRONLY || (arg3 & O_ACCMODE) == O_RDWR)))
         {
             vfs_remove_global_file(fd);
             unlock_scheduler();
-            sc_ret_errno = EACCES;
+            sc_ret_errno = EROFS;
             break;
         }
 
