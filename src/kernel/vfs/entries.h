@@ -33,7 +33,6 @@ static inline unsigned char get_dirent_dt(struct stat* st)
 
 // !!!! HORRIBLE WAY TO DO THINGS
 // TODO: Rewrite the whole vfs
-// * Should probably allocate on the stack with alloca anyways if we're doing it this way
 static inline struct dirent64 vfs_find_new_child_entry(file_entry_t* entry)
 {
     struct dirent64 dir_entry = {.d_ino = 0, .d_off = 0, .d_reclen = sizeof(struct dirent64), .d_type = 0, .d_name = {0}};
@@ -45,7 +44,7 @@ static inline struct dirent64 vfs_find_new_child_entry(file_entry_t* entry)
     if (!(tnode->inode->flags & VFS_NODE_EXPLORED))
         vfs_explore(tnode);
     assert(tnode);
-    vfs_folder_tnode_t* current_child = tnode->inode->folders;
+    vfs_folder_tnode_t* folder_current_child = tnode->inode->folders;
     vfs_file_tnode_t* file_current_child = tnode->inode->files;
     if (!entry->file_data.folder_child.str)
     {
@@ -67,46 +66,60 @@ static inline struct dirent64 vfs_find_new_child_entry(file_entry_t* entry)
     if (strcmp(entry->file_data.folder_child.str, "..") == 0)
     {
         free((void*)entry->file_data.folder_child.str);
-        if (current_child)
-            entry->file_data.folder_child.str = strdup(current_child->name);
-        else
-            entry->file_data.folder_child.str = file_current_child ? strdup(file_current_child->name) : NULL;
-
-        goto do_dir_return;
-    }
-    const char* new_str = NULL;
-    while (current_child)
-    {
-        if (strcmp(current_child->name, entry->file_data.folder_child.str) == 0)
+        if (folder_current_child)
         {
-            if (!current_child->next)
-                break;
-            free((void*)entry->file_data.folder_child.str);
-            entry->file_data.folder_child.str = strdup(current_child->next->name);
-            current_child = current_child->next;
+            entry->file_data.folder_child.str = strdup(folder_current_child->name);
             goto do_dir_return;
         }
-        current_child = current_child->next;
+        else if (file_current_child)
+        {
+            entry->file_data.folder_child.str = strdup(file_current_child->name);
+            goto do_file_return;
+        }
+        else
+        {
+            entry->file_data.folder_child.str = NULL;
+            goto do_dir_return;
+        }
+    }
+    const char* new_str = NULL;
+    bool first_file = false;
+    while (folder_current_child)
+    {
+        if (strcmp(folder_current_child->name, entry->file_data.folder_child.str) == 0)
+        {
+            if (!folder_current_child->next)
+            {
+                first_file = true;
+                break;
+            }
+            free((void*)entry->file_data.folder_child.str);
+            entry->file_data.folder_child.str = strdup(folder_current_child->next->name);
+            folder_current_child = folder_current_child->next;
+            goto do_dir_return;
+        }
+        folder_current_child = folder_current_child->next;
     }
     while (file_current_child)
     {
-        if (strcmp(file_current_child->name, entry->file_data.folder_child.str) == 0)
+        if (first_file || strcmp(file_current_child->name, entry->file_data.folder_child.str) == 0)
         {
-            free((void*)entry->file_data.folder_child.str);
             if (!file_current_child->next)
                 break;
+            free((void*)entry->file_data.folder_child.str);
             entry->file_data.folder_child.str = strdup(file_current_child->next->name);
             file_current_child = file_current_child->next;
             goto do_file_return;
         }
+        first_file = false;
         file_current_child = file_current_child->next;
     }
     free((void*)entry->file_data.folder_child.str);
     entry->file_data.folder_child.str = NULL;
 
 do_dir_return:
-    dir_entry.d_ino = current_child ? current_child->inode->st.st_ino : -1;
-    dir_entry.d_type = current_child ? get_dirent_dt(&current_child->inode->st) : DT_UNKNOWN;
+    dir_entry.d_ino = folder_current_child ? folder_current_child->inode->st.st_ino : -1;
+    dir_entry.d_type = folder_current_child ? get_dirent_dt(&folder_current_child->inode->st) : DT_UNKNOWN;
     if (entry->file_data.folder_child.str)  strncpy(dir_entry.d_name, entry->file_data.folder_child.str, sizeof(dir_entry.d_name));
     else                                    dir_entry.d_name[0] = 0;
     return dir_entry;

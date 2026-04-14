@@ -290,7 +290,6 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         file_table[fd].position = 0;
 
         file_entry_t* entry = get_global_file_entry(arg1);
-        assert(entry);
         vfs_folder_tnode_t* cwd = (arg1 == AT_FDCWD) ? current_task->cwd : ((entry && (entry->entry_type == VFS_ET_FOLDER)) ? entry->tnode.folder : NULL);
 
         struct stat st;
@@ -448,13 +447,14 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     sc_case(SYS_READ_ENTRIES, 3, int, void*, size_t)
         SC_LOG("syscall SYS_READ_ENTRIES(%d, %p, %zu)", arg1, arg2, arg3);
         sc_validate_pointer(arg2);
+        lock_scheduler();
         if (!is_fd_valid(arg1))
         {
+            unlock_scheduler();
             sc_ret_errno = EBADF;
             sc_ret(1) = 0;
             break;
         }
-        lock_scheduler();
         file_entry_t* entry = get_global_file_entry(arg1);
         assert(entry);
         if (entry->entry_type != VFS_ET_FOLDER)
