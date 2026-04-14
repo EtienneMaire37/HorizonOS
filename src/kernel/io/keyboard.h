@@ -124,7 +124,7 @@ static const keyboard_layout_t us_qwerty =
         },
         .char_table =
         {
-            [0x76] = 0x1b,    // Escape
+            [0x76] = U'\x1B',    // Escape
             [0x0D] = U'\t',       // Tab
             [0x66] = U'\b',       // Backspace
 
@@ -160,7 +160,7 @@ static const keyboard_layout_t us_qwerty =
         },
         .char_table_shift =
         {
-            [0x76] = 0x1b,
+            [0x76] = U'\x1B',
             [0x0D] = U'\t',
             [0x66] = U'\b',
 

@@ -107,7 +107,7 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
         && vk != VK_HOME && vk != VK_END
         && vk != VK_INSERT && vk != VK_DELETE
         && vk != VK_PAGEUP && vk != VK_PAGEDOWN
-        && ascii != '\n' && ascii != '\t' && ascii != '\b'
+        && ascii != '\n' && ascii != '\t' && ascii != '\b' && ascii != 0x1b
         )
         return;
     lock_scheduler();
