@@ -94,21 +94,27 @@ static inline struct dirent64 vfs_find_new_child_entry(file_entry_t* entry)
                 break;
             }
             free((void*)entry->file_data.folder_child.str);
-            entry->file_data.folder_child.str = strdup(folder_current_child->next->name);
             folder_current_child = folder_current_child->next;
+            entry->file_data.folder_child.str = strdup(folder_current_child->name);
             goto do_dir_return;
         }
         folder_current_child = folder_current_child->next;
     }
     while (file_current_child)
     {
-        if (first_file || strcmp(file_current_child->name, entry->file_data.folder_child.str) == 0)
+        if (first_file)
+        {
+            free((void*)entry->file_data.folder_child.str);
+            entry->file_data.folder_child.str = strdup(file_current_child->name);
+            goto do_file_return;
+        }
+        if (strcmp(file_current_child->name, entry->file_data.folder_child.str) == 0)
         {
             if (!file_current_child->next)
                 break;
             free((void*)entry->file_data.folder_child.str);
-            entry->file_data.folder_child.str = strdup(file_current_child->next->name);
             file_current_child = file_current_child->next;
+            entry->file_data.folder_child.str = strdup(file_current_child->name);
             goto do_file_return;
         }
         first_file = false;
