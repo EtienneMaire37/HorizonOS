@@ -428,7 +428,6 @@ void cleanup_tasks()
                 thread_queue_item_t* removed_item = cur_reapable_task;
                 cur_reapable_task = cur_reapable_task->next;
                 task_destroy(task_to_kill);
-                free(task_to_kill);
                 task_count--;
                 thread_queue_remove(&reapable_tasks, removed_item);
             }
