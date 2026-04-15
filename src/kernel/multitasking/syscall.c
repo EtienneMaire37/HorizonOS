@@ -65,6 +65,9 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     uint64_t syscall_num = registers->rax;
     sc_ret_errno = -1;
     bool sc_no_errno = syscall_num == SYS_GETPID || syscall_num == SYS_GETPPID;
+    if (current_task->sig_pending_user_space)
+        sc_ret_errno = ERESTART;
+    else
     switch (syscall_num)
     {
     {
