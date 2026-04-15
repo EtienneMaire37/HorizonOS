@@ -35,3 +35,6 @@ limine-protocol
 
 linux-headers
 linux-kernel-headers
+
+.built
+.downloaded
