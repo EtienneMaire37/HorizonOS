@@ -92,7 +92,7 @@ void vfs_remove_global_file(int fd)
 
 void task_monitor_entry(thread_t* task, file_entry_t* entry)
 {
-    assert(entry);
+    assert(entry && task);
     if (vfs_isatty(entry))
         copy_task_to_thread_queue(&_waiting_for_stdin_tasks, task);
     else

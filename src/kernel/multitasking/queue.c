@@ -64,8 +64,6 @@ void move_task_to_running_queue(thread_queue_t* queue, thread_t* item)
     multitasking_add_task(item);
     thread_queue_remove(queue, it);
     item->queue = &running_tasks;
-    if (current_task == idle_task)
-        switch_task();
     unlock_scheduler();
 }
 

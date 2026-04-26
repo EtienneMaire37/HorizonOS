@@ -235,7 +235,7 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* task_swi
                         print_stack_trace((uint64_t)ps2_handle_keyboard_scancode, get_rbp(), false);
                         break;
                     case 'f':
-                    	LOG(DEBUG, "Futex hashmap:");
+                    	LOG(INFO, "Futex hashmap:");
                     	hashmap_log(futex_tq_hashmap);
 						break;
 					case 'm':

@@ -566,8 +566,10 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
     assert(bytes_read);
     // !!! EXTREMELY UNSAFE
     // TODO: Rewrite all of the locked paths everywhere
+    lock_scheduler();
     if (!is_fd_valid(fd))
     {
+        unlock_scheduler();
         *bytes_read = -1;
         return EBADF;
     }
@@ -575,6 +577,7 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
     assert(entry);
     if ((entry->flags & O_ACCMODE) == O_WRONLY)
     {
+        unlock_scheduler();
         *bytes_read = -1;
         return EBADF;
     }
@@ -589,19 +592,24 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
         {
             int ret = *bytes_read;
             *bytes_read = 0;
+            unlock_scheduler();
             return -ret;
         }
+        unlock_scheduler();
         return 0;
     }
     *bytes_read = 0;
+    unlock_scheduler();
     return 0;
 }
 
 int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* bytes_written)
 {
     assert(bytes_written);
+    lock_scheduler();
     if (!is_fd_valid(fd))
     {
+        unlock_scheduler();
         *bytes_written = (uint64_t)-1;
         return EBADF;
     }
@@ -609,6 +617,7 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
     assert(entry);
     if ((entry->flags & O_ACCMODE) == O_RDONLY)
     {
+        unlock_scheduler();
         *bytes_written = -1;
         return EBADF;
     }
@@ -622,10 +631,13 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
         {
             int ret = *bytes_written;
             *bytes_written = 0;
+            unlock_scheduler();
             return -ret;
         }
+        unlock_scheduler();
         return 0;
     }
+    unlock_scheduler();
     *bytes_written = 0;
     return 0;
 }
@@ -637,10 +649,10 @@ void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth)
 
     char access_str[11];
 
-    LOG(DEBUG, "");
+    LOG(INFO, "");
     for (int i = 0; i < depth; i++)
-        CONTINUE_LOG(DEBUG, "    ");
-    CONTINUE_LOG(DEBUG, "`%s` [inode %" PRId64 "] (access: %s, device id: %lu)%s", tnode->name, tnode->inode->st.st_ino, get_access_string(tnode->inode->st.st_mode, access_str), tnode->inode->st.st_dev, tnode->inode->flags & VFS_NODE_EXPLORED ? ":" : " (not explored)");
+        CONTINUE_LOG(INFO, "    ");
+    CONTINUE_LOG(INFO, "`%s` [inode %" PRId64 "] (access: %s, device id: %lu)%s", tnode->name, tnode->inode->st.st_ino, get_access_string(tnode->inode->st.st_mode, access_str), tnode->inode->st.st_dev, tnode->inode->flags & VFS_NODE_EXPLORED ? ":" : " (not explored)");
     vfs_folder_tnode_t* current_folder = tnode->inode->folders;
     while (current_folder)
     {
@@ -650,13 +662,13 @@ void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth)
     vfs_file_tnode_t* current_file = tnode->inode->files;
     while (current_file)
     {
-        LOG(DEBUG, "");
+        LOG(INFO, "");
         for (int i = 0; i < depth + 1; i++)
-            CONTINUE_LOG(DEBUG, "    ");
-        CONTINUE_LOG(DEBUG, "`%s` [inode %" PRId64 "] (access: %s", current_file->name, current_file->inode->st.st_ino, get_access_string(current_file->inode->st.st_mode, access_str));
+            CONTINUE_LOG(INFO, "    ");
+        CONTINUE_LOG(INFO, "`%s` [inode %" PRId64 "] (access: %s", current_file->name, current_file->inode->st.st_ino, get_access_string(current_file->inode->st.st_mode, access_str));
         if (S_ISCHR(current_file->inode->st.st_mode) || S_ISBLK(current_file->inode->st.st_mode))
-            CONTINUE_LOG(DEBUG, ", special file device id: %lu", tnode->inode->st.st_rdev);
-        CONTINUE_LOG(DEBUG, ")");
+            CONTINUE_LOG(INFO, ", special file device id: %lu", tnode->inode->st.st_rdev);
+        CONTINUE_LOG(INFO, ")");
         current_file = current_file->next;
     }
 }
@@ -668,12 +680,10 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
     case IO_DIR_READ:
         if (count == 0)
             return 0;
-        lock_scheduler();
         assert(task_lock_depth == 1);
         if (current_task->pgid != tty_foreground_pgrp)
         {
             task_send_signal(current_task, SIGTTIN);
-            unlock_scheduler();
             return 0;
         }
         if (no_buffered_characters(keyboard_buffered_input_buffer))
@@ -686,12 +696,11 @@ ssize_t task_chr_stdin(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t 
             lock_scheduler();
         }
         if (no_buffered_characters(keyboard_buffered_input_buffer))
-            return (unlock_scheduler(), -EINTR);
+            return -EINTR;
         uint64_t ret = minint(get_buffered_characters(keyboard_buffered_input_buffer), count);
         for (uint32_t i = 0; i < ret; i++)
             // *** Only ASCII for now ***
             buf[i] = utf32_to_bios_oem(utf32_buffer_getchar(&keyboard_buffered_input_buffer));
-        unlock_scheduler();
         return ret;
     case IO_DIR_WRITE:
         return 0;

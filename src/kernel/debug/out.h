@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../time/time.h"
+#include "../util/evaluate.h"
 
 #include "../io/io.h"
 #include <stdbool.h>
@@ -81,10 +82,10 @@ extern bool first_log;
 
 
 #ifndef LOG_LEVEL
-#define LOG(level, ...)
+#define LOG(level, ...) evaluate(__VA_ARGS__)
 #define CONTINUE_LOG(level, ...)
 #else
-#define _LOG(level, ...) { \
+#define _LOG(level, ...) do { \
     if (!first_log) fputc('\n', stderr); \
     first_log = false; \
     if (time_initialized) \
@@ -95,11 +96,11 @@ extern bool first_log;
             LOG_LEVEL_COLOR[level], LOG_LEVEL_STR[level]); \
     else fprintf(stderr, LOG_FMT_NOTIME, LOG_LEVEL_COLOR[level], LOG_LEVEL_STR[level]); \
     fprintf(stderr, __VA_ARGS__); \
-}
+} while (0)
 
 #define LOG(level, ...) \
-    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) { _LOG(level, __VA_ARGS__); } } while(0)
+    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) _LOG(level, __VA_ARGS__); else evaluate(__VA_ARGS__); } while(0)
 
 #define CONTINUE_LOG(level, ...) \
-    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) fprintf(stderr, __VA_ARGS__); } while(0)
+    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) fprintf(stderr, __VA_ARGS__); else evaluate(__VA_ARGS__); } while(0)
 #endif

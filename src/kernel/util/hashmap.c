@@ -118,7 +118,7 @@ void* hashmap_get_item(hashmap_t* hmp, uint64_t key)
 
 void hashmap_log(hashmap_t* hmp)
 {
-	LOG(DEBUG, "{");
+	LOG(INFO, "{");
 	if (!hmp) goto end;
 	for (size_t i = 0; i < hmp->items; i++)
 	{
@@ -128,11 +128,11 @@ void hashmap_log(hashmap_t* hmp)
 			do
 			{
 				hashmap_item_t* item = (hashmap_item_t*)it->data;
-				LOG(DEBUG, "\t%#" PRIx64 ": %p,", item->key, item->value);
+				LOG(INFO, "\t%#" PRIx64 ": %p,", item->key, item->value);
 				it = it->next;
 			} while (it != hmp->data[i]);
 		}
 	}
 end:
-	LOG(DEBUG, "}");
+	LOG(INFO, "}");
 }

@@ -8,7 +8,6 @@
 #include "page_frame_allocator.h"
 #include "../boot/limine.h"
 #include "../int/kernel_panic.h"
-#include "../multicore/spinlock.h"
 
 uint64_t usable_memory = 0;
 struct mem_block usable_memory_map[MAX_USABLE_MEMORY_BLOCKS];
@@ -22,8 +21,6 @@ uint8_t* bitmap;
 uint64_t first_free_page_index_hint = 0;
 
 uint64_t memory_allocated, allocatable_memory;
-
-atomic_flag pfa_lock = ATOMIC_FLAG_INIT;
 
 void pfa_detect_usable_memory()
 {

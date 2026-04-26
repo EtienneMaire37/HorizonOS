@@ -83,8 +83,6 @@ int num_environ;
 
 initrd_file_t* commit_file;
 
-atomic_flag core_log_spinlock = ATOMIC_FLAG_INIT;
-
 void _start()
 {
     disable_interrupts();
@@ -94,11 +92,6 @@ void _start()
     uint32_t eax, ebx, ecx, edx;
     cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
     // * CPUID is guaranteed to be present on x86_64
-
-    acquire_spinlock(&core_log_spinlock);
-    fprintf(stderr, "a");
-    first_log = true;
-    release_spinlock(&core_log_spinlock);
 
     if (!is_bsp()) // * SMP not supported for now
         halt();

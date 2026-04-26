@@ -60,16 +60,17 @@ void handle_apic_irq(interrupt_registers_t* registers)
             }));
         }
 
-        if (multitasking_enabled)
-        {
-            if (multitasking_counter <= 0)
-            {
-                multitasking_counter = TASK_SWITCH_DELAY;
+        // TODO: Remove the "periodic timer interrupt" design entirely from the kernel
+        // if (multitasking_enabled)
+        // {
+        //     if (multitasking_counter <= 0)
+        //     {
+        //         multitasking_counter = TASK_SWITCH_DELAY;
 
-                ts = true;
-            }
-            multitasking_counter -= precise_time_to_milliseconds(GLOBAL_TIMER_INCREMENT);
-        }
+        //         ts = true;
+        //     }
+        //     multitasking_counter -= precise_time_to_milliseconds(GLOBAL_TIMER_INCREMENT);
+        // }
         break;
     }
 

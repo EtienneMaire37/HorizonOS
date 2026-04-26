@@ -6,6 +6,7 @@
 #include "../fpu/fpu.h"
 #include "sigset.h"
 #include "../vfs/table.h"
+#include "task.h"
 
 #include <stdlib.h>
 
@@ -28,6 +29,8 @@ bool multitasking_enabled = false;
 utf32_buffer_t keyboard_input_buffer, keyboard_buffered_input_buffer;
 
 int task_lock_depth = 0;
+int saved_tld = 0;
+
 uint64_t scheduler_lock_rflags;
 bool queued_ts = false;
 
@@ -56,16 +59,14 @@ void multitasking_start()
     last_task = idle_task;
     multitasking_enabled = true;
 
+    switch_task();
+
     idle_main();
 }
 
 void multitasking_add_idle_task(char* name)
 {
-    if (task_count != 0)
-    {
-        LOG(CRITICAL, "The kernel task must be the first one");
-        abort();
-    }
+    assert(task_count == 0);
 
     thread_t* task = task_create_empty();
     task_set_name(task, name);
@@ -93,6 +94,9 @@ void multitasking_add_task(thread_t* task)
     }
 
     task->queue = &running_tasks;
+
+    if (current_task == idle_task)
+        switch_task();
 
     unlock_scheduler();
 }
@@ -125,6 +129,9 @@ void full_context_switch(thread_t* next)
 
     fpu_save_state(old_task->fpu_state);
 
+    saved_tld = task_lock_depth;
+    task_lock_depth = 0;
+
     context_switch(old_task, current_task, (current_task->ring == 0) ? KERNEL_DATA_SEGMENT : USER_DATA_SEGMENT);
 
     end_context_switch();
@@ -132,6 +139,8 @@ void full_context_switch(thread_t* next)
 
 void end_context_switch()
 {
+    task_lock_depth = saved_tld;
+
     fpu_restore_state(current_task->fpu_state);
 
     wrfsbase(current_task->fs_base);
@@ -301,6 +310,7 @@ void task_send_signal_to_pgrp(int sig, pid_t pgrp)
 
 void task_send_signal(thread_t* thread, int sig)
 {
+    LOG(TRACE, "Sending signal %d to pid %d", sig, thread->pid);
     lock_scheduler();
     task_set_pending_signal(thread, sig);
     if (!sigset_is_bit_set(thread->sig_mask, sig))
@@ -339,7 +349,7 @@ void task_handle_signal(thread_t* thread, int sig)
 {
     if (sig < 0 || sig >= NUM_SIGNALS)
     {
-        // LOG(WARNING, "task_send_signal: Invalid signal number %d", sig);
+        LOG(WARNING, "task_send_signal: Invalid signal number %d", sig);
         return;
     }
 
@@ -350,7 +360,7 @@ void task_handle_signal(thread_t* thread, int sig)
 
     lock_scheduler();
 
-    LOG(TRACE, "pid %d receiving signal %d", thread->pid, sig);
+    LOG(TRACE, "pid %d receives signal %d", thread->pid, sig);
 
     task_unset_pending_signal(thread, sig);
 
@@ -386,12 +396,12 @@ dfl:
     return;
 
 ign:
-    LOG(TRACE, "Signal was ignored by the process.");
+    // LOG(TRACE, "Signal was ignored by the process.");
     unlock_scheduler();
     return;
 
 signal:
-    LOG(TRACE, "Signal was sent to the process.");
+    // LOG(TRACE, "Signal was sent to the process.");
     thread->pending_signal_handler = (act->sa_flags & SA_SIGINFO) ? (uint64_t)act->sa_sigaction : (uint64_t)act->sa_handler;
     thread->sig_pending_user_space = true;
     thread->pending_signal_number = sig;

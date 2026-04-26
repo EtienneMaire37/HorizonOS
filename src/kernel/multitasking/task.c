@@ -108,7 +108,7 @@ void task_destroy(thread_t* task)
     fpu_state_destroy(&task->fpu_state);
     task_free_vas((physical_address_t)task->cr3);
     free(task);
-	LOG(TRACE, "Done.");
+	// LOG(TRACE, "Done.");
     unlock_scheduler();
 }
 
@@ -281,11 +281,7 @@ uint64_t task_read_at_address_8b(thread_t* task, uint64_t address)
 
 void switch_task()
 {
-    if (task_count == 0)
-    {
-        LOG(DEBUG, "No processes left");
-        abort();
-    }
+    assert(task_count > 0);
 
     if (task_lock_depth > 0)
     {
@@ -504,13 +500,13 @@ void waitpid_check_dead()
 
 void tasks_log()
 {
-    LOG(DEBUG, "%u tasks: (Total CPU usage: %u.%u)", task_count, (1000 - idle_task->stored_cpu_ticks) / 10,  (1000 - idle_task->stored_cpu_ticks) % 10);
+    LOG(INFO, "%u tasks: (Total CPU usage: %u.%u)", task_count, (1000 - idle_task->stored_cpu_ticks) / 10,  (1000 - idle_task->stored_cpu_ticks) % 10);
     lock_scheduler();
-    LOG(DEBUG, "pid to thread hashmap:");
+    LOG(INFO, "pid to thread hashmap:");
     thread_hashmap_log(pid_to_task_hashmap);
-    LOG(DEBUG, "pgid to thread queue hashmap:");
+    LOG(INFO, "pgid to thread queue hashmap:");
     tq_hashmap_log(pgid_to_tq_hashmap);
-    LOG(DEBUG, "pid to children hashmap:");
+    LOG(INFO, "pid to children hashmap:");
     tq_hashmap_log(pid_to_children_tq_hashmap);
     unlock_scheduler();
 }

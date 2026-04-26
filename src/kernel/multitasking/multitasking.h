@@ -31,7 +31,7 @@ extern bool queued_ts;
 extern void iretq_instruction();
 
 extern uint64_t scheduler_lock_rflags;
-extern int task_lock_depth;
+extern int task_lock_depth, saved_tld;
 
 static inline void lock_scheduler()
 {

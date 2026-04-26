@@ -68,6 +68,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     if (current_task->sig_pending_user_space)
         sc_ret_errno = ERESTART;
     else
+    {
     switch (syscall_num)
     {
     {
@@ -666,7 +667,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         if (arg2) current_task->sig_act_array[arg1] = *arg2;
         sc_ret_errno = 0;
         break;
-    sc_case(SYS_SIGPROCMASK, 3, int, const sigset_t* __restrict, sigset_t* __restrict)
+    sc_case(SYS_SIGPROCMASK, 3, int, const sigset_t*, sigset_t*)
         SC_LOG("syscall SYS_SIGPROCMASK(%d, %p, %p)", arg1, arg2, arg3);
         sc_validate_pointer(arg2);
         sc_validate_pointer(arg3);
@@ -1372,6 +1373,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                     continue;
 
                 poll_monitor:
+                    // SC_LOG("Starting poll on fd %d", fds->fd);
                     task_monitor_entry(current_task, entry);
                 }
                 task_start_polling(current_task, PRECISE_MILLISECONDS * arg3);
@@ -1440,6 +1442,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         LOG(WARNING, "syscall %" PRIu64 " not implemented", registers->rax);
         // task_send_signal(current_task, SIGILL);
         sc_ret_errno = ENOSYS;
+    }
     }
 
     if (sc_ret_errno != 0 && !sc_no_errno)

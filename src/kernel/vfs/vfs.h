@@ -174,4 +174,4 @@ int vfs_access(const char* path, vfs_folder_tnode_t* pwd, int mode);
 int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read);
 int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* bytes_written);
 
-void vfs_log_tree();
+void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth);

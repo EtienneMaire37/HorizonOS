@@ -3,8 +3,6 @@
 #include "../multitasking/mutex.h"
 #include "../multitasking/multitasking.h"
 
-mutex_t liballoc_mutex = MUTEX_INIT;
-
 int liballoc_lock()
 {
     lock_scheduler();

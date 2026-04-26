@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include "../cpu/units.h"
 #include "../util/lambda.h"
+#include "../multitasking/syscall.h"
 
 bool vfs_isapipe(file_entry_t* entry)
 {
@@ -18,17 +19,11 @@ bool vfs_isapipe(file_entry_t* entry)
 
 ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t direction)
 {
-    lock_scheduler();
+    if (count == 0)
+        return 0;
     assert(task_lock_depth == 1);
     size_t in_buffer = ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer);
     size_t maxwrite = entry->file_data.pipe_data.buffer->size - in_buffer - 1;
-    if ((entry->flags & O_NONBLOCK) || (direction == IO_DIR_READ && entry->file_data.pipe_data.other_end == -1))
-    {
-        if (in_buffer == 0 && direction == IO_DIR_READ)
-            return (unlock_scheduler(), 0);
-        if (maxwrite == 0 && direction == IO_DIR_WRITE)
-            return (unlock_scheduler(), 0);
-    }
     switch (direction)
     {
     case IO_DIR_READ:
@@ -37,7 +32,7 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
             if (in_buffer <= 0)
             {
                 if (entry->flags & O_NONBLOCK)
-                    return (unlock_scheduler(), -EWOULDBLOCK);
+                    return -EWOULDBLOCK;
                 move_running_task_to_thread_queue(&entry->blocked_on_io, current_task);
                 switch_task();
                 unlock_scheduler();
@@ -45,9 +40,8 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
                 in_buffer = ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer);
             }
             if (in_buffer <= 0)
-                return (unlock_scheduler(), entry->file_data.pipe_data.other_end != -1 ? -EINTR : 0);
+                return entry->file_data.pipe_data.other_end != -1 ? -EINTR : 0;
         }
-        // LOG(TRACE, "Reading %zu bytes from pipe (%zu bytes in buffer) [%zu bytes asked by program]", in_buffer < count ? in_buffer : count, in_buffer, count);
         count = in_buffer < count ? in_buffer : count;
         if (count != 0)
         {
@@ -55,14 +49,15 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
                 buf[i] = ((uint8_t*)entry->file_data.pipe_data.buffer->buffer)[(i + entry->file_data.pipe_data.buffer->get_index) % entry->file_data.pipe_data.buffer->size];
             entry->file_data.pipe_data.buffer->get_index = (entry->file_data.pipe_data.buffer->get_index + count) % entry->file_data.pipe_data.buffer->size;
         }
-        if (entry->file_data.pipe_data.other_end != -1 && count > 0)
-            move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
-        run_it_on_queue(&entry->blocked_on_poll, lambda(void, (thread_t* thread)
+        if (entry->file_data.pipe_data.other_end != -1)
         {
-            ll_remove(&thread->_poll_tqs, ll_find_item_by_data(&thread->_poll_tqs, &entry->blocked_on_poll));
-            task_stop_polling(thread);
-        }));
-        unlock_scheduler();
+            move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
+            run_it_on_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_poll, lambda(void, (thread_t* thread)
+            {
+                ll_remove(&thread->_poll_tqs, ll_find_item_by_data(&thread->_poll_tqs, &entry->blocked_on_poll));
+                task_stop_polling(thread);
+            }));
+        }
         return count;
     case IO_DIR_WRITE:
         if (entry->file_data.pipe_data.other_end != -1)
@@ -70,7 +65,7 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
             if (maxwrite <= 0)
             {
                 if (entry->flags & O_NONBLOCK)
-                    return (unlock_scheduler(), -EWOULDBLOCK);
+                    return -EWOULDBLOCK;
                 move_running_task_to_thread_queue(&entry->blocked_on_io, current_task);
                 switch_task();
                 unlock_scheduler();
@@ -78,11 +73,10 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
                 maxwrite = entry->file_data.pipe_data.buffer->size - ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer) - 1;
             }
             if (maxwrite <= 0)
-                return (unlock_scheduler(), entry->file_data.pipe_data.other_end != -1 ? -EINTR : 0);
+                return entry->file_data.pipe_data.other_end != -1 ? -EINTR : (task_send_signal(current_task, SIGPIPE), -EPIPE);
         }
         else
-            return (unlock_scheduler(), -EPIPE);
-        // LOG(TRACE, "Writing %zu bytes to pipe (%zu bytes in buffer) [%zu bytes asked by program]", maxwrite < count ? maxwrite : count, ring_get_buffered_bytes(*entry->file_data.pipe_data.buffer), count);
+            return (task_send_signal(current_task, SIGPIPE), -EPIPE);
         count = maxwrite < count ? maxwrite : count;
         if (count != 0)
         {
@@ -90,17 +84,17 @@ ssize_t pipe_iofunc(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t dir
                 ((uint8_t*)entry->file_data.pipe_data.buffer->buffer)[(i + entry->file_data.pipe_data.buffer->put_index) % entry->file_data.pipe_data.buffer->size] = buf[i];
             entry->file_data.pipe_data.buffer->put_index = (entry->file_data.pipe_data.buffer->put_index + count) % entry->file_data.pipe_data.buffer->size;
         }
-        if (count > 0)
-            move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
-        run_it_on_queue(&entry->blocked_on_poll, lambda(void, (thread_t* thread)
+        if (entry->file_data.pipe_data.other_end != -1)
         {
-            ll_remove(&thread->_poll_tqs, ll_find_item_by_data(&thread->_poll_tqs, &entry->blocked_on_poll));
-            task_stop_polling(thread);
-        }));
-        unlock_scheduler();
+            move_n_tasks_to_running_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_io, 1);
+            run_it_on_queue(&file_table[entry->file_data.pipe_data.other_end].blocked_on_poll, lambda(void, (thread_t* thread)
+            {
+                ll_remove(&thread->_poll_tqs, ll_find_item_by_data(&thread->_poll_tqs, &entry->blocked_on_poll));
+                task_stop_polling(thread);
+            }));
+        }
         return count;
     default:
-        unlock_scheduler();
         return 0;
     }
 }
@@ -205,7 +199,7 @@ int vfs_setup_pipe(int* fds, int flags)
         current_task->file_table[fd1].flags |= FD_CLOEXEC;
         current_task->file_table[fd2].flags |= FD_CLOEXEC;
     }
-    // LOG(TRACE, "pipe: [%d, %d]", fd1, fd2);
+    // SC_LOG("pipe: [%d, %d]", fd1, fd2);
     unlock_scheduler();
     return 0;
 }
