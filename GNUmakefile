@@ -197,7 +197,7 @@ $(GNULIB_DL_STAMP):
 	mkdir -p $(GNULIB_SRCDIR)
 	git clone https://github.com/coreutils/gnulib $(GNULIB_SRCDIR)
 	cp build-aux/config.sub $(GNULIB_SRCDIR)/build-aux/config.sub
-	patch $(GNULIB_SRCDIR)/lib/getlocalename_l-unsafe.c < diffs/coreutils/getlocalename.diff
+	patch $(GNULIB_SRCDIR)/lib/getlocalename_l-unsafe.c < diffs/gnulib/getlocalename.diff
 	touch $@
 
 $(COREUTILS_BUILD_STAMP):	$(COREUTILS_DL_STAMP) $(HOSGCC)
@@ -213,6 +213,7 @@ $(COREUTILS_DL_STAMP): $(GNULIB_DL_STAMP)
 	cd $(COREUTILS_DIR) && git checkout e644eea122462aa7fa98cbe9b8f93088074588a0
 	cd $(COREUTILS_DIR) && ./bootstrap
 	patch $(COREUTILS_DIR)/src/tail.c < diffs/coreutils/tail.diff
+	patch $(COREUTILS_DIR)/gl/lib/mbbuf.h < diffs/gnulib/mbbuf.diff
 	touch $@
 
 root/usr/bin/bash: $(BASH_DL_STAMP) $(NCURSES_STAMP) $(HOSGCC)
