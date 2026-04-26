@@ -213,7 +213,7 @@ $(COREUTILS_DL_STAMP): $(GNULIB_DL_STAMP)
 	cd $(COREUTILS_DIR) && git checkout e644eea122462aa7fa98cbe9b8f93088074588a0
 	cd $(COREUTILS_DIR) && ./bootstrap
 	patch $(COREUTILS_DIR)/src/tail.c < diffs/coreutils/tail.diff
-	patch $(COREUTILS_DIR)/gl/lib/mbbuf.h < diffs/gnulib/mbbuf.diff
+	patch $(COREUTILS_DIR)/gl/lib/mbbuf.h < diffs/coreutils/mbbuf.diff
 	touch $@
 
 root/usr/bin/bash: $(BASH_DL_STAMP) $(NCURSES_STAMP) $(HOSGCC)
