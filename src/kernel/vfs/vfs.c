@@ -715,8 +715,11 @@ ssize_t task_chr_stdout(file_entry_t* entry, uint8_t* buf, size_t count, uint8_t
     case IO_DIR_READ:
         return 0;
     case IO_DIR_WRITE:
+        assert(task_lock_depth == 1);
+        unlock_scheduler();
         for (uint32_t i = 0; i < count; i++)
             tty_outc(buf[i]);
+        lock_scheduler();
         return count;
     }
     return 0;

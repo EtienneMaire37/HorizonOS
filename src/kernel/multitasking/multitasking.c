@@ -2,6 +2,7 @@
 #include "idle.h"
 #include "../cpu/memory.h"
 #include "../cpu/units.h"
+#include "queue.h"
 #include "signal.h"
 #include "../fpu/fpu.h"
 #include "sigset.h"
@@ -359,6 +360,12 @@ void task_handle_signal(thread_t* thread, int sig)
         return;
 
     lock_scheduler();
+
+    if (thread->queue == &dead_tasks || thread->queue == &reapable_tasks)
+    {
+        unlock_scheduler();
+        return;
+    }
 
     LOG(TRACE, "pid %d receives signal %d", thread->pid, sig);
 
