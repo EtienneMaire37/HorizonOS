@@ -196,6 +196,7 @@ $(GNULIB_DL_STAMP):
 	rm -rf $(GNULIB_SRCDIR)
 	mkdir -p $(GNULIB_SRCDIR)
 	git clone https://github.com/coreutils/gnulib $(GNULIB_SRCDIR)
+	cd $(GNULIB_SRCDIR) && git checkout 45a8afb5e8d4b496f23f47926427c7552f26c95a
 	cp build-aux/config.sub $(GNULIB_SRCDIR)/build-aux/config.sub
 	patch $(GNULIB_SRCDIR)/lib/getlocalename_l-unsafe.c < diffs/gnulib/getlocalename.diff
 	touch $@
