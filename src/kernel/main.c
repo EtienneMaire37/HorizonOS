@@ -586,7 +586,9 @@ void _start()
     // vfs_mount_device("initrd", "/mnt", (drive_t){.type = DT_INITRD}, 0, 0);
     vfs_mount_device("dev", "/", (drive_t){.type = DT_VIRTUAL}, 0, 0);
 
-    vfs_add_special("/dev", "tty", CHR_MODE, task_chr_tty, 0, 0);
+    // * "The file /dev/tty is a character file with major number 5 and minor number 0, usually with mode 0666 and ownership root:tty."
+    vfs_add_special("/dev", "tty", CHR_MODE, task_chr_tty, 0, 5);
+
     LOG(INFO, "Set up the VFS.");
 
     LOG(INFO, "Scanning PCI buses...");
