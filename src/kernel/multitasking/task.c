@@ -31,6 +31,7 @@ thread_t* task_create_empty()
 
     task->_poll_tqs = LL_INIT;
 
+    task->sid = 0;
     task->pid = -1;
     task->ppid = -1;
     task->pgid = -1;

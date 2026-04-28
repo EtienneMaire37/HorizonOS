@@ -544,6 +544,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             new_task->ppid = current_task->ppid;
             task_set_pgid(new_task, current_task->pgid);
 
+            new_task->sid = current_task->sid;
+
             task_copy_file_table(current_task, new_task, true);
 
             move_running_task_to_thread_queue(&reapable_tasks, current_task);
@@ -1417,6 +1419,23 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             *arg2 = current_task->umask;
         current_task->umask = arg1 & 0777;
         sc_ret_errno = 0;
+        break;
+
+    sc_case(SYS_SETSID, 0)
+        SC_LOG("syscall SYS_SETSID()");
+        lock_scheduler();
+        thread_queue_t* tq = hashmap_get_item(pgid_to_tq_hashmap, current_task->pid);
+        if (tq && *tq)
+        {
+            unlock_scheduler();
+            sc_ret_errno = EPERM;
+            break;
+        }
+        unlock_scheduler();
+        current_task->sid = current_task->pid;
+        task_set_pgid(current_task, current_task->pid);
+        sc_ret_errno = 0;
+        sc_ret(1) = current_task->sid;
         break;
 
     sc_case(SYS_LOG, 1, const char*)

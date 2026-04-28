@@ -8,6 +8,8 @@
 
 int main(int argc, char** argv)
 {
+    setsid();
+
     tcsetpgrp(STDIN_FILENO, getpgrp());
 
     setenv("PATH", "/sbin:/bin:/usr/bin", 0);

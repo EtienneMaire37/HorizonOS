@@ -498,4 +498,12 @@ namespace mlibc
 	{
 	    return syscall2_1(SYS_UMASK, (uint64_t)mode, (uint64_t)old);
 	}
+
+	int sys_setsid(pid_t* sid)
+	{
+	    uint64_t _sid;
+	    int ret = syscall0_2(SYS_SETSID, &_sid);
+		*sid = (pid_t)_sid;
+		return ret;
+	}
 }

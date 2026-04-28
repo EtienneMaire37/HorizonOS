@@ -42,7 +42,7 @@ typedef struct thread
     void* queue;
 
     uint8_t ring;
-    pid_t pid, ppid, pgid;
+    pid_t pid, ppid, pgid, sid;
     bool system_task;    // * Allow causing kernel panics
 
     vfs_folder_tnode_t* cwd;
