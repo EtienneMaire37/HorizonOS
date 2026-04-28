@@ -64,7 +64,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     // SC_LOG("syscall %" PRIu64, registers->rax);
     uint64_t syscall_num = registers->rax;
     sc_ret_errno = -1;
-    bool sc_no_errno = syscall_num == SYS_GETPID || syscall_num == SYS_GETPPID;
+    bool sc_no_errno = syscall_num == SYS_GETPID || syscall_num == SYS_GETPPID || syscall_num == SYS_LOG;
     if (current_task->sig_pending_user_space)
         sc_ret_errno = ERESTART;
     else
@@ -1425,7 +1425,6 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         puts(arg1);
     #endif
         LOG(DEBUG, "%s", arg1);
-        sc_ret_errno = 0;
         break;
 
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)
