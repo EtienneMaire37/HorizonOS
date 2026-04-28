@@ -600,7 +600,7 @@ int vfs_read(int fd, void* buffer, size_t num_bytes, ssize_t* bytes_read)
     }
     *bytes_read = 0;
     unlock_scheduler();
-    return 0;
+    return EISDIR;
 }
 
 int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* bytes_written)
@@ -638,8 +638,8 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
         return 0;
     }
     unlock_scheduler();
-    *bytes_written = 0;
-    return 0;
+    // ! Opening a directory for writing should return EISDIR
+    assert(!"Fatal error in vfs_write!!!");
 }
 
 void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth)

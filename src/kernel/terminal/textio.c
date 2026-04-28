@@ -211,7 +211,7 @@ void tty_set_color(uint8_t fg_color, uint8_t bg_color)
 
 void tty_set_window_size(int sx, int sy, bool refresh)
 {
-	LOG(DEBUG, "tty_set_window_size(%d, %d)", sx, sy);
+	// LOG(DEBUG, "tty_set_window_size(%d, %d)", sx, sy);
 	if (sx > MAX_TTY_X || sy > MAX_TTY_Y || sx <= 0 || sy <= 0)
 	{
 		sx = MAX_TTY_X;

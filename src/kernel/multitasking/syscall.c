@@ -128,7 +128,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret_errno = ENOTTY;
         break;
     sc_case(SYS_VM_MAP, 6, void*, size_t, int, int, int, off_t)
-        SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#o, %#o, %d, %" PRId64 ")", arg1, arg2, arg3, arg4, arg5, arg6);
+        SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#x, %#x, %d, %" PRId64 ")", arg1, arg2, arg3, arg4, arg5, arg6);
 
         if (arg2 & 0xfff || arg2 == 0 || (uint64_t)arg1 & 0xfff)
         {
@@ -658,7 +658,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         SC_LOG("syscall SYS_SIGACTION(%d, %p, %p)", arg1, arg2, arg3);
         sc_validate_pointer(arg2);
         sc_validate_pointer(arg3);
-        if (arg1 >= NUM_SIGNALS || arg1 == SIGKILL || arg1 == SIGSTOP)
+        if (arg1 < 0 || arg1 >= NUM_SIGNALS || arg1 == SIGKILL || arg1 == SIGSTOP)
         {
             sc_ret_errno = EINVAL;
             break;
@@ -1425,6 +1425,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         puts(arg1);
     #endif
         LOG(DEBUG, "%s", arg1);
+        sc_ret_errno = 0;
         break;
 
     sc_case(SYS_HOS_SET_KB_LAYOUT, 1, int)

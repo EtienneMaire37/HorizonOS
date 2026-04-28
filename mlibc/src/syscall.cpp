@@ -21,9 +21,7 @@ uint64_t syscall0_2(uint64_t calln, uint64_t* r1)
 void syscall1_0(uint64_t calln,
     uint64_t a1)
 {
-    uint64_t ret = ERESTART;
-    while (ret == ERESTART)
-        asm volatile ("syscall" :: "a"(calln), "b"(a1) : "memory", "r11", "rcx", "cc");
+    asm volatile ("syscall" :: "a"(calln), "b"(a1) : "memory", "r11", "rcx", "cc");
 }
 
 uint64_t syscall1_1(uint64_t calln,

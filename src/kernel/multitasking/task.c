@@ -71,7 +71,6 @@ void task_set_pgid(thread_t* task, pid_t pgid)
 }
 void task_set_pid(thread_t* task, pid_t pid)
 {
-    LOG(TRACE, "task_set_pid(%p, %d)", task, pid);
     assert(task);
     lock_scheduler();
     if (task->pid != -1)
