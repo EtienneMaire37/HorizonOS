@@ -686,8 +686,5 @@ void _start()
 
     multitasking_start();
 
-    while(true)
-        hlt();
-
-    halt();
+    assert(!"Fatal error");
 }

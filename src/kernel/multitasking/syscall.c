@@ -1458,7 +1458,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     }
     default:
-        LOG(WARNING, "syscall %" PRIu64 " not implemented", registers->rax);
+        LOG(WARNING, "syscall %" PRIu64 " not implemented", syscall_num);
         // task_send_signal(current_task, SIGILL);
         sc_ret_errno = ENOSYS;
     }
@@ -1467,7 +1467,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     if (sc_ret_errno != 0 && !sc_no_errno)
         SC_LOG("errno: %" PRId64 ": %s", sc_ret_errno, strerror(sc_ret_errno));
 
-    if (registers->rax != SYS_SIGRET)
+    if (syscall_num != SYS_SIGRET)
         task_handle_signal_to_userspace(registers);
 
     return registers->rsp;

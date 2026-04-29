@@ -188,7 +188,10 @@ void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct 
                     bufpri("\x1b");
                 bufpri("%c", ctrl && (character >= 0x20) ? character & 0x1f : character);
                 if (ctrl && ((character & 0x1f) == 3))
+                {
+                    utf32_buffer_clear(&keyboard_input_buffer);
                     *sigint = true;
+                }
             }
         }
     }
