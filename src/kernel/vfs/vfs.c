@@ -7,9 +7,7 @@
 #include "../multitasking/task.h"
 #include "../multitasking/multitasking.h"
 #include <stdlib.h>
-// #include <errno.h>
-extern int errno;
-#include <abi-bits/errno.h>
+#include <errno.h>
 #include <fcntl.h>
 #include "../util/math.h"
 #include "../terminal/textio.h"
