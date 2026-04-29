@@ -639,6 +639,26 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         current_task->cwd = tnode;
         sc_ret_errno = 0;
         break;
+    sc_case(SYS_FCHDIR, 1, int)
+        SC_LOG("syscall SYS_FCHDIR(%d)", arg1);
+        lock_scheduler();
+        if (!is_fd_valid(arg1))
+        {
+            unlock_scheduler();
+            sc_ret_errno = EBADF;
+            break;
+        }
+        file_entry_t* entry = get_global_file_entry(arg1);
+        if (entry->entry_type != VFS_ET_FOLDER)
+        {
+            unlock_scheduler();
+            sc_ret_errno = ENOTDIR;
+            break;
+        }
+        current_task->cwd = entry->tnode.folder;
+        unlock_scheduler();
+        sc_ret_errno = 0;
+        break;
     sc_case(SYS_FORK, 0)
         SC_LOG("syscall SYS_FORK()");
         sc_ret_errno = 0;

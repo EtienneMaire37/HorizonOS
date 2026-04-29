@@ -158,6 +158,10 @@ namespace mlibc
 	{
 		return syscall1_1(SYS_CHDIR, (uint64_t)path);
 	}
+	int sys_fchdir(int fd)
+	{
+		return syscall1_1(SYS_FCHDIR, (uint64_t)fd);
+	}
 
 	int sys_fork(pid_t* child)
 	{

@@ -182,7 +182,7 @@ horizonos.iso: $(shell find src/system -type f) $(MLIBC_STAMP) resources/pci.ids
 		root -o horizonos.iso
 	./limine/limine bios-install horizonos.iso
 
-src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) $(CMATRIX_BUILD_STAMP) $(GREP_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl $(MLIBC_STAMP)
+src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_STAMP) $(CMATRIX_BUILD_STAMP) $(GREP_BUILD_STAMP) root/usr/bin/bash src/tasks/bin/setkbl src/tasks/bin/tree $(MLIBC_STAMP)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/init/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
@@ -190,6 +190,11 @@ src/tasks/bin/init: src/tasks/src/init/* $(LESS_BUILD_STAMP) $(COREUTILS_BUILD_S
 src/tasks/bin/setkbl: src/tasks/src/setkbl/* $(MLIBC_STAMP)
 	mkdir -p src/tasks/bin
 	$(HOSGCC) src/tasks/src/setkbl/main.c -o $@ -O3
+	$(CROSSSTRIP) $@
+
+src/tasks/bin/tree: src/tasks/src/tree/* $(MLIBC_STAMP)
+	mkdir -p src/tasks/bin
+	$(HOSGCC) src/tasks/src/tree/main.c -o $@ -O3
 	$(CROSSSTRIP) $@
 
 $(GNULIB_DL_STAMP):
