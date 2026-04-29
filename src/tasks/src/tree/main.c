@@ -1,12 +1,18 @@
 // * basic clone of https://github.com/peteretelej/tree
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <string.h>
+#include <limits.h>
 
-void enumerate_dir(int depth)
+#define skip_option()   do { argv[i] = NULL; i++; } while (0)
+
+void enumerate_dir(int depth, int maxdepth)
 {
+    if (depth >= maxdepth) return;
     DIR* dir = opendir(".");
     if (!dir)
     {
@@ -24,7 +30,7 @@ void enumerate_dir(int depth)
             if (ent->d_type == DT_DIR)
             {
                 chdir(ent->d_name);
-                enumerate_dir(depth + 1);
+                enumerate_dir(depth + 1, maxdepth);
                 fchdir(dirfd(dir));
             }
         }
@@ -40,20 +46,46 @@ int main(int argc, char** argv)
 
     bool list_cwd = true;
 
+    int L = INT_MAX;
+
     for (int i = 1; i < argc; i++)
     {
         if (argv[i][0] == '-')
         {
-            fprintf(stderr, "tree: Unknown argument `%s`\n", argv[i]);
-            return 1;
+            if (strcmp(argv[i], "-L") == 0)
+            {
+                skip_option();
+                if (i >= argc)
+                {
+                    fprintf(stderr, "tree: Missing argument to -L option.\n");
+                    return 1;
+                }
+                L = atoi(argv[i]);
+                if (L <= 0)
+                {
+                    fprintf(stderr, "tree: Invalid level, must be greater than 0.\n");
+                    return 1;
+                }
+            }
+            else
+            {
+                fprintf(stderr, "tree: Unknown argument `%s`\n", argv[i]);
+                return 1;
+            }
+            argv[i] = NULL;
         }
+    }
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (!argv[i]) continue;
 
         list_cwd = false;
 
         if (chdir(argv[i]) == 0)
         {
             printf("%s\n", argv[i]);
-            enumerate_dir(0);
+            enumerate_dir(0, L);
 
             fchdir(dirfd(cwd_dir));
         }
@@ -64,6 +96,6 @@ int main(int argc, char** argv)
     if (list_cwd)
     {
         printf(".\n");
-        enumerate_dir(0);
+        enumerate_dir(0, L);
     }
 }
