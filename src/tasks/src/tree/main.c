@@ -10,6 +10,16 @@
 
 #define skip_option()   do { argv[i] = NULL; i++; } while (0)
 
+#define do_enumerate_dir(path)  do { list_cwd = false; \
+if (chdir(path) == 0) \
+{ \
+    printf("%s\n", path); \
+    enumerate_dir(0, L); \
+    fchdir(dirfd(cwd_dir)); \
+} \
+else \
+    printf("%s [error opening dir]\n", path); } while (0)
+
 void enumerate_dir(int depth, int maxdepth)
 {
     if (depth >= maxdepth) return;
@@ -80,22 +90,9 @@ int main(int argc, char** argv)
     {
         if (!argv[i]) continue;
 
-        list_cwd = false;
-
-        if (chdir(argv[i]) == 0)
-        {
-            printf("%s\n", argv[i]);
-            enumerate_dir(0, L);
-
-            fchdir(dirfd(cwd_dir));
-        }
-        else
-            printf("%s [error opening dir]\n", argv[i]);
+        do_enumerate_dir(argv[i]);
     }
 
     if (list_cwd)
-    {
-        printf(".\n");
-        enumerate_dir(0, L);
-    }
+        do_enumerate_dir(".");
 }
