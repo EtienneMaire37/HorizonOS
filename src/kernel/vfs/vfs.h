@@ -118,7 +118,7 @@ typedef struct vfs_folder_tnode
 
 struct folder_child_data
 {
-    const char* str;
+    int cur_index;
     bool done_reading;
 };
 

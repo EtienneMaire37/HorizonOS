@@ -363,7 +363,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
 
         file_table[fd].on_destroy = NULL;
 
-        file_table[fd].file_data.folder_child.str = NULL;
+        file_table[fd].file_data.folder_child.cur_index = 0;
         file_table[fd].file_data.folder_child.done_reading = false;
 
         int ret = vfs_allocate_thread_file(current_task);
@@ -425,7 +425,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         file_table[fd].tnode.folder = tnode;
         file_table[fd].st = file_table[fd].tnode.folder->inode->st;
 
-        file_table[fd].file_data.folder_child.str = NULL;
+        file_table[fd].file_data.folder_child.cur_index = 0;
         file_table[fd].file_data.folder_child.done_reading = false;
 
         file_table[fd].on_destroy = NULL;
