@@ -89,8 +89,9 @@ void _start()
 
     PHYS_MAP_BASE = hhdm_request.response->offset;
 
+    cpuid_highest_function_parameter = 0;
     uint32_t eax, ebx, ecx, edx;
-    cpuid(0, cpuid_highest_function_parameter, ebx, ecx, edx);
+    cpuid_no_check(0, cpuid_highest_function_parameter, ebx, ecx, edx);
     // * CPUID is guaranteed to be present on x86_64
 
     if (!is_bsp()) // * SMP not supported for now
@@ -101,10 +102,9 @@ void _start()
     kernel_start_ptr = (void*)&kernel_start;
     kernel_end_ptr = (void*)&kernel_end;
 
-    if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1)
-        halt();
+    assert(framebuffer_request.response && framebuffer_request.response->framebuffer_count >= 1);
 
-    // assert(framebuffer_request.response->framebuffers[0]->memory_model == LIMINE_FRAMEBUFFER_RGB);
+    assert(framebuffer_request.response->framebuffers[0]->memory_model == LIMINE_FRAMEBUFFER_RGB);
     assert(framebuffer_request.response->framebuffers[0]->bpp % 8 == 0);
 
     framebuffer.width = framebuffer_request.response->framebuffers[0]->width;
@@ -130,8 +130,12 @@ void _start()
 
     LOG(INFO, "CPU manufacturer id : \"%s\"", manufacturer_id_string);
 
-    cpuid(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
-    LOG(INFO, "CPUID highest extended function parameter: %#x", cpuid_highest_extended_function_parameter);
+    cpuid_highest_extended_function_parameter = 0;
+    cpuid_no_check(0x80000000, cpuid_highest_extended_function_parameter, ebx, ecx, edx);
+    if (cpuid_highest_extended_function_parameter <= 0x80000000)
+        cpuid_highest_extended_function_parameter = 0;
+    else
+        LOG(INFO, "CPUID highest extended function parameter: %#x", cpuid_highest_extended_function_parameter);
 
     if (strcmp(manufacturer_id_string, "GenuineIntel") == 0)
         cpu_brand = CPU_INTEL;
