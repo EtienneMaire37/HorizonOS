@@ -200,8 +200,6 @@ void _start()
 
     init_pat();
 
-    LOG(INFO, "cpu_id : %u", lapic_get_cpu_id());
-
     struct limine_file* initrd = NULL;
     for (int i = 0; i < module_request.response->module_count; i++)
     {
@@ -422,7 +420,7 @@ void _start()
     else
         LOG(DEBUG, "FSGSBASE is not set");
 
-    apic_init();
+    lapic_init();
 
     if (lapic)
     {
@@ -434,6 +432,8 @@ void _start()
         printf("Using x2APIC\n");
         LOG(INFO, "Using x2APIC");
     }
+
+    LOG(INFO, "cpu_id : %u", lapic_get_cpu_id());
 
     printf("1/%" PRIu64 " core%s running\n", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");
     LOG(INFO, "1/%" PRIu64 " core%s running", mp_request.response->cpu_count, mp_request.response->cpu_count == 1 ? "" : "s");

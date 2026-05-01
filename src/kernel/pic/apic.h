@@ -29,7 +29,7 @@ extern uint32_t ps2_1_gsi, ps2_12_gsi;
 
 void madt_extract_data();
 
-void apic_init();
+void lapic_init();
 uint32_t lapic_get_cpu_id();
 void lapic_send_eoi();
 void lapic_set_spurious_interrupt_number(uint8_t int_num);

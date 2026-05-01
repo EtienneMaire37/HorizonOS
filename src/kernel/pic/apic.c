@@ -18,7 +18,7 @@ uint32_t ps2_1_gsi = 1, ps2_12_gsi = 12;
 #include "../cmos/rtc.h"
 #include "../memalloc/virtual_memory_allocator.h"
 
-void apic_init()
+void lapic_init()
 {
     uint64_t apic_base_msr = rdmsr(IA32_APIC_BASE_MSR);
     // * x2APIC enabled => CPUID.01H:ECX[21] = 1 so no need to check it
