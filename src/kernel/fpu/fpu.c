@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "fpu.h"
+#include "../util/error.h"
 
 int xsave_instruction = NO_FPU;
 
@@ -65,7 +66,7 @@ void fpu_save_state(uint8_t* s)
         asm volatile("fsave [rdi]" :: "D"(s) : "memory");
         break;
     default:
-        assert(!"Unknown XSAVE instruction");
+        FATAL("Unknown XSAVE instruction");
     }
 }
 
@@ -92,7 +93,7 @@ void fpu_restore_state(uint8_t* s)
         asm volatile("frstor [rdi]" :: "D"(s) : "memory");
         break;
     default:
-        assert(!"Unknown XRSTOR instruction");
+        FATAL("Unknown XRSTOR instruction");
     }
 }
 

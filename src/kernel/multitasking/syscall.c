@@ -112,7 +112,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     sc_case(SYS_EXIT, 1, int)
         SC_LOG("syscall SYS_EXIT(%d)", arg1);
         kill_task(current_task, ((uint16_t)arg1 & 0x7f) << 8);
-        assert(!"exit fatal error");
+        FATAL("exit fatal error");
         break;
     sc_case(SYS_ISATTY, 1, int)
         SC_LOG("syscall SYS_ISATTY(%d)", arg1);
@@ -359,7 +359,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             file_table[fd].st = file_table[fd].tnode.folder->inode->st;
         }
         else
-            assert(!"openat fatal error");
+            FATAL("openat fatal error");
 
         file_table[fd].on_destroy = NULL;
 
@@ -929,7 +929,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 cwd = entry->tnode.folder;
                 goto fstatat_get_st;
             }
-            assert(!"fstatat fatal error");
+            FATAL("fstatat fatal error");
         }
         else
         {
@@ -1292,7 +1292,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         else    // arg1 == -1
         {
         // * then  sig is sent to every process for which the calling process has permission to send signals, except for process 1
-            assert(!"Not implemented");
+            FATAL("Not implemented");
         }
         unlock_scheduler();
         sc_ret_errno = 0;

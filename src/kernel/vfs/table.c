@@ -5,6 +5,7 @@
 #include <sys/poll.h>
 #include "../util/lambda.h"
 #include <asm-generic/errno.h>
+#include "../util/error.h"
 
 file_entry_t file_table[MAX_FILE_TABLE_ENTRIES];
 
@@ -154,7 +155,7 @@ bool vfs_willblock(file_entry_t* entry, short events)
         }
         break;
     case POLLOUT:
-        assert(!"TODO: Implement write polling");
+        FATAL("TODO: Implement write polling");
         break;
     default:
         break;

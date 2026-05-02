@@ -94,13 +94,15 @@ void _start()
     cpuid_no_check(0, cpuid_highest_function_parameter, ebx, ecx, edx);
     // * CPUID is guaranteed to be present on x86_64
 
-    // * "Beginning with the P6 family processors, the presence or absence of an on-chip local APIC can be detected using
-    // * the CPUID instruction. When the CPUID instruction is executed with a source operand of 1 in the EAX register, bit 9
-    // * of the CPUID feature flags returned in the EDX register indicates the presence (set) or absence (clear) of a local
-    // * APIC." -> Intel manual Vol. 3A 11-7
-    edx = 0;
-    cpuid(1, eax, ebx, ecx, edx);
-    assert(edx & (1ULL << 9));
+    {
+        // * "Beginning with the P6 family processors, the presence or absence of an on-chip local APIC can be detected using
+        // * the CPUID instruction. When the CPUID instruction is executed with a source operand of 1 in the EAX register, bit 9
+        // * of the CPUID feature flags returned in the EDX register indicates the presence (set) or absence (clear) of a local
+        // * APIC." -> Intel manual Vol. 3A 11-7
+        uint32_t eax, ebx, ecx, edx = 0;
+        cpuid(1, eax, ebx, ecx, edx);
+        assert(edx & (1ULL << 9));
+    }
 
     if (!is_bsp()) // * SMP not supported for now
         halt();
@@ -550,13 +552,13 @@ void _start()
 
         ps2_device_1_interrupt = ps2_device_2_interrupt = false;
 
-        ksleep(10 * PRECISE_MILLISECONDS);
+        ksleep(PS2_WAIT_TIME * PRECISE_MILLISECONDS);
 
         ps2_controller_init();
         ps2_detect_devices();
         ps2_init_keyboards();
 
-        ksleep(10 * PRECISE_MILLISECONDS);
+        ksleep(PS2_WAIT_TIME * PRECISE_MILLISECONDS);
 
         ps2_enable_interrupts();
 
@@ -698,5 +700,5 @@ void _start()
 
     multitasking_start();
 
-    assert(!"Fatal error");
+    FATAL("Fatal error");
 }

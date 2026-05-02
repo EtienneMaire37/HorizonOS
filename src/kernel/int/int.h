@@ -6,6 +6,7 @@
 #include <assert.h>
 #include "../initrd/initrd.h"
 #include "../util/defs.h"
+#include "../util/error.h"
 
 typedef struct __attribute__((packed)) interrupt_registers
 {
@@ -130,7 +131,7 @@ static inline int get_signal_from_exception(interrupt_registers_t* registers)
         return SIGSEGV;
 
     default:
-        assert(!"Unknown exception");
+        FATAL("Unknown exception");
         abort();
     }
 }

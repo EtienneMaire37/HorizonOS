@@ -106,7 +106,7 @@ void multitasking_remove_task(thread_t* task)
 {
     lock_scheduler();
     if (task == idle_task)
-        assert(!"multitasking_remove_task: Tried to remove idle task");
+        FATAL("multitasking_remove_task: Tried to remove idle task");
 
     task->prev->next = task->next;
     task->next->prev = task->prev;

@@ -285,17 +285,18 @@ void ps2_controller_init()
     LOG(TRACE, "New CCB: %#x", config);
     ps2_send_command_with_data_no_response(PS2_SET_CONFIGURATION, config);
 
-    LOG(DEBUG, "Testing the controller");
+    // ! Don't use the PS/2 controller self test command in case of legacy USB support
+    // LOG(DEBUG, "Testing the controller");
 
-    uint8_t self_test_code = ps2_send_command(PS2_TEST_CONTROLLER);
+    // uint8_t self_test_code = ps2_send_command(PS2_TEST_CONTROLLER);
 
-    if (self_test_code != PS2_SELF_TEST_OK)
-    {
-        LOG(ERROR, "Controller self-test failed (code %#x)", self_test_code);
-        printf("Controller self-test failed (code %#x)\n", self_test_code);
-        ps2_controller_connected = false;
-        return;
-    }
+    // if (self_test_code != PS2_SELF_TEST_OK)
+    // {
+    //     LOG(ERROR, "Controller self-test failed (code %#x)", self_test_code);
+    //     printf("Controller self-test failed (code %#x)\n", self_test_code);
+    //     ps2_controller_connected = false;
+    //     return;
+    // }
 
     LOG(DEBUG, "Testing the ports");
 
@@ -376,8 +377,7 @@ void ps2_controller_init()
 
     config = ps2_send_command(PS2_GET_CONFIGURATION);
     config &= ~0b01000000;   // Disable translation
-    // if (ps2_device_1_connected) config &= ~0b00000001; // Disable interrupts
-    // if (ps2_device_2_connected) config &= ~0b00000010;
+    config &= ~0b00000011; // Disable interrupts
     ps2_send_command_with_data_no_response(PS2_SET_CONFIGURATION, config);
 
     LOG(INFO, "PS/2 Controller initialized. Devices: %u/%u",
@@ -502,7 +502,7 @@ void ps2_enable_interrupts()
     if (ps2_device_2_interrupt) config |= 0b00000010;
     ps2_send_command_with_data_no_response(PS2_SET_CONFIGURATION, config);
 
-    ksleep(10 * PRECISE_MILLISECONDS);
+    ksleep(PS2_WAIT_TIME * PRECISE_MILLISECONDS);
 
     ps2_flush_buffer();
 

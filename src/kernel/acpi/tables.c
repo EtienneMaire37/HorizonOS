@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <limine.h>
 #include "../multitasking/multitasking.h"
+#include "../util/error.h"
 
 struct rsdp_table* rsdp;
 struct rsdt_table* rsdt;
@@ -118,7 +119,7 @@ void* read_rsdt_ptr(uint32_t index)
     if (index >= sdt_count)
     {
         LOG(CRITICAL, "Kernel tried to read an invalid SDT (%u / %u)", index + 1, sdt_count);
-        assert(!"Kernel tried to read an invalid SDT");
+        FATAL("Kernel tried to read an invalid SDT");
         return NULL;
     }
 

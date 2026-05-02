@@ -224,6 +224,9 @@ void madt_extract_data()
         LOG(DEBUG, "PS/2 IRQ 1 GSI: %u", ps2_1_gsi);
         LOG(DEBUG, "PS/2 IRQ 12 GSI: %u", ps2_12_gsi);
 
+        // printf("PS/2 IRQ 1 GSI: %u\n", ps2_1_gsi);
+        // printf("PS/2 IRQ 12 GSI: %u\n", ps2_12_gsi);
+
         struct madt_ioapic_entry* ps2_1_ioapic_entry = (struct madt_ioapic_entry*)find_entry_in_madt(lambda(bool, (struct madt_entry_header* header)
         {
             if (header->entry_type == 1)    // * I/O APIC

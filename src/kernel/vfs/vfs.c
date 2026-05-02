@@ -15,6 +15,7 @@
 #include "../multitasking/multitasking.h"
 #include "../cpu/units.h"
 #include "table.h"
+#include "../util/error.h"
 
 vfs_folder_tnode_t* vfs_root = NULL;
 
@@ -637,7 +638,7 @@ int vfs_write(int fd, const char* buffer, uint64_t bytes_to_write, ssize_t* byte
     }
     unlock_scheduler();
     // ! Opening a directory for writing should return EISDIR
-    assert(!"Fatal error in vfs_write!!!");
+    FATAL("Fatal error in vfs_write!!!");
 }
 
 void vfs_log_tree(vfs_folder_tnode_t* tnode, int depth)

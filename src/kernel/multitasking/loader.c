@@ -5,6 +5,7 @@
 #include <elf.h>
 #include "startup_data.h"
 #include "../vfs/vfs.h"
+#include "../util/error.h"
 
 thread_t* multitasking_add_task_from_function(const char* name, void (*func)())
 {
@@ -304,7 +305,7 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     if (!data)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: data is NULL");
-        assert(!"multitasking_add_task_from_vfs: data is NULL");
+        FATAL("multitasking_add_task_from_vfs: data is NULL");
     }
 
     if (strlen(path) == 0) return NULL;
@@ -324,7 +325,7 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     if (!simplified_path)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: Out of memory");
-        assert(!"multitasking_add_task_from_vfs: Out of memory");
+        FATAL("multitasking_add_task_from_vfs: Out of memory");
     }
 
     vfs_realpath_from_file_tnode(tnode, simplified_path);
@@ -346,7 +347,7 @@ thread_t* multitasking_add_task_from_vfs(const char* name, const char* path, uin
     if (!prefix)
     {
         LOG(DEBUG, "multitasking_add_task_from_vfs: Out of memory");
-        assert(!"multitasking_add_task_from_vfs: Out of memory");
+        FATAL("multitasking_add_task_from_vfs: Out of memory");
     }
     vfs_realpath_from_folder_tnode(mount_point, prefix);
     size_t prefix_length = strlen(prefix);
