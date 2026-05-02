@@ -17,6 +17,8 @@
 #define PS2_STATUS_OUTPUT_FULL  0x01  // Bit 0: Output buffer full (data available)
 #define PS2_STATUS_INPUT_FULL   0x02  // Bit 1: Input buffer full  (controller busy)
 
+#define PS2_STATUS_AUX          0x20  // Bit 5: Mouse data (! old spec states time out)
+
 // Controller Commands
 #define PS2_GET_CONFIGURATION   0x20
 #define PS2_SET_CONFIGURATION   0x60
@@ -96,5 +98,4 @@ bool ps2_send_device_full_command(uint8_t device, uint8_t command, uint8_t expec
 bool ps2_send_device_full_command_with_data(uint8_t device, uint8_t command, uint8_t data, uint8_t expected_bytes);
 void ps2_flush_buffer();
 
-void handle_irq_1(bool* ts, bool* sigint);
-void handle_irq_12(bool* ts, bool* sigint);
+void handle_ps2_irq(bool* ts, bool* sigint);

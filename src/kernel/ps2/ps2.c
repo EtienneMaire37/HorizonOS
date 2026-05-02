@@ -254,6 +254,8 @@ void ps2_read_additional_data()
 
 void ps2_controller_init()
 {
+    // TODO: Disable USB legacy support
+
     LOG(DEBUG, "PS/2 controller initialization sequence");
 
     ps2_device_1_connected = false;
@@ -285,18 +287,17 @@ void ps2_controller_init()
     LOG(TRACE, "New CCB: %#x", config);
     ps2_send_command_with_data_no_response(PS2_SET_CONFIGURATION, config);
 
-    // ! Don't use the PS/2 controller self test command in case of legacy USB support
-    // LOG(DEBUG, "Testing the controller");
+    LOG(DEBUG, "Testing the controller");
 
-    // uint8_t self_test_code = ps2_send_command(PS2_TEST_CONTROLLER);
+    uint8_t self_test_code = ps2_send_command(PS2_TEST_CONTROLLER);
 
-    // if (self_test_code != PS2_SELF_TEST_OK)
-    // {
-    //     LOG(ERROR, "Controller self-test failed (code %#x)", self_test_code);
-    //     printf("Controller self-test failed (code %#x)\n", self_test_code);
-    //     ps2_controller_connected = false;
-    //     return;
-    // }
+    if (self_test_code != PS2_SELF_TEST_OK)
+    {
+        LOG(ERROR, "Controller self-test failed (code %#x)", self_test_code);
+        printf("Controller self-test failed (code %#x)\n", self_test_code);
+        ps2_controller_connected = false;
+        return;
+    }
 
     LOG(DEBUG, "Testing the ports");
 
@@ -529,36 +530,30 @@ void ps2_disable_interrupts()
     enable_ps2_kb_input = false;
 }
 
-void handle_irq_1(bool* task_switch, bool* send_sigint)
+void handle_ps2_irq(bool* task_switch, bool* send_sigint)
 {
     if (!ps2_controller_connected)
         return;
 
-    if (!(inb(PS2_STATUS_REGISTER) & PS2_STATUS_OUTPUT_FULL))
-        return;
+    uint8_t status;
+    while ((status = inb(PS2_STATUS_REGISTER)) & PS2_STATUS_OUTPUT_FULL)
+    {
+        uint8_t data = inb(PS2_DATA);
+        if (status & PS2_STATUS_AUX)
+        {
+            if (!ps2_device_2_connected)
+                continue;
 
-    uint8_t data = inb(PS2_DATA);
+            if (ps2_device_2_type == PS2_DEVICE_KEYBOARD && enable_ps2_kb_input)
+                ps2_handle_keyboard_scancode(2, data, task_switch, send_sigint);
+        }
+        else
+        {
+            if (!ps2_device_1_connected)
+                continue;
 
-    if (!ps2_device_1_connected)
-        return;
-
-    if (ps2_device_1_type == PS2_DEVICE_KEYBOARD && enable_ps2_kb_input)
-        ps2_handle_keyboard_scancode(1, data, task_switch, send_sigint);
-}
-
-void handle_irq_12(bool* task_switch, bool* send_sigint)
-{
-    if (!ps2_controller_connected)
-        return;
-
-    if (!(inb(PS2_STATUS_REGISTER) & PS2_STATUS_OUTPUT_FULL))
-        return;
-
-    uint8_t data = inb(PS2_DATA);
-
-    if (!ps2_device_2_connected)
-        return;
-
-    if (ps2_device_2_type == PS2_DEVICE_KEYBOARD && enable_ps2_kb_input)
-        ps2_handle_keyboard_scancode(2, data, task_switch, send_sigint);
+            if (ps2_device_1_type == PS2_DEVICE_KEYBOARD && enable_ps2_kb_input)
+                ps2_handle_keyboard_scancode(1, data, task_switch, send_sigint);
+        }
+    }
 }
