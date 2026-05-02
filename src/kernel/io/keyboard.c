@@ -87,6 +87,8 @@ bool keyboard_is_key_pressed(virtual_address_t vk)
 
 void keyboard_handle_character(utf32_char_t character, virtual_key_t vk, struct termios* ts, bool* sigint)
 {
+    // TODO: Implement PTYs and move all this out of the kernel
+
     assert(sigint);
     if (!multitasking_enabled) return;
     if (get_buffered_characters(keyboard_input_buffer) >= keyboard_input_buffer.size - 1) return;
