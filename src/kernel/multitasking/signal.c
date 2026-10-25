@@ -1,7 +1,6 @@
 #include "signal.h"
 #include "multitasking.h"
-#include "syscall.h"
-#include "../util/memory.h"
+#include <string.h>
 
 void setup_user_signal_stack_frame__interrupt(interrupt_registers_t* registers)
 {

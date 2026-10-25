@@ -1,7 +1,7 @@
 #include "pci.h"
 #include "../util/math.h"
-#include "../terminal/textio.h"
-#include "../multitasking/multitasking.h"
+#include "../io/io.h"
+#include "../debug/out.h"
 
 initrd_file_t* pci_ids = NULL;
 
@@ -34,7 +34,7 @@ uint8_t pci_configuration_address_space_read_byte(uint8_t bus, uint8_t device, u
 
 void pci_scan_buses()
 {
-    pci_ids = initrd_find_file("boot/pci.ids");
+    pci_ids = initrd_find_file("/boot/pci.ids");
     if (!pci_ids)
     {
         printf("\x1b[31mCouldn't load `pci.ids`!!!\x1b[0m\n");
@@ -78,7 +78,7 @@ void pci_scan_buses()
                         int32_t line_offset = 0;
                         uint16_t current_vendor_id = 0x0000, current_line_vendor_id = 0x0000, current_line_device_id = 0x0000;
                         bool vendor_id_line = true, device_id_line = true, comment_line = false, found_vendor = false, found_device = false, printed_vendor = false;
-                        for (uint32_t file_offset = 0; file_offset < pci_ids->size; file_offset++, line_offset++)
+                        for (uint32_t file_offset = 0; file_offset < pci_ids->st.st_size; file_offset++, line_offset++)
                         {
                             uint8_t byte = pci_ids->data[file_offset];
                             if (byte == '\n')

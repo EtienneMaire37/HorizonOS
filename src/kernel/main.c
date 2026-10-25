@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
 #include "vfs/vnode.h"
 #include "memalloc/page_data.h"
+#include "vfs/explore.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <errno.h>
 
 extern char kernel_start, kernel_end;
 void *kernel_start_ptr, *kernel_end_ptr;
@@ -31,7 +31,6 @@ char** environ = NULL;
 #include "fpu/sse.h"
 #include "debug/out.h"
 #include "vga/constants.h"
-#include "vfs/fs/null.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -207,10 +206,10 @@ void _start()
     ASSERT(initrd);
 
     initrd_parse((uint64_t)initrd->address, initrd->size);
-    kernel_symbols_file = initrd_find_file("boot/symbols.txt");
+    kernel_symbols_file = initrd_find_file("/boot/symbols.txt");
 
-    tty_font = psf_font_load_from_initrd("boot/ka8x16thin-1.psf");
-    tty_font_bold = psf_font_load_from_initrd("boot/tcvn8x16.psf");
+    tty_font = psf_font_load_from_initrd("/boot/ka8x16thin-1.psf");
+    tty_font_bold = psf_font_load_from_initrd("/boot/tcvn8x16.psf");
 
     if (!tty_font.f || !tty_font_bold.f)
     {
@@ -227,7 +226,7 @@ void _start()
 
     ASSERT(LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision));
 
-    commit_file = initrd_find_file("boot/commit.txt");
+    commit_file = initrd_find_file("/boot/commit.txt");
 
     LOG(INFO, "commit hash: %s", commit_file->data);
     printf("commit hash: ");
@@ -579,32 +578,13 @@ void _start()
     printf("Mounting initrd at root...\n");
     vfs_create_root_node();
     LOG(DEBUG, "Mounting root");
-    int _errno = vfs_mount(vfs_root_node, (vnode_ref_t){ NULL }, "virt");
+    int _errno = vfs_mount(vfs_root_node, (vnode_ref_t){ NULL }, "initrd");
     if (_errno)
-        pstrerror(_errno, "Couldn't mount root");
-    LOG(DEBUG, "Creating /dev");
-    _errno = vfs_create("dev", vfs_root_node, 0755 | S_IFDIR, 0, 0);
-    LOG(TRACE, "Done");
-    if (_errno)
-        pstrerror(_errno, "Couldn't create /dev");
     {
-        vnode_ref_t dev_node = vfs_get_vnode_from_path(&_errno, 0, 0, "/dev", (vnode_ref_t){ NULL }, (vnode_ref_t){ NULL }, false);
-        if (_errno)
-        {
-            pstrerror(_errno, "Couldn't find vnode for /dev");
-            abort();
-        }
-
-        vfs_create("null", dev_node, S_IFCHR | 0666, 0, 0, null_read, null_write);
-        vfs_create("tty", dev_node, S_IFCHR | 0666, 0, 0, NULL, NULL, .isatty = true);
-        vfs_create("console", dev_node, S_IFCHR | 0666, 0, 0, NULL, NULL);
-        
-        vnode_delete_ref(&dev_node);
+        pstrerror(_errno, "Couldn't mount root");
+        abort();
     }
-    LOG(DEBUG, "Creating /tmp");
-    _errno = vfs_create("tmp", vfs_root_node, 01777 | S_IFDIR, 0, 0);
-    if (_errno)
-        pstrerror(_errno, "Couldn't create /tmp");
+    LOG(TRACE, "Done");
 
     LOG(INFO, "Set up the VFS.");
 
@@ -632,9 +612,6 @@ void _start()
         LOG(INFO, "No temperature sensor");
         printf("No temperature sensor\n");
     }
-
-    LOG(DEBUG, "VFS TREE:");
-    vfs_log_structure(vfs_root_node);
 
     // XXX: Terrible
     // TODO: Actually implement pseudoterminals
@@ -666,7 +643,6 @@ void _start()
     };
 
     ASSERT((sizeof(interrupt_registers_t) % 16) == 0);
-    ASSERT(OPEN_MAX >= 256);
 
     LOG(DEBUG, "sizeof(interrupt_registers_t): %zu", sizeof(interrupt_registers_t));
     LOG(DEBUG, "sizeof(thread_t): %zu", sizeof(thread_t));

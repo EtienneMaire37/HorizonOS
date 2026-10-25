@@ -1,9 +1,7 @@
 #pragma once
 
-#include "../files/ustar.h"
+#include <stdint.h>
 #include <unistd.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/stat.h>
 
 typedef uint8_t tar_file_type;
@@ -11,9 +9,7 @@ typedef uint8_t tar_file_type;
 typedef struct initrd_file
 {
     char* name;
-    uint64_t size;
     uint8_t* data;
-    tar_file_type type;
     struct stat st;
     char* link;
 } initrd_file_t;

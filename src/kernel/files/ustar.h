@@ -2,28 +2,26 @@
 
 #include <stdint.h>
 
-struct __attribute__((packed)) ustar_header
+typedef struct __attribute__((packed))
 {
-    char    name[100];
-    uint8_t mode[8];
-    uint8_t owner_id[8];
-    uint8_t group_id[8];
-    char    size[12];
-    uint8_t last_modification[12];
-    uint8_t checksum[8];
-    uint8_t type;
-    uint8_t linked_file[100];
-    uint8_t ustar[6];
-    uint8_t version[2];
-    uint8_t owner_name[32];
-    uint8_t group_name[32];
-    uint8_t device_major[8];
-    uint8_t device_minor[8];
-    uint8_t filename_prefix[155];
-    uint8_t padding[12];
-};
-
-#define USTAR_BLOCK_SIZE 512
+    char        name[100];
+    uint8_t     mode[8];
+    uint64_t    owner_id;
+    uint64_t    group_id;
+    char        size[12];
+    uint8_t     last_modification[12];
+    uint8_t     checksum[8];
+    uint8_t     type;
+    char        linked_file[100];
+    uint8_t     ustar[6];
+    uint8_t     version[2];
+    uint8_t     owner_name[32];
+    uint8_t     group_name[32];
+    uint8_t     device_major[8];
+    uint8_t     device_minor[8];
+    uint8_t     filename_prefix[155];
+    uint8_t     padding[12];
+} ustar_header_t;
 
 #define USTAR_TYPE_FILE_1           '0'
 #define USTAR_TYPE_FILE_2            0

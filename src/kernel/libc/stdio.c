@@ -178,49 +178,65 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
     {
         unsigned int length_modifier = LM_NONE;
         size_t start_i = *i;
-        size_t num_chars = 0;
         bool caps = false;
         bool alternate_form = false;
         bool leave_blank = false;
         bool plus_sign = false;
         bool pad_with_zeroes = false;
-        int precision = 1;
-        bool reading_precision = false;
+        int precision = 0, field_width = 1;
+        bool reading_precision = false, reading_field_width = false;
+        bool using_precision = false, using_field_width = false;
+        char lastchar = 0;
     parse:
-        num_chars++;
         if (reading_precision)
         {
             if (format[*i] >= '0' && format[*i] <= '9')
             {
                 precision *= 10;
-                precision += (format[*i] - '0') * (precision < 0 ? -1 : 1);
+                precision += format[*i] - '0';
                 (*i)++;
                 goto parse;
             }
             else
                 reading_precision = false;
         }
+        if (reading_field_width)
+        {
+            if (format[*i] >= '0' && format[*i] <= '9')
+            {
+                field_width *= 10;
+                field_width += format[*i] - '0';
+                (*i)++;
+                goto parse;
+            }
+            else
+                reading_field_width = false;
+        }
         switch (format[*i])
         {
         case 0:
-            return;
+            break;
     // * -------------------- Flag characters
         case '#':
             alternate_form = true;
+            lastchar = format[*i];
             (*i)++;
             goto parse;
         case ' ':
             leave_blank = true;
             pad_with_zeroes = false;
+            lastchar = format[*i];
             (*i)++;
             goto parse;
         case '+':
             plus_sign = true;
+            lastchar = format[*i];
             (*i)++;
             goto parse;
         case '0':
             pad_with_zeroes = true;
             leave_blank = false;
+            lastchar = format[*i];
             (*i)++;
             goto parse;
         case '1':
@@ -232,35 +248,65 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
         case '7':
         case '8':
         case '9':
-            reading_precision = true;
-            precision = (format[*i] - '0');
+            reading_field_width = true;
+            using_field_width = true;
+            field_width = format[*i] - '0';
+            lastchar = format[*i];
             (*i)++;
             goto parse;
     // * -------------------- Precision
         case '.':
             reading_precision = true;
             precision = 0;
+            lastchar = format[*i];
+            (*i)++;
+            goto parse;
+        case '*':
+            if (lastchar == '.')
+            {
+                precision = va_arg(args, int);
+                using_precision = true;
+            }
+            else
+            {
+                field_width = va_arg(args, int);
+                using_field_width = true;
+            }
+            lastchar = format[*i];
             (*i)++;
             goto parse;
     // * -------------------- Length modifiers
         case 'l':
             length_modifier = length_modifier == LM_L ? LM_LL : LM_L;
+            lastchar = format[*i];
             (*i)++;
             goto parse;
         case 'Z':
         case 'z':
             length_modifier = LM_Z;
+            lastchar = format[*i];
             (*i)++;
             goto parse;
     // * -------------------- Conversion specifiers
         case 'c':
             print_char(va_arg(args, int));
+            lastchar = format[*i];
             (*i)++;
             break;
         case 's':
-            print_string(va_arg(args, const char*));
+        {
+            const char* str = va_arg(args, const char*);
+            int len = strlen(str);
+            if (using_precision && len > precision) len = precision;
+            int _field_width = using_field_width && field_width > len ? field_width : len;
+            for (int i = 0; i < _field_width - len; i++)
+                print_char(' ');
+            for (int i = 0; i < len; i++)
+                print_char(str[i]);
+            lastchar = format[*i];
             (*i)++;
             break;
+        }
         case 'p':
         {
             void* p = va_arg(args, void*);
@@ -271,11 +317,13 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
                 print_string("0x");
                 print_hex((uint64_t)p, false, false, precision);
             }
+            lastchar = format[*i];
             (*i)++;
             break;
         }
         case '%':
             print_char('%');
+            lastchar = format[*i];
             (*i)++;
             break;
         case 'u':
@@ -298,6 +346,7 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
                 unsigned int num = va_arg(args, unsigned int);
                 print_unsigned(num, pad_with_zeroes, precision);
             }
+            lastchar = format[*i];
             (*i)++;
             break;
         }
@@ -322,6 +371,7 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
                 int num = va_arg(args, int);
                 print_signed(num, leave_blank, plus_sign, pad_with_zeroes, precision);
             }
+            lastchar = format[*i];
             (*i)++;
             break;
         }
@@ -355,6 +405,7 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
                 unsigned int num = va_arg(args, unsigned int);
                 print_hex(num, caps, pad_with_zeroes, precision);
             }
+            lastchar = format[*i];
             (*i)++;
             break;
         }
@@ -382,11 +433,13 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
                 unsigned int num = va_arg(args, unsigned int);
                 print_octal(num, pad_with_zeroes, precision);
             }
+            lastchar = format[*i];
             (*i)++;
             break;
         }
         default:
             print_char('%');
+            lastchar = format[*i];
             (*i)++;
             while (start_i < *i)
                 print_char(format[start_i++]);

@@ -1,8 +1,9 @@
 #include "initrd.h"
 #include "../inode.h"
-#include "../../util/string.h"
+#include "../vnode.h"
+#include "../../initrd/initrd.h"
 #include "../../util/assert.h"
-#include "../../debug/out.h"
+#include "../../util/string.h"
 #include <limits.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -18,38 +19,33 @@ ino_t initrd_generate_ino()
 
 int initrd_explore(vnode_ref_t vnode)
 {
-    (void)vnode;
-    // char path[PATH_MAX];
-    // vfs_get_relative_path_to_node_from_mountpoint(vnode, path, sizeof(path));
-    // for (size_t i = 0; i < initrd_file_count; i++)
-    // {
-    //     if (str_starts_with(initrd_files[i].name, path))
-    //     {
-    //         const char* node_name = &initrd_files[i].name[strlen(path) + 1];
-    //         size_t* fs_specific = malloc(sizeof(size_t));
-    //         *fs_specific = i;
-    //         vfs_add_new_child_node(vnode, node_name, &initrd_files[i].st, fs_specific, free);
-    //     }
-    // }
-    return ENOSYS;
+    char path[PATH_MAX];
+    vfs_get_relative_path_to_node_from_mountpoint(vnode, path, sizeof(path));
+    for (size_t i = 0; i < initrd_files_count; i++)
+    {
+        if (str_starts_with(initrd_files[i].name, path))
+        {
+            const char* node_name = &initrd_files[i].name[strlen(path) + 1];
+            size_t* fs_specific = malloc(sizeof(size_t));
+            *fs_specific = i;
+            vfs_add_new_child_node(vnode, node_name, &initrd_files[i].st, fs_specific, free);
+        }
+    }
+    return 0;
 }
 ssize_t initrd_read(inode_ref_t inode, void* buf, size_t count, off_t offset)
 {
     ASSERT(inode.ptr);
-    (void)buf;
-    (void)count;
-    (void)offset;
-    // if (offset < 0) return -EINVAL;
-    // initrd_file_t* file = &initrd_files[*(size_t*)inode.ptr->fs_specific];
-    // size_t filesize =    S_ISLNK(file->st.st_mode) ? strlen(file->link) :
-    //                     (S_ISREG(file->st.st_mode) ? (size_t)file->st.st_size : 0);
-    // if ((size_t)offset >= filesize)
-    //     return 0;
-    // if ((size_t)(offset + count) > filesize)
-    //     count = filesize - offset;
-    // memcpy(buf, (S_ISREG(file->st.st_mode) ? file->data : (uint8_t*)file->link) + offset, count);
-    // return count;
-    return -ENOSYS;
+    if (offset < 0) return -EINVAL;
+    initrd_file_t* file = &initrd_files[*(size_t*)inode.ptr->fs_specific];
+    size_t filesize =    S_ISLNK(file->st.st_mode) ? strlen(file->link) :
+                        (S_ISREG(file->st.st_mode) ? (size_t)file->st.st_size : 0);
+    if ((size_t)offset >= filesize)
+        return 0;
+    if ((size_t)(offset + count) > filesize)
+        count = filesize - offset;
+    memcpy(buf, (S_ISREG(file->st.st_mode) ? file->data : (uint8_t*)file->link) + offset, count);
+    return count;
 }
 ssize_t initrd_write(inode_ref_t inode, const void* buf, size_t count, off_t offset)
 {

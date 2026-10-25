@@ -1,8 +1,10 @@
 #include "../files/psf.h"
-#include <termios.h>
 #include "../vga/constants.h"
 #include "textio.h"
 #include "../util/assert.h"
+#include <termios.h>
+#include <stdio.h>
+#include <string.h>
 
 tty_char_t tty_buffer[MAX_TTY_X * MAX_TTY_Y];
 tty_char_t tty_alternate_buffer[MAX_TTY_X * MAX_TTY_Y];

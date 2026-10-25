@@ -42,7 +42,7 @@ thread_t* __multitasking_add_task_from_vfs(const char* name, const char* path, u
     vnode_ref_t file = vfs_get_vnode_from_path(&_errno, 0, 0, path, vfs_root_node, cwd, true);
     if (!file.ptr)
     {
-        LOG(ERROR, "Coudln't load file");
+        LOG(ERROR, "No such file or directory");
         return NULL;
     }
 
@@ -215,7 +215,7 @@ thread_t* __multitasking_add_task_from_vfs(const char* name, const char* path, u
         vnode_ref_t ld_so = vfs_get_vnode_from_path(&_errno, 0, 0, "/usr/lib/ld.so", vfs_root_node, cwd, true);
         ASSERT(ld_so.ptr);
 
-        ssize_t ldso_size = vnode_stat(file).st_size;
+        ssize_t ldso_size = vnode_stat(ld_so).st_size;
         uint8_t* ldso_data = malloc(ldso_size);
         if (!ldso_data)
         {

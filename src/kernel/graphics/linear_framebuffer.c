@@ -1,4 +1,5 @@
 #include "linear_framebuffer.h"
+#include <string.h>
 
 linear_framebuffer_t framebuffer;
 

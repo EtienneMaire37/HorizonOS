@@ -12,14 +12,14 @@ void print_kernel_symbol_name(uintptr_t rip, bool ttyout)
 {
     initrd_file_t* file = kernel_symbols_file;
     if (file == NULL) return;
-    if (file->size == 0 || file->data == NULL) return;
+    if (file->st.st_size == 0 || file->data == NULL) return;
 
     uintptr_t symbol_address = 0, last_symbol_address = 0, current_symbol_address = 0;
-    uintptr_t file_offset = 0, line_offset = 0;
+    ssize_t file_offset = 0, line_offset = 0;
     char last_symbol_buffer[64] = {0};
     uint16_t last_symbol_buffer_length = 0;
     char current_symbol_type = ' ', found_symbol_type = ' ';
-    while (file_offset < file->size)
+    while (file_offset < file->st.st_size)
     {
         char ch = file->data[file_offset];
         if (ch == '\n')

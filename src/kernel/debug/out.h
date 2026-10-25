@@ -72,7 +72,7 @@ extern bool first_log;
 } while (0)
 
 #define LOG(level, ...) \
-    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) _LOG(level, __VA_ARGS__); else evaluate(__VA_ARGS__); } while(0)
+    do { int logl = (level); if (LOG_LEVEL <= logl && LOG_LEVEL >= 0 && (size_t)LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) _LOG(level, __VA_ARGS__); else evaluate(__VA_ARGS__); } while(0)
 
 #define CONTINUE_LOG(level, ...) \
-    do { if (LOG_LEVEL <= level && LOG_LEVEL >= 0 && LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) fprintf(stderr, __VA_ARGS__); else evaluate(__VA_ARGS__); } while(0)
+    do { int logl = (level); if (LOG_LEVEL <= logl && LOG_LEVEL >= 0 && (size_t)LOG_LEVEL < sizeof(LOG_LEVEL_STR) / sizeof(char*)) fprintf(stderr, __VA_ARGS__); else evaluate(__VA_ARGS__); } while(0)
