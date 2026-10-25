@@ -1,5 +1,6 @@
 #include "sched_lock.h"
 #include "multitasking.h"
+#include "task.h"
 
 spinlock_noint_t sched_lock = SPINLOCK_NOINT_INIT;
 

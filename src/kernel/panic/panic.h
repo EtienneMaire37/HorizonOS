@@ -1,19 +1,9 @@
 #pragma once
 
-#include "../multitasking/multitasking.h"
-#include "../cpu/memory.h"
 #include "../debug/out.h"
-#include "../cpu/util.h"
-#include "../initrd/initrd.h"
-#include "../terminal/textio.h"
 #include "../int/int.h"
-#include "../paging/paging.h"
-#include "../util/math.h"
 #include "../cpu/segbase.h"
 #include "../util/defs.h"
-#include "../cpu/registers.h"
-#include "../memalloc/page_data.h"
-#include "../git/commit.h"
 
 #define PANIC_INVALID           0
 #define PANIC_DEBUG             1

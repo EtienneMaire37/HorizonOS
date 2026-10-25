@@ -15,6 +15,7 @@ typedef struct
     atomic_flag flag;
 } spinlock_t;
 
+
 #define SPINLOCK_INIT           ((spinlock_t){ ATOMIC_FLAG_INIT })
 #define SPINLOCK_NOINT_INIT     ((spinlock_noint_t){ ATOMIC_FLAG_INIT })
 

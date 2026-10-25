@@ -1,12 +1,8 @@
 #pragma once
 
 #include "task.h"
-#include "../util/linked_list.h"
 
-#define thread_queue_item_t ll_item_t
-#define thread_queue_t ll_t
-
-#define TQ_INIT     LL_INIT
+#include "queue_def.h"
 
 extern thread_queue_t   dead_tasks,
                         reapable_tasks,

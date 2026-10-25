@@ -7,7 +7,8 @@
 #include "../pic/timer.h"
 #include "../cpu/tsc.h"
 #include "../util/lambda.h"
-#include "../vfs/poll.h"
+#include "../multitasking/queue.h"
+#include "../vfs/open_file_descriptor_vector.h"
 
 void handle_apic_irq(interrupt_registers_t* registers)
 {

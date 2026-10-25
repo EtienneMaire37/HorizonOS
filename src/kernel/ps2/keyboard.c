@@ -2,17 +2,9 @@
 #include "../io/keyboard.h"
 #include "../debug/out.h"
 #include "keyboard.h"
-#include <stdlib.h>
-#include <signal.h>
 #include <sys/wait.h>
-#include "../vfs/vfs.h"
-#include "../multitasking/task.h"
 #include "../multitasking/multitasking.h"
 #include "../terminal/textio.h"
-#include "../multitasking/queue.h"
-#include "../panic/panic.h"
-#include "../cpu/registers.h"
-#include "../memalloc/page_frame_allocator.h"
 
 uint8_t ps2_keyboard_state[256] =
 {

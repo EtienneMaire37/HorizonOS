@@ -1,14 +1,16 @@
 #include "multitasking.h"
 #include "idle.h"
-#include "../cpu/memory.h"
 #include "../util/units.h"
 #include "queue.h"
 #include "signal.h"
 #include "../fpu/fpu.h"
 #include "sigset.h"
-#include "../vfs/table.h"
 #include "task.h"
 #include "sched_lock.h"
+#include "loader.h"
+#include "../cpu/segbase.h"
+#include "syscall.h"
+#include "../vfs/open_file_descriptor_vector.h"
 
 hashmap_t* pid_to_task_hashmap = NULL;
 hashmap_t* pgid_to_tq_hashmap = NULL;
@@ -343,14 +345,5 @@ void __task_try_handle_signals(thread_t* thread, sigset_t old, sigset_t new)
                 __task_handle_signal(thread, sig);
             were_unset ^= bit;
         }
-    }
-}
-
-void __vfs_close(int fd)
-{
-    if (__is_fd_valid(fd))
-    {
-        __vfs_remove_global_file(current_task->file_table[fd].index);
-        current_task->file_table[fd].index = invalid_fd;
     }
 }

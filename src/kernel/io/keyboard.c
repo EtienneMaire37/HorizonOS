@@ -7,8 +7,9 @@
 #include "../terminal/textio.h"
 #include "../util/lambda.h"
 #include <assert.h>
-#include "../vfs/table.h"
 #include "keyboard.h"
+#include "../multitasking/queue.h"
+#include "../vfs/open_file_descriptor_vector.h"
 
 #define bufpri(...) do { char buffer[16] = {0}; size_t character_len = sizeof(buffer); character_len = snprintf(buffer, sizeof(buffer), __VA_ARGS__); ASSERT(character_len != sizeof(buffer)); \
     if ((ssize_t)num_characters < (ssize_t)((ssize_t)max_characters - character_len)) { for (size_t i = 0; i < character_len; i++) { if (buffer[i] != 3) utf32_buffer_putchar(&keyboard_input_buffer, buffer[i]); if (echo || buffer[i] == 3) { if (buffer[i] < 0x20) tty_outc('^'); tty_outc_ex((buffer[i] < 0x20) ? buffer[i] + 0x40 : buffer[i], buffer[i] < 0x20 ? TTY_CONTINUE_CHAR : 0); tty_refresh_screen(); } } } } while (0)

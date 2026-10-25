@@ -1,4 +1,11 @@
 #include "panic.h"
+#include "../vga/constants.h"
+#include "../terminal/textio.h"
+#include "../util/math.h"
+#include "../multitasking/multitasking.h"
+#include "../paging/paging.h"
+#include "../memalloc/page_data.h"
+#include "../git/commit.h"
 #include <stdio.h>
 
 void print_kernel_symbol_name(uintptr_t rip, bool ttyout)

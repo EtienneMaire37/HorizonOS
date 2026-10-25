@@ -2,16 +2,20 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <threads.h>
 #include "dirent.h"
 #include "explore.h"
 #include "inode_stack.h"
 #include "mountpoint.h"
 #include "../util/ref.h"
-
 #include "vnode.h"
 #include "vnode_ref.h"
 #include "../multicore/spinlock.h"
 #include "../util/assert.h"
+#include "../multitasking/queue.h"
+#include "../util/lambda.h"
+#include "open_file_descriptor_vector.h"
+#include "../multitasking/multitasking.h"
 
 void open_file_descriptor_delete_ref(open_file_descriptor_ref_t* ref)
 {
@@ -84,6 +88,15 @@ void ___open_file_descriptor_free(const struct ref *ref)
         mountpoint_delete_ref(&mp);
         vnode_delete_ref(&ofd->vnode);
     }
+    uint32_t flags = lock_scheduler();
+    __move_all_tasks_to_running_queue(&ofd->blocked_on_io);
+    __run_it_on_queue(&ofd->blocked_on_poll, lambda(void, (thread_t* thread)
+    {
+        ll_remove(&thread->_poll_tqs, ll_find_item_by_data(&thread->_poll_tqs, &ofd->blocked_on_poll));
+        __task_stop_polling(thread);
+    }));
+    __remove_all_tasks_from_queue(&ofd->blocked_on_poll);    free(ofd);
+    unlock_scheduler(flags);
     free(ofd);
 }
 
@@ -141,7 +154,7 @@ int vfs_open(const char* path, int flags, mode_t mode,
         ret = -_errno;
         goto end;
     }
-    ret = vfs_allocate_thread_fd(desc, (flags & O_CLOEXEC) ? FD_CLOEXEC : 0);
+    ret = ofdv_open(&current_task->open_file_table, (open_file_descriptor_entry_t){ .flags = (flags & O_CLOEXEC) ? FD_CLOEXEC : 0, .fd = desc });
     open_file_descriptor_delete_ref(&desc);
     if (ret == -1) ret = -EMFILE;
 end:

@@ -162,6 +162,18 @@ char* __attribute__((used)) strncpy(char* destination, const char* source, size_
     return _dest;
 }
 
+char* __attribute__((used)) strchr(const char* str, int c)
+{
+    if (__has_builtin(__builtin_strchr) && __builtin_strchr != strchr) return __builtin_strchr(str, c);
+    while (*str)
+    {
+        if (*str == c) return (char*)str;
+        str++;
+    }
+
+    return NULL;
+}
+
 char* __attribute__((used)) strdup(const char* str)
 {
     size_t len = strlen(str);

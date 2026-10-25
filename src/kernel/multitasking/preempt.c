@@ -1,5 +1,6 @@
 #include "preempt.h"
 #include "multitasking.h"
+#include "task.h"
 
 // * Per CPU
 int _Atomic preempt_disable_depth = 0;

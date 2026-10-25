@@ -1,8 +1,7 @@
 #pragma once
 
 #include "../util/hashmap.h"
-#include "queue.h"
-#include "task.h"
+#include "thread_def.h"
 #include "../io/keyboard.h"
 #include <assert.h>
 

@@ -9,7 +9,7 @@ typedef struct
 
 extern page_table_data_t* global_page_table;
 
-#define PAGE_TABLE_DATA_INIT ((page_table_data_t){ .lock = SPINLOCK_NOINT_INIT })
+static const page_table_data_t page_data_init = {.lock = SPINLOCK_NOINT_INIT};
 
 void page_data_table_init();
 uint32_t lock_page_table(uint64_t* addr);

@@ -10,7 +10,7 @@ initrd_file_t* kernel_symbols_file = NULL;
 #include "irq.h"
 #include "nmi.h"
 #include "../gdt/gdt.h"
-
+#include "../multitasking/multitasking.h"
 #include "../panic/panic.h"
 
 #define return_from_isr() { if (multitasking_enabled) { if (registers->cs != KERNEL_CODE_SEGMENT) task_handle_signal_to_userspace(registers); } task_exit_critical_section(current_task); return; }

@@ -34,6 +34,7 @@
 #include <sys/poll.h>
 #include <sched.h>
 #include "../cpu/tsc.h"
+#include "../vfs/open_file_descriptor_vector.h"
 
 extern void sigret();
 
@@ -329,7 +330,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_CLOSE, 1, int)
         SC_LOG("syscall SYS_CLOSE(%d)", arg1);
-        vfs_close(arg1);
+        ofdv_close(&current_task->open_file_table, arg1);
         sc_ret_errno = 0;
         break;
     sc_case(SYS_READ_ENTRIES, 3, int, void*, size_t)
@@ -826,46 +827,57 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_FCNTL, 3, int, int, uint64_t)
         SC_LOG("syscall SYS_FCNTL(%d, %d, %" PRIu64 ")", arg1, arg2, arg3);
-        lock;
         switch (arg2)
         {
         case F_GETFD:
-            if (!__is_fd_valid(arg1))
+        {
+            open_file_descriptor_entry_t entry = ofdv_get(&current_task->open_file_table, arg1);
+            if (!entry.fd.ptr)
             {
                 sc_ret_errno = EBADF;
                 break;
             }
+            sc_ret(1) = entry.flags;
+            open_file_descriptor_delete_ref(&entry.fd);
             sc_ret_errno = 0;
-            sc_ret(1) = current_task->file_table[arg1].flags;
             break;
+        }
         case F_SETFD:
-            if (!__is_fd_valid(arg1))
+        {
+            open_file_descriptor_entry_t entry = ofdv_get(&current_task->open_file_table, arg1);
+            if (!entry.fd.ptr)
             {
                 sc_ret_errno = EBADF;
                 break;
             }
+            entry.flags = arg3;
+            open_file_descriptor_delete_ref(&entry.fd);
             sc_ret_errno = 0;
-            current_task->file_table[arg1].flags = arg3;
             break;
+        }
         case F_GETFL:
-            if (!__is_fd_valid(arg1))
+        {
+            open_file_descriptor_entry_t entry = ofdv_get(&current_task->open_file_table, arg1);
+            if (!entry.fd.ptr)
             {
                 sc_ret_errno = EBADF;
                 break;
             }
+            sc_ret(1) = entry.fd.ptr->flags;
+            open_file_descriptor_delete_ref(&entry.fd);
             sc_ret_errno = 0;
-            sc_ret(1) = file_table[current_task->file_table[arg1].index].flags;
             break;
+        }
         case F_DUPFD_CLOEXEC:
         case F_DUPFD:
             ;
-            int ret = __vfs_dup(arg1);
+            int ret = vfs_dup(arg1);
             if (ret >= 0)
             {
                 sc_ret_errno = 0;
                 sc_ret(1) = ret;
                 if (arg2 == F_DUPFD_CLOEXEC)
-                    current_task->file_table[ret].flags |= FD_CLOEXEC;
+                    ofdv_setflags(&current_task->open_file_table, ret, FD_CLOEXEC);
             }
             else
                 sc_ret_errno = -ret;
@@ -875,7 +887,6 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             // task_send_signal(current_task, SIGILL);
             sc_ret_errno = ENOSYS;
         }
-        set_rflags_if(flags);
         break;
     sc_case(SYS_SIGRET, 0)
         SC_LOG("syscall SYS_SIGRET()");
@@ -920,7 +931,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
 
         fd_set read_ret, write_ret;
 
-        lock;
+        uint32_t ft_flags = acquire_spinlock_noint(&current_task->open_file_table.lock);
         do
         {
             sc_ret_errno = 0;
@@ -934,7 +945,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 for (int i = 0; i < arg1; i++)
                 {
                     if (!FD_ISSET(i, &read_ret)) continue;
-                    file_entry_t* entry = __get_global_file_entry(i);
+                    open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr : NULL;
                     if (!entry)
                     {
                         FD_CLR(i, &read_ret);
@@ -951,7 +962,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 for (int i = 0; i < arg1; i++)
                 {
                     if (!FD_ISSET(i, &write_ret)) continue;
-                    file_entry_t* entry = __get_global_file_entry(i);
+                    open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr : NULL;
                     if (!entry)
                     {
                         FD_CLR(i, &write_ret);
@@ -973,7 +984,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                     for (int i = 0; i < arg1; i++)
                     {
                         if (!((arg2 ? FD_ISSET(i, arg2) : false) || (arg3 ? FD_ISSET(i, arg3) : false))) continue;
-                        file_entry_t* entry = __get_global_file_entry(i);
+                        open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr : NULL;
                         if (!entry)
                             continue;
                         if (arg2 ? FD_ISSET(i, arg2) : false)
@@ -990,11 +1001,11 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                     }
                 }
                 __task_start_polling(current_task, arg5 ? arg5->tv_nsec * tsc_cycles_per_second / 1000000000 + arg5->tv_sec * tsc_cycles_per_second : NO_TIMEOUT);
-                switch_task();
-                set_rflags_if(ft_flags);
+                switch_task(); // Postpone switch to after unlock
+                release_spinlock_noint(&current_task->open_file_table.lock, ft_flags);
                 unlock_scheduler(sd_flags);
                 sd_flags = lock_scheduler();
-                lock;
+                ft_flags = acquire_spinlock_noint(&current_task->open_file_table.lock);
                 if (current_task->sig_pending_user_space)
                 {
                     sc_ret_errno = should_restart_syscall() ? ERESTART : EINTR;
@@ -1002,7 +1013,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 }
             }
         } while (shouldblock);
-        set_rflags_if(ft_flags);
+        release_spinlock_noint(&current_task->open_file_table.lock, ft_flags);
         if (sc_ret_errno != ERESTART)
         {
             if (arg2) *arg2 = read_ret;
@@ -1036,7 +1047,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret_errno = EINVAL;
             break;
         }
-        sc_ret_errno = vfs_setup_pipe(arg1, arg2);
+        // TODO: Reimplement pipes
+        sc_ret_errno = ENOSYS; // vfs_setup_pipe(arg1, arg2);
         break;
 
     sc_case(SYS_KILL, 2, int, int)
@@ -1129,7 +1141,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         const size_t array_bytes = sizeof(struct pollfd) * arg2;
         struct pollfd* ret = alloca(array_bytes);
         uint32_t sd_flags = lock_scheduler();
-        lock;
+        uint32_t ft_flags = acquire_spinlock_noint(&current_task->open_file_table.lock);
         bool shouldblock = arg3 != 0;
         do
         {
@@ -1139,7 +1151,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             {
                 ret[i] = arg1[i];
                 struct pollfd* fds = &ret[i];
-                file_entry_t* entry = __get_global_file_entry(fds->fd);
+                open_file_descriptor_t* entry = fds->fd >= 0 && (size_t)fds->fd < current_task->open_file_table.size ? current_task->open_file_table.data[fds->fd].fd.ptr : NULL;
                 int set = 0;
                 if (entry)
                 {
@@ -1164,7 +1176,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 for (nfds_t i = 0; i < arg2; i++)
                 {
                     struct pollfd* fds = &arg1[i];
-                    file_entry_t* entry = __get_global_file_entry(fds->fd);
+                    open_file_descriptor_t* entry = fds->fd >= 0 && (size_t)fds->fd < current_task->open_file_table.size ? current_task->open_file_table.data[fds->fd].fd.ptr : NULL;
                     if (!entry)
                         continue;
                     if ((fds->events & POLLIN) || (fds->events & POLLRDNORM))
@@ -1182,10 +1194,10 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 }
                 __task_start_polling(current_task, PRECISE_MILLISECONDS * arg3);
                 switch_task();
-                set_rflags_if(ft_flags);
+                release_spinlock_noint(&current_task->open_file_table.lock, ft_flags);
                 unlock_scheduler(sd_flags);
                 sd_flags = lock_scheduler();
-                lock;
+                ft_flags = acquire_spinlock_noint(&current_task->open_file_table.lock);
                 if (current_task->sig_pending_user_space)
                 {
                     sc_ret_errno = should_restart_syscall() ? ERESTART : EINTR;
@@ -1193,7 +1205,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 }
             }
         } while (shouldblock);
-        set_rflags_if(ft_flags);
+        release_spinlock_noint(&current_task->open_file_table.lock, ft_flags);
         unlock_scheduler(sd_flags);
         if (sc_ret_errno != ERESTART)
             memcpy(arg1, ret, array_bytes);

@@ -579,19 +579,19 @@ void _start()
     printf("Mounting initrd at root...\n");
     vfs_create_root_node();
     LOG(DEBUG, "Mounting root");
-    errno = vfs_mount(vfs_root_node, (vnode_ref_t){ NULL }, "virt");
-    if (errno)
-        perror("Couldn't mount root");
+    int _errno = vfs_mount(vfs_root_node, (vnode_ref_t){ NULL }, "virt");
+    if (_errno)
+        pstrerror(_errno, "Couldn't mount root");
     LOG(DEBUG, "Creating /dev");
-    errno = vfs_create("dev", vfs_root_node, 0755 | S_IFDIR, 0, 0);
+    _errno = vfs_create("dev", vfs_root_node, 0755 | S_IFDIR, 0, 0);
     LOG(TRACE, "Done");
-    if (errno)
-        perror("Couldn't create /dev");
+    if (_errno)
+        pstrerror(_errno, "Couldn't create /dev");
     {
-        vnode_ref_t dev_node = vfs_get_vnode_from_path(&errno, 0, 0, "/dev", (vnode_ref_t){ NULL }, (vnode_ref_t){ NULL }, false);
-        if (errno)
+        vnode_ref_t dev_node = vfs_get_vnode_from_path(&_errno, 0, 0, "/dev", (vnode_ref_t){ NULL }, (vnode_ref_t){ NULL }, false);
+        if (_errno)
         {
-            perror("Couldn't find vnode for /dev");
+            pstrerror(_errno, "Couldn't find vnode for /dev");
             abort();
         }
 
@@ -602,9 +602,9 @@ void _start()
         vnode_delete_ref(&dev_node);
     }
     LOG(DEBUG, "Creating /tmp");
-    errno = vfs_create("tmp", vfs_root_node, 01777 | S_IFDIR, 0, 0);
-    if (errno)
-        perror("Couldn't create /tmp");
+    _errno = vfs_create("tmp", vfs_root_node, 01777 | S_IFDIR, 0, 0);
+    if (_errno)
+        pstrerror(_errno, "Couldn't create /tmp");
 
     LOG(INFO, "Set up the VFS.");
 

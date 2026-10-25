@@ -5,11 +5,9 @@ uint64_t PHYS_MAP_BASE = 0;
 uint8_t physical_address_width = 36; // M
 bool pat_enabled = false;
 
-#include "../cpu/memory.h"
 #include "paging.h"
 #include <string.h>
 #include "../memalloc/page_frame_allocator.h"
-#include "../multitasking/multitasking.h"
 #include "../memalloc/page_data.h"
 
 uint64_t* create_empty_pdpt()
@@ -21,7 +19,7 @@ physical_address_t create_empty_pdpt_phys()
 {
     physical_address_t paddr = pfa_allocate_physical_page();
     uint64_t* pdpt = (uint64_t*)(paddr + PHYS_MAP_BASE);
-    if (unlikely(!paddr))
+    if (!paddr)
     {
         LOG(ERROR, "Couldn't create PDPT!!!");
         return physical_null;
@@ -90,7 +88,7 @@ void set_pdpt_entry(uint64_t* entry, uint64_t address, uint8_t privilege, uint8_
     uint64_t pcd_bit = (pdpt_pat_bits[cache_type] & 3) >> 1,
              pwt_bit = (pdpt_pat_bits[cache_type] & 3) & 1;
 
-    assert (likely(((address & 0xfffffffffffff000) & get_physical_address_mask()) == address));
+    assert (((address & 0xfffffffffffff000) & get_physical_address_mask()) == address);
     *entry = address | (pcd_bit << 4) | (pwt_bit << 3) | ((privilege & 1) << 2) | ((read_write & 1) << 1) | 1;
 }
 

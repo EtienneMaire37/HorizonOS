@@ -6,8 +6,6 @@
 #include <stdbool.h>
 #include <abi-bits/errno.h>
 
-int errno;
-
 #include "../terminal/textio.h"
 #include "../debug/out.h"
 
@@ -71,7 +69,6 @@ int fflush(FILE* stream)
         return 0;
     case STDIN_FILENO:
     default:
-        errno = EBADF;
         return EOF;
     }
 }
@@ -258,10 +255,6 @@ int _printf(int (*func_c)(char), int (*func_s)(const char*), const char* format,
     // * -------------------- Conversion specifiers
         case 'c':
             print_char(va_arg(args, int));
-            (*i)++;
-            break;
-        case 'm':
-            print_string(strerror(errno));
             (*i)++;
             break;
         case 's':

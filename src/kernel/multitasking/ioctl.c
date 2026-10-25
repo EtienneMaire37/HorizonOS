@@ -5,6 +5,7 @@
 #include "../graphics/linear_framebuffer.h"
 #include "../terminal/textio.h"
 #include "../debug/out.h"
+#include "../vfs/open_file_descriptor_vector.h"
 
 #include <termios.h>
 #include <asm-generic/ioctls.h>
@@ -21,7 +22,7 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
         int _errno = vfs_isatty(fd);
         if (_errno)
         {
-            sc_ret_errno = errno;
+            sc_ret_errno = _errno;
             sc_ret(1) = -1;
             break;
         }
@@ -40,7 +41,7 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
         int _errno = vfs_isatty(fd);
         if (_errno)
         {
-            sc_ret_errno = errno;
+            sc_ret_errno = _errno;
             break;
         }
         *(pid_t*)arg = tty_foreground_pgrp;
@@ -58,7 +59,7 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
         int _errno = vfs_isatty(fd);
         if (_errno)
         {
-            sc_ret_errno = errno;
+            sc_ret_errno = _errno;
             break;
         }
         struct winsize* ws = arg;
@@ -80,7 +81,7 @@ void syscall_ioctl(interrupt_registers_t* registers, int fd, unsigned long reque
         int _errno = vfs_isatty(fd);
         if (_errno)
         {
-            sc_ret_errno = errno;
+            sc_ret_errno = _errno;
             break;
         }
         struct winsize* ws = arg;

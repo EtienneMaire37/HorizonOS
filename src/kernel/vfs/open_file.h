@@ -6,6 +6,7 @@
 #include "../util/ref.h"
 #include "../multicore/spinlock.h"
 #include "vnode_ref.h"
+#include "../multitasking/queue_def.h"
 
 typedef struct open_file_descriptor open_file_descriptor_t;
 typedef struct open_file_descriptor
@@ -19,6 +20,9 @@ typedef struct open_file_descriptor
 
     ssize_t (*read)(open_file_descriptor_t*, void*, size_t); 
     ssize_t (*write)(open_file_descriptor_t*, void*, size_t);
+
+    thread_queue_t blocked_on_io;
+    thread_queue_t blocked_on_poll;
 } open_file_descriptor_t;
 
 typedef struct
@@ -41,14 +45,10 @@ open_file_descriptor_ref_t open_file_descriptor_copy_ref(open_file_descriptor_re
 open_file_descriptor_ref_t vfs_allocate_new_open_file_descriptor(int flags, vnode_ref_t vnode, struct stat* st);
 void vfs_free_open_file_descriptor(int ofd);
 
-int vfs_allocate_thread_fd(open_file_descriptor_ref_t desc, int flags);
-bool vfs_get_thread_fd(int fd, open_file_descriptor_ref_t* desc, int* flags);
 int vfs_open(const char* path, int flags, mode_t mode,
              uid_t euid, gid_t egid,
              vnode_ref_t root, vnode_ref_t cwd,
              mode_t umask);
-int vfs_close(int fd);
-void vfs_close_all();
 
 void vfs_log_thread_fds();
 struct dirent64 vfs_find_new_child_entry(open_file_descriptor_ref_t open_file);

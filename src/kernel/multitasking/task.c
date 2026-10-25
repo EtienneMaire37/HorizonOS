@@ -11,10 +11,10 @@
 #include "hashmap.h"
 #include "multitasking.h"
 #include "preempt.h"
-#include "../vfs/poll.h"
 #include "../gdt/gdt.h"
 #include "../cpu/segbase.h"
 #include "../vfs/vnode.h"
+#include "../vfs/open_file_descriptor_vector.h"
 
 const uint64_t task_rsp_offset = offsetof(thread_t, rsp);
 const uint64_t task_cr3_offset = offsetof(thread_t, cr3);
@@ -53,8 +53,6 @@ thread_t* __task_create_empty()
     task->queue = NULL;
 
     task->can_be_killed = true;
-
-    __task_init_file_table(task);
 
     return task;
 }

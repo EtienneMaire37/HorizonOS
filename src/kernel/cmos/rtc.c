@@ -5,9 +5,9 @@
 #include "../time/time.h"
 #include "../cpu/registers.h"
 #include "../time/gdn.h"
+#include "../util/assert.h"
 
 #include <stdbool.h>
-#include <assert.h>
 
 bool rtc_binary_mode;   // 0 = BCD, 1 = Binary
 bool rtc_24_hour_mode;  // 0 = 12-hour, 1 = 24-hour
