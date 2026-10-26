@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "vfs/vnode.h"
 #include "vfs/fs/null.h"
+#include "vfs/fs/console.h"
 #include "memalloc/page_data.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -600,7 +601,7 @@ void _start()
     }
 
     vfs_create("null", dev_node, S_IFCHR | 0666, 0, 0, null_read, null_write);
-    vfs_create("tty", dev_node, S_IFCHR | 0666, 0, 0, NULL, NULL, .isatty = true);
+    vfs_create("tty", dev_node, S_IFCHR | 0666, 0, 0, console_read, console_write, .isatty = true);
     vfs_create("console", dev_node, S_IFCHR | 0666, 0, 0, NULL, NULL);
     
     vnode_delete_ref(&dev_node);

@@ -4,7 +4,7 @@
 #include "../util/ref.h"
 #include "../util/assert.h"
 
-inode_ref_t vfs_create_new_inode(const struct stat* st, void* fs_specific, void (*free_fs_specific_data)(void*), mountpoint_ref_t mp, bool isatty)
+inode_ref_t vfs_create_new_inode(const struct stat* st, void* fs_specific, void (*free_fs_specific_data)(void*), mountpoint_ref_t mp, bool isatty, ssize_t (*read)(inode_ref_t, void*, size_t, off_t), ssize_t (*write)(inode_ref_t, void*, size_t, off_t))
 {
     ASSERT(st);
     inode_t* newn = calloc(1, sizeof(inode_t));
@@ -23,6 +23,10 @@ inode_ref_t vfs_create_new_inode(const struct stat* st, void* fs_specific, void 
         newn->read = mp.ptr->read;
         newn->write = mp.ptr->write;
     }
+    if (read)
+        newn->read = read;
+    if (write)
+        newn->write = write;
     return (inode_ref_t){ newn };
 }
 

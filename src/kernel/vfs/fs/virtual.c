@@ -46,7 +46,7 @@ ssize_t virtfs_read(inode_ref_t inode, void* buf, size_t count, off_t offset)
     (void)offset;
     return -ENOSYS;
 }
-ssize_t virtfs_write(inode_ref_t inode, const void* buf, size_t count, off_t offset)
+ssize_t virtfs_write(inode_ref_t inode, void* buf, size_t count, off_t offset)
 {
     (void)inode;
     (void)buf;
@@ -81,7 +81,7 @@ vnode_t* virtfs_create_data()
     struct stat st = {0};
     st.st_mode = S_IFDIR;
 
-    inode_ref_t inode = vfs_create_new_inode(&st, NULL, NULL, (mountpoint_ref_t){ NULL }, false);
+    inode_ref_t inode = vfs_create_new_inode(&st, NULL, NULL, (mountpoint_ref_t){ NULL }, false, NULL, NULL);
     vnode_ref_t ref = vfs_create_new_vnode("virtfs_root", inode);
     inode_delete_ref(&inode);
     return ref.ptr;
@@ -114,7 +114,7 @@ inode_ref_t virtfs_create_root_inode(mountpoint_t* mp)
     st.st_nlink = 1;
     st.st_size = 0;
 
-    inode_ref_t inode = vfs_create_new_inode(&st, NULL, NULL, mp_ref, false);
+    inode_ref_t inode = vfs_create_new_inode(&st, NULL, NULL, mp_ref, false, NULL, NULL);
     if (!inode.ptr) return inode;
     inode.ptr->st.st_nlink = 1;
     return inode;

@@ -40,8 +40,8 @@ typedef struct
 {
     inode_ref_t inode;
     struct stat st;
-    ssize_t (*read)(vnode_ref_t, void*, size_t, off_t);
-    ssize_t (*write)(vnode_ref_t, const void*, size_t, off_t);
+    ssize_t (*read)(inode_ref_t, void*, size_t, off_t);
+    ssize_t (*write)(inode_ref_t, void*, size_t, off_t);
     void* fs_specific;
     void (*free_fs_specific_data)(void*);
     bool explored;
@@ -53,8 +53,8 @@ typedef struct
 
 typedef struct
 {
-    ssize_t (*read)(vnode_ref_t, void*, size_t, off_t);
-    ssize_t (*write)(vnode_ref_t, const void*, size_t, off_t);
+    ssize_t (*read)(inode_ref_t, void*, size_t, off_t);
+    ssize_t (*write)(inode_ref_t, void*, size_t, off_t);
     size_t size; // For block special files
     bool isatty;
     // Add here
@@ -72,9 +72,6 @@ void ___vnode_free(const struct ref* ref);
 vnode_ref_t vfs_create_new_vnode(const char* name, inode_ref_t inode);
 int vfs_add_new_child_node(vnode_ref_t node, const char* name, const struct stat* st, void* fs_specific, void (*free_fs_specific_data)(void*));
 int _vfs_add_new_child_node_ex(vnode_ref_t node, const char* name, vfs_add_new_child_node_ex_params_t params);
-int vfs_add_new_special_child_node(vnode_ref_t node, const char* name, mode_t mode, uid_t uid, gid_t gid,
-    ssize_t (*read)(vnode_ref_t, void*, size_t, off_t), ssize_t (*write)(vnode_ref_t, const void*, size_t, off_t),
-    void* fs_specific, void (*free_fs_specific_data)(void*));
 int vfs_add_new_child_node__hardlink(vnode_ref_t node, const char* name, inode_ref_t inode);
 #define vfs_unload_children(node) _vfs_unload_children((node), false, false);
 #define vfs_unload_children_locked(node) _vfs_unload_children((node), true, false);
@@ -91,7 +88,7 @@ vnode_ref_t vfs_get_vnode_from_path(int* _errno, uid_t uid, gid_t gid, const cha
 int vfs_unmount(vnode_ref_t ref, bool lazy);
 
 ssize_t vnode_read(vnode_ref_t ref, void* buf, size_t bytes, off_t offset);
-ssize_t vnode_write(vnode_ref_t ref, const void* buf, size_t bytes, off_t offset);
+ssize_t vnode_write(vnode_ref_t ref, void* buf, size_t bytes, off_t offset);
 struct stat vnode_stat(vnode_ref_t vnode);
 
 int vfs_mount(vnode_ref_t ref, vnode_ref_t dev, const char* fstype);
