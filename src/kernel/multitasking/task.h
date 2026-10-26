@@ -40,6 +40,7 @@ void task_stack_push_string(thread_t* task, const char* str);
 void task_stack_push_data(thread_t* task, void* data, size_t bytes);
 
 vnode_ref_t task_get_cwd(thread_t* task);
+vnode_ref_t __task_get_cwd(thread_t* task);
 
 void cleanup_tasks();
 

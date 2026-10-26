@@ -381,7 +381,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_validate_pointer(arg3);
         startup_data_struct_t data = startup_data_init_from_command(arg2, arg3);
         uint32_t flags = lock_scheduler();
-        vnode_ref_t cwd = task_get_cwd(current_task);
+        vnode_ref_t cwd = __task_get_cwd(current_task);
         thread_t* new_task = __multitasking_add_task_from_vfs(arg1, arg1, 3, false, &data, cwd);
         vnode_delete_ref(&cwd);
         if (!new_task)
@@ -471,7 +471,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         SC_LOG("syscall SYS_CHDIR(\"%s\")", arg1);
         sc_validate_pointer(arg1);
         uint32_t flags = lock_scheduler();
-        vnode_ref_t old_cwd = task_get_cwd(current_task);
+        vnode_ref_t old_cwd = __task_get_cwd(current_task);
         vnode_delete_ref(&current_task->cwd);
         int _errno;
         vnode_ref_t new_cwd = vfs_get_vnode_from_path(&_errno, 0, 0, arg1, vfs_root_node, old_cwd, true);

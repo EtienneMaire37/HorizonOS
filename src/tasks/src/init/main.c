@@ -1,3 +1,4 @@
+#include "abi-bits/fcntl.h"
 #include <signal.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -9,6 +10,12 @@
 int main(int argc, char** argv)
 {
     setsid();
+
+    if (open("/dev/tty", O_RDONLY) != 0) abort();
+    if (open("/dev/tty", O_WRONLY) != 1) abort();
+    if (open("/dev/tty", O_WRONLY) != 2) abort();
+
+    printf("Loaded console file descriptors\n");
 
     tcsetpgrp(STDIN_FILENO, getpgrp());
 
@@ -31,6 +38,7 @@ int main(int argc, char** argv)
     setenv("LINES", row, 0);
     setenv("COLUMNS", col, 0);
 
+    printf("Starting bash...\n");
     execvp("bash", (char*[]){"bash", (char*)NULL});
 
     perror("init: Couldn't run `bash`");

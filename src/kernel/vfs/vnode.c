@@ -465,7 +465,6 @@ vnode_ref_t vfs_get_vnode_from_path(int* _errno, uid_t uid, gid_t gid, const cha
     ASSERT(_errno);
     ASSERT(path);
     if (!root.ptr) root = vfs_root_node;
-    LOG(TRACE, "Searching for vnode with path \"%s\"", path);
     *_errno = 0;
     ASSERT(root.ptr);
     vnode_ref_t ecwd = (cwd.ptr && !S_ISDIR(vnode_stat(cwd).st_mode)) ? vnode_dereference_vnode(cwd, parent) : (cwd.ptr ? vnode_copy_ref(cwd) : vnode_copy_ref(root));
@@ -758,7 +757,11 @@ int _vfs_create(const char* name, vnode_ref_t parent, mode_t mode, uid_t uid, gi
     void (*free_fs_specific_data)(void*) = NULL;
     if (mountpoint.ptr->create) ret = mountpoint.ptr->create(name, parent, &st, &fs_specific, &free_fs_specific_data);
     mountpoint_delete_ref(&mountpoint);
-    if (ret) return ret;
+    if (ret)
+    {
+        release_spinlock_noint(&parent.ptr->exploration_lock, flags);
+        return ret;
+    }
     LOG(TRACE, "Adding vnode to tree...");
     ret = vfs_add_new_child_node_ex(parent, name, (inode_ref_t){ NULL }, st, .fs_specific = fs_specific, .free_fs_specific_data = free_fs_specific_data, .explored = true, .isatty = params.isatty);
     release_spinlock_noint(&parent.ptr->exploration_lock, flags);

@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "vfs/vnode.h"
+#include "vfs/fs/null.h"
 #include "memalloc/page_data.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -583,6 +584,27 @@ void _start()
         pstrerror(_errno, "Couldn't mount root");
         abort();
     }
+
+    vnode_ref_t dev_node = vfs_get_vnode_from_path(&_errno, 0, 0, "/dev", (vnode_ref_t){ NULL }, (vnode_ref_t){ NULL }, false);
+    if (_errno)
+    {
+        pstrerror(_errno, "Couldn't find vnode for /dev");
+        abort();
+    }
+
+    _errno = vfs_mount(dev_node, (vnode_ref_t){ NULL }, "virt");
+    if (_errno)
+    {
+        pstrerror(_errno, "Couldn't mount /dev");
+        abort();
+    }
+
+    vfs_create("null", dev_node, S_IFCHR | 0666, 0, 0, null_read, null_write);
+    vfs_create("tty", dev_node, S_IFCHR | 0666, 0, 0, NULL, NULL, .isatty = true);
+    vfs_create("console", dev_node, S_IFCHR | 0666, 0, 0, NULL, NULL);
+    
+    vnode_delete_ref(&dev_node);
+    
     LOG(TRACE, "Done");
 
     LOG(INFO, "Set up the VFS.");

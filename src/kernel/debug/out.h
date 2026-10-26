@@ -50,9 +50,9 @@ static const char* LOG_LEVEL_COLOR[] =
 
 extern bool first_log;
 
-#define LOG_FMT         "%12" PRIu64 ".%03" PRIu64 " - %s%s \t"
+#define LOG_FMT         "%12" PRIu64 ".%03" PRIu64 " - %44s:%4d - %s%s \t"
 
-#define LOG_FMT_NOTIME  "____________.___ - %s%s \t"
+#define LOG_FMT_NOTIME  "____________.___ - %44s:%4d - %s%s \t"
 
 #ifndef LOG_LEVEL
 #define LOG_LEVEL NO_LOGS
@@ -66,8 +66,9 @@ extern bool first_log;
     if (time_initialized) \
         fprintf(stderr, LOG_FMT, \
             (uint64_t)current_time.tv_sec, (uint64_t)current_time.tv_nsec / 1000000, \
+            __FILE__, __LINE__, \
             LOG_LEVEL_COLOR[level], LOG_LEVEL_STR[level]); \
-    else fprintf(stderr, LOG_FMT_NOTIME, LOG_LEVEL_COLOR[level], LOG_LEVEL_STR[level]); \
+    else fprintf(stderr, LOG_FMT_NOTIME, __FILE__, __LINE__, LOG_LEVEL_COLOR[level], LOG_LEVEL_STR[level]); \
     fprintf(stderr, __VA_ARGS__); \
 } while (0)
 

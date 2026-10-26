@@ -532,9 +532,13 @@ vnode_ref_t task_get_cwd(thread_t* task)
     // TODO: Add lock to thread structure directly!!!!!
     // FIXME ASAP
     uint32_t flags = lock_scheduler();
-    vnode_ref_t ret = vnode_copy_ref(task->cwd);
+    vnode_ref_t ret = __task_get_cwd(task);
     unlock_scheduler(flags);
     return ret;
+}
+vnode_ref_t __task_get_cwd(thread_t* task)
+{
+    return vnode_copy_ref(task->cwd);
 }
 
 void __kill_task(thread_t* task, int ret)

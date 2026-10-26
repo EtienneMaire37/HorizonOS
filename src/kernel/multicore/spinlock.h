@@ -19,9 +19,13 @@ typedef struct
 #define SPINLOCK_INIT           ((spinlock_t){ ATOMIC_FLAG_INIT })
 #define SPINLOCK_NOINT_INIT     ((spinlock_noint_t){ ATOMIC_FLAG_INIT })
 
+static inline __attribute__((always_inline)) bool try_acquire_flag(atomic_flag* flag)
+{
+	return atomic_flag_test_and_set_explicit(flag, memory_order_acquire);
+}
 static inline __attribute__((always_inline)) bool try_acquire_spinlock(spinlock_t* spinlock)
 {
-	return atomic_flag_test_and_set_explicit(&spinlock->flag, memory_order_acquire);
+	return try_acquire_flag(&spinlock->flag);
 }
 
 static inline __attribute__((always_inline)) void acquire_spinlock(spinlock_t* spinlock)
@@ -45,7 +49,7 @@ static inline bool try_acquire_spinlock_noint(spinlock_noint_t* spinlock, uint32
     disable_interrupts();
     if (eflags & (1 << 9))
     {
-        if (try_acquire_spinlock((spinlock_t*)spinlock))
+        if (try_acquire_flag(&spinlock->flag))
         {
             enable_interrupts();
             return true;
@@ -60,7 +64,7 @@ static inline uint32_t acquire_spinlock_noint(spinlock_noint_t* spinlock)
 {
     uint32_t eflags = get_rflags();
     disable_interrupts();
-    while (try_acquire_spinlock((spinlock_t*)spinlock))
+    if (try_acquire_flag(&spinlock->flag))
     {
         FATAL("DEADLOCK");
         set_rflags_if(eflags);

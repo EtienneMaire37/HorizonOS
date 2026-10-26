@@ -4,6 +4,7 @@
 #include "vnode.h"
 #include "mountpoint.h"
 #include "../multicore/spinlock.h"
+#include "../debug/out.h"
 
 #include <assert.h>
 #include <linux/limits.h>
@@ -15,6 +16,7 @@ int _vfs_explore(vnode_ref_t ref, bool el)
     vnode_t* node = ref.ptr;
     if (!node) return ENOENT;
     uint32_t flags = acquire_spinlock_noint(&node->lock);
+    uint32_t entry_flags = flags;
     if ((node->flags & VNODE_EXPLORED) || (node->flags & VNODE_EXPLORING))
     {
         release_spinlock_noint(&node->lock, flags);
@@ -41,7 +43,7 @@ int _vfs_explore(vnode_ref_t ref, bool el)
     node->flags |= VNODE_EXPLORED;
     node->flags &= ~VNODE_EXPLORING;
     if (!el) release_spinlock_noint(&node->exploration_lock, flags2);
-    release_spinlock_noint(&node->lock, flags);
+    release_spinlock_noint(&node->lock, entry_flags);
 
     return ret;
 }
