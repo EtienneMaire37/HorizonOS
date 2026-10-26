@@ -82,11 +82,12 @@ void __task_set_pid(thread_t* task, pid_t pid)
     hashmap_set_item(pid_to_task_hashmap, task->pid, task);
 }
 
-void __task_destroy(thread_t* task)
+void task_destroy(thread_t* task)
 {
     LOG(TRACE, "Destroying task %p: \"%s\" (pid = %d, ring = %u) (%d tasks left)",
         task, task->name, task->pid, task->ring, task_count - 1);
 
+    uint32_t eflags = lock_scheduler();
     hashmap_remove_item(pid_to_task_hashmap, task->pid);
     __tq_hashmap_remove(pgid_to_tq_hashmap, task->pgid, task);
 
@@ -94,23 +95,16 @@ void __task_destroy(thread_t* task)
     if (parent)
         __tq_hashmap_remove(pid_to_children_tq_hashmap, parent->pid, task);
 
-    ofdv_closeall(&task->open_file_table);
-
     __task_stop_polling(task);
-
 
     ASSERT(task->_poll_tqs == TQ_INIT);
     fpu_state_destroy(&task->fpu_state);
     task_free_vas((physical_address_t)task->cr3);
     vnode_delete_ref(&task->cwd);
-    free(task);
-}
+    unlock_scheduler(eflags);
+    ofdv_closeall(&task->open_file_table);
 
-void task_destroy(thread_t* task)
-{
-    uint32_t flags = lock_scheduler();
-    __task_destroy(task);
-    unlock_scheduler(flags);
+    free(task);
 }
 
 void task_setup_stack_ex(thread_t* task,
@@ -442,7 +436,11 @@ void cleanup_tasks()
             {
                 thread_queue_item_t* removed_item = cur_reapable_task;
                 cur_reapable_task = cur_reapable_task->next;
-                __task_destroy(task_to_kill);
+                // NOTE: Nothing about this is thread safe
+                // Will be rewritten soon enough that it's not a problem
+                unlock_scheduler(flags);
+                task_destroy(task_to_kill);
+                flags = lock_scheduler();
                 task_count--;
                 __thread_queue_remove(&reapable_tasks, removed_item);
             }

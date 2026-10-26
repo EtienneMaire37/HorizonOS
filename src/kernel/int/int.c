@@ -4,11 +4,11 @@
 initrd_file_t* kernel_symbols_file = NULL;
 
 #include <sys/wait.h>
+#include <stdio.h>
 
 #include "../multitasking/syscall.h"
 #include "int.h"
 #include "irq.h"
-#include "nmi.h"
 #include "../gdt/gdt.h"
 #include "../multitasking/multitasking.h"
 #include "../panic/panic.h"
@@ -17,14 +17,17 @@ initrd_file_t* kernel_symbols_file = NULL;
 
 void interrupt_handler(interrupt_registers_t* registers)
 {
-    task_enter_critical_section(current_task);
-
+    // To fix race condition where an nmi fires when inside an irq disabling lock
     if (registers->interrupt_number == NON_MASKABLE_INTERRUPT)
     {
-        LOG(TRACE, "NMI: %#x, %#x", inb(SYSTEM_CONTROL_PORT_A), inb(SYSTEM_CONTROL_PORT_B));
+        // DEBUG
+        // LOG(TRACE, "NMI: %#x, %#x", inb(SYSTEM_CONTROL_PORT_A), inb(SYSTEM_CONTROL_PORT_B));
 
         return_from_isr();
     }
+    
+    task_enter_critical_section(current_task);
+
     if (registers->interrupt_number < 32)       // * Fault
     {
         #define EXCEPTION_LOG_DATA      "Fault : Exception number : %" PRIu64 " ; Error : %s ; Error code = %#" PRIx64 " ; cr2 = %#" PRIx64 " ; cr3 = %#" PRIx64 " ; rip = %#" PRIx64, \

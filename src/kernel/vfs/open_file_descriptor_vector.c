@@ -3,11 +3,11 @@
 #include "abi-bits/fcntl.h"
 #include "inode.h"
 #include "inode_stack.h"
-#include "vnode.h"
 #include "../cpu/tsc.h"
 #include "open_file.h"
 #include "../multitasking/multitasking.h"
 #include "../multitasking/queue.h"
+#include "vnode.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>

@@ -1,5 +1,6 @@
 #include <elf.h>
 #include <string.h>
+#include <stdio.h>
 #include "loader.h"
 #include "sched_lock.h"
 #include "vas.h"

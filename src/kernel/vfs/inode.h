@@ -5,6 +5,7 @@
 #include "inode_ref.h"
 #include "../multicore/spinlock.h"
 #include <sys/stat.h>
+#include <sys/types.h>
 
 struct inode
 {

@@ -7,6 +7,7 @@
 #include "../io/io.h"
 #include <stdbool.h>
 #include <inttypes.h>
+#include <stdio.h>
 
 #define LOG_LEVEL_TRACE     0
 #define LOG_LEVEL_DEBUG     1
