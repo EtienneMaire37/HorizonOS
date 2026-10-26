@@ -114,7 +114,7 @@ open_file_descriptor_vector_t ofdv_copyall(open_file_descriptor_vector_t* vec, b
 
 int vfs_isatty_ofd(open_file_descriptor_t* ofd)
 {
-    ASSERT(ofd);
+    if (!ofd) return EBADF;
     int ret;
     if (ofd)
     {

@@ -185,22 +185,19 @@ void ps2_handle_keyboard_scancode(uint8_t port, uint8_t scancode, bool* send_sig
                 ps2_keyboard_state[current_ps2_keyboard_scancodes[port_index].scancode] |= (1 << port_index);
 
             virtual_key_t vk = current_ps2_keyboard_scancodes[port_index].extended ? current_keyboard_layout->ps2_layout_data.vk_table_e0[current_ps2_keyboard_scancodes[port_index].scancode] : current_keyboard_layout->ps2_layout_data.vk_table[current_ps2_keyboard_scancodes[port_index].scancode];
-            // if (current_ps2_keyboard_scancodes[port_index].release)
+            switch (vk)
             {
-                switch (vk)
-                {
-                case VK_CAPSLOCK:
-                    ps2_kb_caps_lock[port - 1] ^= 1;
-                    break;
-                case VK_SCROLLLOCK:
-                    ps2_kb_scroll_lock[port - 1] ^= 1;
-                    break;
-                case VK_NUMLOCK:
-                    ps2_kb_num_lock[port - 1] ^= 1;
-                    break;
-                default:
-                    ;
-                }
+            case VK_CAPSLOCK:
+                ps2_kb_caps_lock[port - 1] ^= 1;
+                break;
+            case VK_SCROLLLOCK:
+                ps2_kb_scroll_lock[port - 1] ^= 1;
+                break;
+            case VK_NUMLOCK:
+                ps2_kb_num_lock[port - 1] ^= 1;
+                break;
+            default:
+                ;
             }
 
             // ps2_kb_update_leds(port);

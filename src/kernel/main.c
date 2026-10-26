@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include "vfs/vnode.h"
 #include "memalloc/page_data.h"
-#include "vfs/explore.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -670,6 +669,7 @@ void _start()
     printf("Starting multitasking...\n\n");
 
     log_segbase();
+    vfs_log_structure(vfs_root_node);
 
     multitasking_start();
 

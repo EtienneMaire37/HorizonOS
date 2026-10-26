@@ -14,7 +14,7 @@ typedef struct open_file_descriptor
     int flags;
     vnode_ref_t vnode;
     struct stat st;
-    off_t offset;
+    _Atomic off_t offset;
     spinlock_noint_t lock;
     struct ref ref;
 
@@ -43,12 +43,8 @@ void open_file_descriptor_delete_ref(open_file_descriptor_ref_t* ref);
 open_file_descriptor_ref_t open_file_descriptor_copy_ref(open_file_descriptor_ref_t ref);
 
 open_file_descriptor_ref_t vfs_allocate_new_open_file_descriptor(int flags, vnode_ref_t vnode, struct stat* st);
+open_file_descriptor_ref_t vfs_create_new_file_descriptor_from_vnode(int* _errno, int flags, vnode_ref_t vnode, struct stat* st);
 void vfs_free_open_file_descriptor(int ofd);
-
-int vfs_open(const char* path, int flags, mode_t mode,
-             uid_t euid, gid_t egid,
-             vnode_ref_t root, vnode_ref_t cwd,
-             mode_t umask);
 
 void vfs_log_thread_fds();
 struct dirent64 vfs_find_new_child_entry(open_file_descriptor_ref_t open_file);

@@ -14,8 +14,8 @@
 #include "../util/assert.h"
 #include "../multitasking/queue.h"
 #include "../util/lambda.h"
+#include "inode.h"
 #include "open_file_descriptor_vector.h"
-#include "../multitasking/multitasking.h"
 
 void open_file_descriptor_delete_ref(open_file_descriptor_ref_t* ref)
 {
@@ -35,6 +35,7 @@ open_file_descriptor_ref_t open_file_descriptor_copy_ref(open_file_descriptor_re
 
 open_file_descriptor_ref_t vfs_allocate_new_open_file_descriptor(int flags, vnode_ref_t vnode, struct stat *st)
 {
+    ASSERT(st);
     open_file_descriptor_ref_t ref = { calloc(1, sizeof(open_file_descriptor_t)) };
     if (!ref.ptr) return ref;
     ref.ptr->ref = OPEN_FD_REF_INIT;
@@ -43,17 +44,42 @@ open_file_descriptor_ref_t vfs_allocate_new_open_file_descriptor(int flags, vnod
     ref.ptr->lock = SPINLOCK_NOINT_INIT;
     ref.ptr->flags = flags;
     ref.ptr->offset = 0;
-    // TODO: Make a wrapper around vnode's io functions
-    // or just design this better
     return ref;
 }
 
-open_file_descriptor_ref_t vfs_create_new_file_descriptor_from_vnode(int* _errno, int flags, vnode_ref_t vnode)
+ssize_t ofd_vnode_read(open_file_descriptor_t* ofd, void* buf, size_t bytes)
+{
+    ASSERT(ofd);
+    ASSERT(ofd->vnode.ptr);
+    inode_ref_t inode = inode_stack_top_inode(&ofd->vnode.ptr->inodes);
+    if (!inode.ptr) return -EBADF;
+    if (S_ISDIR(inode.ptr->st.st_mode)) return -EISDIR;
+    ASSERT(inode.ptr->read);
+    ssize_t ret = inode.ptr->read(inode, buf, bytes, ofd->offset);
+    if (ret > 0) ofd->offset += ret;
+    inode_delete_ref(&inode);
+    return ret;
+}
+ssize_t ofd_vnode_write(open_file_descriptor_t* ofd, void* buf, size_t bytes)
+{
+    ASSERT(ofd);
+    ASSERT(ofd->vnode.ptr);
+    inode_ref_t inode = inode_stack_top_inode(&ofd->vnode.ptr->inodes);
+    if (!inode.ptr) return -EBADF;
+    if (S_ISDIR(inode.ptr->st.st_mode)) return -EISDIR;
+    ASSERT(inode.ptr->write);
+    ssize_t ret = inode.ptr->write(inode, buf, bytes, ofd->offset);
+    if (ret > 0) ofd->offset += ret;
+    inode_delete_ref(&inode);
+    return ret;
+}
+
+open_file_descriptor_ref_t vfs_create_new_file_descriptor_from_vnode(int* _errno, int flags, vnode_ref_t vnode, struct stat* _st)
 {
     ASSERT(_errno);
     ASSERT(vnode.ptr);
     *_errno = 0;
-    struct stat st = vnode_stat(vnode);
+    struct stat st = _st ? *_st : vnode_stat(vnode);
     open_file_descriptor_ref_t ofd = vfs_allocate_new_open_file_descriptor(flags, vnode, &st);
     if (!ofd.ptr)
     {
@@ -61,6 +87,8 @@ open_file_descriptor_ref_t vfs_create_new_file_descriptor_from_vnode(int* _errno
         return ofd;
     }
     mountpoint_ref_t mp = inode_stack_top_mountpoint(&vnode.ptr->inodes);
+    ofd.ptr->read = ofd_vnode_read;
+    ofd.ptr->write = ofd_vnode_write;
     uint32_t eflags = acquire_spinlock_noint(&mp.ptr->lock);
     bool unmounting = mp.ptr->unmounting;
     if (!unmounting)
@@ -98,68 +126,6 @@ void ___open_file_descriptor_free(const struct ref *ref)
     __remove_all_tasks_from_queue(&ofd->blocked_on_poll);    free(ofd);
     unlock_scheduler(flags);
     free(ofd);
-}
-
-int vfs_open(const char* path, int flags, mode_t mode,
-             uid_t euid, gid_t egid,
-             vnode_ref_t root, vnode_ref_t cwd,
-             mode_t umask)
-{
-    ASSERT(root.ptr); // Should always be the root of the current process (probably)
-    ASSERT(cwd.ptr);  // Should always be the current working directory of the current process (not null)
-
-    // Not implemented
-    if (flags & ~(O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC)) return EINVAL;
-
-    // Invalid flag combinations
-    if ((flags & O_EXCL) && !(flags & O_CREAT)) return EINVAL;
-
-    // TODO: Implement ACLs
-    mode &= ~umask;
-    
-    int _errno;
-    vnode_ref_t vnode = vfs_get_vnode_from_path(&_errno, euid, egid, path, root, cwd, !(flags & O_NOFOLLOW));
-
-    int ret = -ENOSYS;
-    if (!vnode.ptr)
-    {
-        if (_errno == ENOENT && (flags & O_CREAT))
-        {
-            // TODO: Implement file creation
-        }
-        ret = -_errno;
-        goto end;
-    }
-    else
-    {
-        mode = vnode_stat(vnode).st_mode;
-        if ((flags & O_DIRECTORY) && !S_ISDIR(mode))
-        {
-            ret = -ENOTDIR;
-            goto end;
-        }
-        if ((flags & O_CREAT) && (flags & O_EXCL))
-        {
-            ret = -EEXIST;
-            goto end;
-        }
-        if ((flags & O_TRUNC) && S_ISREG(mode))
-        {
-            // TODO: trunc
-        }
-    }
-    open_file_descriptor_ref_t desc = vfs_create_new_file_descriptor_from_vnode(&_errno, flags, vnode);
-    if (!desc.ptr)
-    {
-        ret = -_errno;
-        goto end;
-    }
-    ret = ofdv_open(&current_task->open_file_table, (open_file_descriptor_entry_t){ .flags = (flags & O_CLOEXEC) ? FD_CLOEXEC : 0, .fd = desc });
-    open_file_descriptor_delete_ref(&desc);
-    if (ret == -1) ret = -EMFILE;
-end:
-    vnode_delete_ref(&vnode);
-    return ret;
 }
 
 struct dirent64 vfs_find_new_child_entry(open_file_descriptor_ref_t open_file)
