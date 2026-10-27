@@ -30,7 +30,6 @@ void switch_task();
 void multitasking_init();
 void multitasking_start();
 
-void __task_copy_file_table(thread_t* from, thread_t* to, bool cloexec);
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec);
 
 void task_stack_push(thread_t*, uint64_t);

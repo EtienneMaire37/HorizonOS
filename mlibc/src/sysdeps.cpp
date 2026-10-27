@@ -41,6 +41,14 @@ namespace mlibc
 		*bytes_read = (ssize_t)r64;
 		return ret;
 	}
+	int sys_readlink(const char* path, void* buffer, size_t max_size, ssize_t* length)
+	{
+		uint64_t ret;
+		int _errno =  syscall3_2(SYS_READLINK, (uint64_t)path, (uint64_t)buffer, (uint64_t)max_size, &ret);
+		*length = (ssize_t)ret;
+		return _errno;
+	}
+
 	int sys_write(int fd, void const* buf, size_t size, ssize_t* bytes_written)
 	{
 		uint64_t r64;

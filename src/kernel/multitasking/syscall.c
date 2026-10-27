@@ -122,6 +122,29 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         open_file_descriptor_delete_ref(&open_file);
         sc_ret(1) = (uint64_t)ret;
         break;
+	sc_case(SYS_READLINK, 3, const char*, char*, size_t)
+        SC_LOG("syscall SYS_READLINK(%s, %p, %zu)", arg1, arg2, arg3);
+        sc_validate_pointer(arg1);
+        sc_validate_pointer(arg2);
+        vnode_ref_t cwd = task_get_cwd(current_task);
+        int _errno;
+        vnode_ref_t vnode = vfs_get_vnode_from_path(&_errno, 0, 0, arg1, vfs_root_node, cwd, false);
+        vnode_delete_ref(&cwd);
+        if (!vnode.ptr)
+        {
+            sc_ret_errno = _errno;
+            break;
+        }
+        if (!S_ISLNK(vnode_stat(vnode).st_mode))
+        {
+            sc_ret_errno = EINVAL;
+            break;
+        }
+        ssize_t ret = vnode_read(vnode, arg2, arg3, 0);
+        vnode_delete_ref(&vnode);
+        sc_ret_errno = ret < 0 ? -ret : 0;
+        sc_ret(1) = ret;
+        break;
     sc_case(SYS_EXIT, 1, int)
         SC_LOG("syscall SYS_EXIT(%d)", arg1);
         kill_task(current_task, ((uint16_t)arg1 & 0x7f) << 8);
@@ -293,7 +316,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 break;
             }
         }
-        vnode_ref_t cwd = (arg1 == AT_FDCWD) ? task_get_cwd(current_task) : dir_open_file.ptr ? vnode_copy_ref(dir_open_file.ptr->vnode) : (vnode_ref_t){ NULL };
+        vnode_ref_t cwd = (arg1 == AT_FDCWD) ? task_get_cwd(current_task) :
+                          (dir_open_file.ptr ? vnode_copy_ref(dir_open_file.ptr->vnode) : (vnode_ref_t){ NULL });
         open_file_descriptor_delete_ref(&dir_open_file);
 
         int _errno;
@@ -309,10 +333,17 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
 
         struct stat st = vnode_stat(file_node);
+        if (S_ISLNK(st.st_mode))
+        {
+            vnode_delete_ref(&file_node);
+            sc_ret_errno = ELOOP;
+            break;
+        }
 
         if ((arg3 & O_DIRECTORY) && !S_ISDIR(st.st_mode))
         {
             sc_ret_errno = ENOTDIR;
+            vnode_delete_ref(&file_node);
             break;
         }
 

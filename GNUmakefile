@@ -98,7 +98,7 @@ bin/%.o: src/kernel/%.c src/kernel/link.ld limine/limine $(MLIBC_STAMP)
 	-mgeneral-regs-only \
 	-DNDEBUG \
 	-Wno-unused-function -Wno-unused-variable -Wno-address-of-packed-member -Wno-format-zero-length \
-	${CFLAGS} -I limine-protocol/include
+	${KERNEL_CFLAGS} -I limine-protocol/include
 bin/%.asm.o: src/kernel/%.asm src/kernel/link.ld $(MLIBC_STAMP)
 	mkdir -p $(dir $@)
 	nasm -f elf64 $< -o $@
@@ -106,7 +106,7 @@ $(KERNEL_ELF): $(KERNEL_OBJ) $(ASM_OBJ)
 	$(HOSGCC) -nostdlib -T src/kernel/link.ld -ffreestanding -pie -static \
 	-o $@ \
 	$(KERNEL_OBJ) $(ASM_OBJ) \
-	-lgcc ${LDFLAGS}
+	-lgcc ${KERNEL_LDFLAGS}
 # 	$(CROSSSTRIP) $@
 
 run:	bios-run

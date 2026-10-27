@@ -346,21 +346,18 @@ thread_t* __find_task_by_pid_anywhere(pid_t pid)
 
 void task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
 {
-    uint32_t flags = get_rflags(); // TODO: Add proper locking support to the VFS with RCU and spinlocks/mutexes. // https://wiki.osdev.org/Kernel_Debugging#Develop_in_hosted_environment
-    __task_copy_file_table(from, to, cloexec);
-    set_rflags_if(flags);
-}
-void __task_copy_file_table(thread_t* from, thread_t* to, bool cloexec)
-{
     ofdv_closeall(&to->open_file_table);
     to->open_file_table = ofdv_copyall(&from->open_file_table, cloexec);
     // Not sure how to handle this cleanly
     // Maybe tasks should wait for their clone to be created before returning from the fork syscall
     // TODO: Do this
+    // FIXME Actually this would also fix a bug where bash forks and then wait4's before the child is actually created
+    // XXX: TODO
+    // ASAP
     ASSERT(to->open_file_table.data);
 }
 
-void __fork_task(thread_t* task)
+void fork_task(thread_t* task)
 {
     // TODO: CoW
     ASSERT(task);
@@ -372,7 +369,9 @@ void __fork_task(thread_t* task)
 
     new_task->pid = -1;
 
+    uint32_t eflags = lock_scheduler();
     __task_set_pid(new_task, task->forked_pid);
+    unlock_scheduler(eflags);
 
     new_task->forked_pid = 0;
     new_task->system_task = task->system_task;
@@ -380,13 +379,22 @@ void __fork_task(thread_t* task)
     new_task->cr3 = task_create_empty_vas((new_task->ring == 0) ? PG_SUPERVISOR : PG_USER);
     new_task->rsp = task->rsp;
 
-    new_task->fpu_state = fpu_state_create_copy(task->fpu_state);
+    vnode_copy_ref(new_task->cwd);
 
-    __task_copy_file_table(task, new_task, false);
+    eflags = lock_scheduler();
+    new_task->fpu_state = fpu_state_create_copy(task->fpu_state);
+    unlock_scheduler(eflags);
+
+    new_task->open_file_table.allocated = 0;
+    new_task->open_file_table.size = 0;
+    new_task->open_file_table.data = 0;
+    new_task->open_file_table.lock = SPINLOCK_NOINT_INIT;
+    task_copy_file_table(task, new_task, false);
 
     new_task->ppid = task->pid;
     new_task->wait_pid = -1;
 
+    eflags = lock_scheduler();
     copy_vas((uint64_t*)(task->cr3 + PHYS_MAP_BASE), (uint64_t*)(new_task->cr3 + PHYS_MAP_BASE), 0, TASK_STACK_TOP_ADDRESS >> 12);
 
     new_task->pgid = -1;
@@ -403,6 +411,7 @@ void __fork_task(thread_t* task)
     // tq_hashmap_log(pid_to_children_tq_hashmap);
 
     __multitasking_add_task(new_task);
+    unlock_scheduler(eflags);
     task_count++;
 }
 
@@ -420,7 +429,10 @@ void cleanup_tasks()
             if (task_to_fork != current_task)
             {
                 __move_task_to_running_queue(&forked_tasks, task_to_fork);
-                __fork_task(task_to_fork);
+                // It's incredible how non thread safe this is
+                unlock_scheduler(flags);
+                fork_task(task_to_fork);
+                flags = lock_scheduler();
             }
         }
         while (forked_tasks && cur_forked_task->prev != cur_forked_task);

@@ -93,6 +93,11 @@ open_file_descriptor_vector_t ofdv_copyall(open_file_descriptor_vector_t* vec, b
 {
     open_file_descriptor_vector_t ret = { NULL , 0, 0, SPINLOCK_NOINT_INIT };
     uint32_t flags = acquire_spinlock_noint(&vec->lock);
+    if (!vec->allocated)
+    {
+        release_spinlock_noint(&vec->lock, flags);
+        return ret;
+    }
     if (!(ret.data = malloc(vec->allocated)))
     {
         release_spinlock_noint(&vec->lock, flags);
@@ -101,10 +106,10 @@ open_file_descriptor_vector_t ofdv_copyall(open_file_descriptor_vector_t* vec, b
     memcpy(ret.data, vec->data, vec->size * sizeof(open_file_descriptor_entry_t));
     ret.size = vec->size;
     ret.allocated = vec->allocated;
-    for (size_t i = 0; i < vec->size; i++)
+    for (size_t i = 0; i < ret.size; i++)
     {
         if (cloexec && (vec->data[i].flags & FD_CLOEXEC))
-            vec->data[i].fd.ptr = NULL;
+            ret.data[i].fd.ptr = NULL;
         else
             open_file_descriptor_copy_ref(vec->data[i].fd);
     }
@@ -161,12 +166,12 @@ int vfs_dup3(int oldfd, int newfd, int flags)
         current_task->open_file_table.size = newsize;
         if (newsize > current_task->open_file_table.allocated)
         {
-            current_task->open_file_table.allocated = newsize;
+            current_task->open_file_table.allocated = newsize * sizeof(open_file_descriptor_entry_t);
             open_file_descriptor_entry_t* data = (open_file_descriptor_entry_t*)realloc(current_task->open_file_table.data, current_task->open_file_table.allocated);
             if (!data) return (release_spinlock_noint(&current_task->open_file_table.lock, eflags), ENOMEM);
             current_task->open_file_table.data = data;
         }
-        for (size_t i = oldsize; i < newsize - 1; i++)
+        for (size_t i = oldsize; i < newsize; i++)
             current_task->open_file_table.data[i].fd.ptr = NULL;
     }
 
@@ -182,7 +187,7 @@ int vfs_dup3(int oldfd, int newfd, int flags)
 void __task_monitor_entry(thread_t* task, open_file_descriptor_t* entry)
 {
     assert(entry && task);
-    if (vfs_isatty_ofd(entry))
+    if (!vfs_isatty_ofd(entry))
         __copy_task_to_thread_queue(&_waiting_for_stdin_tasks, task);
     else
     {
@@ -225,7 +230,7 @@ bool __vfs_willblock(open_file_descriptor_t* entry, short events)
     switch (events)
     {
     case POLLIN:
-        if (vfs_isatty_ofd(entry))
+        if (!vfs_isatty_ofd(entry))
         {
             if (no_buffered_characters(keyboard_buffered_input_buffer))
                 return true;

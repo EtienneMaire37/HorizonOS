@@ -91,17 +91,20 @@ open_file_descriptor_ref_t vfs_create_new_file_descriptor_from_vnode(int* _errno
     mountpoint_ref_t mp = inode_stack_top_mountpoint(&vnode.ptr->inodes);
     ofd.ptr->read = ofd_vnode_read;
     ofd.ptr->write = ofd_vnode_write;
-    uint32_t eflags = acquire_spinlock_noint(&mp.ptr->lock);
-    bool unmounting = mp.ptr->unmounting;
-    if (!unmounting)
-        mp.ptr->busy++;
-    release_spinlock_noint(&mp.ptr->lock, eflags);
-    mountpoint_delete_ref(&mp);
-    if (unmounting)
+    if (mp.ptr)
     {
-        open_file_descriptor_delete_ref(&ofd);
-        *_errno = ENOENT;
-        return ofd;
+        uint32_t eflags = acquire_spinlock_noint(&mp.ptr->lock);
+        bool unmounting = mp.ptr->unmounting;
+        if (!unmounting)
+            mp.ptr->busy++;
+        release_spinlock_noint(&mp.ptr->lock, eflags);
+        mountpoint_delete_ref(&mp);
+        if (unmounting)
+        {
+            open_file_descriptor_delete_ref(&ofd);
+            *_errno = ENOENT;
+            return ofd;
+        }
     }
     return ofd;
 }
@@ -112,10 +115,13 @@ void ___open_file_descriptor_free(const struct ref *ref)
     if (ofd->vnode.ptr)
     {
         mountpoint_ref_t mp = inode_stack_top_mountpoint(&ofd->vnode.ptr->inodes);
-        uint32_t eflags = acquire_spinlock_noint(&mp.ptr->lock);
-        mp.ptr->busy--;
-        release_spinlock_noint(&mp.ptr->lock, eflags);
-        mountpoint_delete_ref(&mp);
+        if (mp.ptr)
+        {
+            uint32_t eflags = acquire_spinlock_noint(&mp.ptr->lock);
+            mp.ptr->busy--;
+            release_spinlock_noint(&mp.ptr->lock, eflags);
+            mountpoint_delete_ref(&mp);
+        }
         vnode_delete_ref(&ofd->vnode);
     }
     uint32_t flags = lock_scheduler();
@@ -130,8 +136,41 @@ void ___open_file_descriptor_free(const struct ref *ref)
     free(ofd);
 }
 
+struct dirent64 create_dirent_from_vnode(vnode_ref_t cur, off_t cur_index, const char* name)
+{
+    struct dirent64 ret;
+    struct stat st = vnode_stat(cur);
+    ret.d_ino = st.st_ino;
+    ret.d_off = cur_index;
+    ret.d_reclen = sizeof(struct dirent64);
+    if      (S_ISREG(st.st_mode))
+        ret.d_type = DT_REG;
+    else if (S_ISDIR(st.st_mode))
+        ret.d_type = DT_DIR;
+    else if (S_ISBLK(st.st_mode))
+        ret.d_type = DT_BLK;
+    else if (S_ISCHR(st.st_mode))
+        ret.d_type = DT_CHR;
+    else if (S_ISFIFO(st.st_mode))
+        ret.d_type = DT_FIFO;
+    else if (S_ISSOCK(st.st_mode))
+        ret.d_type = DT_SOCK;
+    else if (S_ISLNK(st.st_mode))
+        ret.d_type = DT_LNK;
+    else
+        ret.d_type = DT_UNKNOWN;
+    // Lock to avoid use after free when renaming node
+    uint32_t flags = acquire_spinlock_noint(&cur.ptr->lock);
+    snprintf(ret.d_name, 255, "%s", name);
+    release_spinlock_noint(&cur.ptr->lock, flags);
+    ret.d_name[255] = 0;
+    return ret;
+}
+
 struct dirent64 vfs_find_new_child_entry(open_file_descriptor_ref_t open_file)
 {
+    ASSERT(open_file.ptr);
+    ASSERT(open_file.ptr->vnode.ptr);
     vfs_explore(open_file.ptr->vnode);
     vnode_ref_t cur = vnode_dereference_vnode(open_file.ptr->vnode, children);
     off_t cur_index = 0;
@@ -141,37 +180,34 @@ struct dirent64 vfs_find_new_child_entry(open_file_descriptor_ref_t open_file)
         if (cur_index == open_file.ptr->offset)
         {
             open_file.ptr->offset++;
-            struct dirent64 ret;
-            struct stat st = vnode_stat(cur);
-            ret.d_ino = st.st_ino;
-            ret.d_off = cur_index;
-            ret.d_reclen = sizeof(struct dirent64);
-            if      (S_ISREG(st.st_mode))
-                ret.d_type = DT_REG;
-            else if (S_ISDIR(st.st_mode))
-                ret.d_type = DT_DIR;
-            else if (S_ISBLK(st.st_mode))
-                ret.d_type = DT_BLK;
-            else if (S_ISCHR(st.st_mode))
-                ret.d_type = DT_CHR;
-            else if (S_ISFIFO(st.st_mode))
-                ret.d_type = DT_FIFO;
-            else if (S_ISSOCK(st.st_mode))
-                ret.d_type = DT_SOCK;
-            else if (S_ISLNK(st.st_mode))
-                ret.d_type = DT_LNK;
-            else
-                ret.d_type = DT_UNKNOWN;
-            // Lock to avoid use after free when renaming node
-            uint32_t flags = acquire_spinlock_noint(&cur.ptr->lock);
-            snprintf(ret.d_name, 255, "%s", cur.ptr->name);
-            release_spinlock_noint(&cur.ptr->lock, flags);
+            struct dirent64 ret = create_dirent_from_vnode(cur, cur_index, cur.ptr->name);
             vnode_delete_ref(&cur);
-            ret.d_name[255] = 0;
             return ret;
         }
         vnode_move_reference(&cur, next);
         cur_index++;
+    }
+    if (open_file.ptr->offset == cur_index + 0)
+        // .
+    {
+        open_file.ptr->offset++;
+        return create_dirent_from_vnode(open_file.ptr->vnode, cur_index + 0, ".");
+    }
+    if (open_file.ptr->offset == cur_index + 1)
+        // ..
+    {
+        open_file.ptr->offset++;
+        vnode_ref_t parent = vnode_dereference_vnode(open_file.ptr->vnode, parent);
+        if (!parent.ptr) parent = vnode_copy_ref(open_file.ptr->vnode);
+        struct dirent64 ret = create_dirent_from_vnode(parent, cur_index + 1, "..");
+        vnode_delete_ref(&parent);
+        return ret;
+    }
+    if (open_file.ptr->offset == cur_index + 2)
+        // EOF
+    {
+        open_file.ptr->offset++;
+        return (struct dirent64){ .d_name = { 0 } };
     }
     open_file.ptr->offset = 0;
     return (struct dirent64){ .d_name = { 0 } };

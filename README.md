@@ -34,7 +34,7 @@ sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-de
 
 run:
 ```bash
-make CFLAGS="${options}"
+make KERNEL_CFLAGS="${options}"
 ```
 Here's a (non exhaustive) list of the supported options:
 | Option | Value   | Description |
@@ -52,7 +52,7 @@ Here's a (non exhaustive) list of the supported options:
 
 For example to build in "debug" mode with undefined behaviour sanitization (except for alignment), stack smashing protection, assertions, LOG_LEVEL=TRACE, LOG_SYSCALLS, usable stack traces and static analysis:
 ```bash
-make CFLAGS="-fsanitize=undefined -fno-sanitize=alignment -fstack-protector-strong -UNDEBUG -DLOG_LEVEL=TRACE -DLOG_SYSCALLS -Og -g -fanalyzer -fno-omit-frame-pointer"
+make KERNEL_CFLAGS="-fsanitize=undefined -fno-sanitize=alignment -fstack-protector-strong -UNDEBUG -DLOG_LEVEL=TRACE -DLOG_SYSCALLS -Og -g -fanalyzer -fno-omit-frame-pointer"
 ```
 Or to build with default settings:
 ```bash

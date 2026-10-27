@@ -50,6 +50,7 @@
 #define SYS_UMASK           47
 #define SYS_SETSID          48
 #define SYS_FCHDIR          49
+#define SYS_READLINK        50
 
 #define SYS_LOG                 0x1000
 #define SYS_HOS_SET_KB_LAYOUT   0x2000
