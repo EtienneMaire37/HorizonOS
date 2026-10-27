@@ -277,7 +277,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             break;
         }
 
-        open_file_descriptor_ref_t dir_open_file;
+        open_file_descriptor_ref_t dir_open_file = { NULL };
         if (arg1 != AT_FDCWD)
         {
             dir_open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
@@ -711,19 +711,13 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret_errno = EINVAL;
             break;
         }
-        open_file_descriptor_ref_t dir_open_file;
+        open_file_descriptor_ref_t dir_open_file = { NULL };
         if (arg1 != AT_FDCWD)
         {
             dir_open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
             if (!dir_open_file.ptr)
             {
                 sc_ret_errno = EBADF;
-                break;
-            }
-            if (!S_ISDIR(dir_open_file.ptr->st.st_mode))
-            {
-                open_file_descriptor_delete_ref(&dir_open_file);
-                sc_ret_errno = ENOTDIR;
                 break;
             }
         }
@@ -734,13 +728,22 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             if (arg3 & AT_EMPTY_PATH)
             {
                 *arg4 = vnode_stat(cwd);
+                vnode_delete_ref(&cwd);
                 break;
             }
             else
             {
+                vnode_delete_ref(&cwd);
                 sc_ret_errno = ENOENT;
                 break;
             }
+        }
+        if (!S_ISDIR(vnode_stat(cwd).st_mode))
+        {
+            open_file_descriptor_delete_ref(&dir_open_file);
+            vnode_delete_ref(&cwd);
+            sc_ret_errno = ENOTDIR;
+            break;
         }
         int _errno;
         vnode_ref_t vnode = vfs_get_vnode_from_path(&_errno, 0, 0, arg2, vfs_root_node, cwd, (arg3 & AT_SYMLINK_NOFOLLOW) ? false : true);

@@ -59,12 +59,14 @@ vnode_ref_t vfs_create_new_vnode(const char* name, inode_ref_t inode)
     ASSERT(name && inode.ptr);
     vnode_t* newn = calloc(1, sizeof(vnode_t));
     if (!newn) return (vnode_ref_t){ NULL };
-    newn->name = strdup(name);
-    if (!newn->name)
+    // separate variable to make fanalyzer stop giving false positives since ptr is _Atomic
+    char* newn_name = strdup(name);
+    if (!newn_name)
     {
         free(newn);
         return (vnode_ref_t){ NULL };
     }
+    newn->name = newn_name;
     vfs_total_nodes++;
     inode_stack_push(&newn->inodes, inode);
     __sync_fetch_and_add(&newn->inodes.data[0].ptr->st.st_nlink, 1);

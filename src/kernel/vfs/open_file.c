@@ -37,14 +37,15 @@ open_file_descriptor_ref_t open_file_descriptor_copy_ref(open_file_descriptor_re
 open_file_descriptor_ref_t vfs_allocate_new_open_file_descriptor(int flags, vnode_ref_t vnode, struct stat *st)
 {
     ASSERT(st);
-    open_file_descriptor_ref_t ref = { calloc(1, sizeof(open_file_descriptor_t)) };
-    if (!ref.ptr) return ref;
-    ref.ptr->ref = OPEN_FD_REF_INIT;
-    ref.ptr->st = *st;
-    ref.ptr->vnode = vnode_copy_ref(vnode);
-    ref.ptr->lock = SPINLOCK_NOINT_INIT;
-    ref.ptr->flags = flags;
-    ref.ptr->offset = 0;
+    open_file_descriptor_t* ofd = calloc(1, sizeof(open_file_descriptor_t));
+    open_file_descriptor_ref_t ref = { ofd };
+    if (!ofd) return ref;
+    ofd->ref = OPEN_FD_REF_INIT;
+    ofd->st = *st;
+    ofd->vnode = vnode_copy_ref(vnode);
+    ofd->lock = SPINLOCK_NOINT_INIT;
+    ofd->flags = flags;
+    ofd->offset = 0;
     return ref;
 }
 
