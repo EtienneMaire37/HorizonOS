@@ -1179,23 +1179,25 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret_errno = EINVAL;
             break;
         }
-        FATAL("Not implemented");
-        // precise_time_t deadline = global_timer + *arg2 * PRECISE_NANOSECONDS + *arg1 * PRECISE_SECONDS;
-        // current_task->timeout_deadline = deadline;
-        // move_running_task_to_thread_queue(&waiting_for_time_tasks, current_task);
-        // switch_task();
-        // const precise_time_t timer = global_timer;
-        // if (timer <= deadline)
-        // {
-        //     sc_ret_errno = EINTR;
-        //     *arg1 = (deadline - timer) / PRECISE_SECONDS;
-        //     *arg2 = ((deadline - timer) / PRECISE_NANOSECONDS) % 1000000000;
-        //     break;
-        // }
-        // *arg1 = 0;
-        // *arg2 = 0;
-        // sc_ret_errno = 0;
-        // break;
+        precise_time_t deadline = rdtsc() + (*arg2) * tsc_cycles_per_second / 1000000000 + (*arg1) * tsc_cycles_per_second;
+        uint32_t flags = lock_scheduler();
+        current_task->timeout_deadline = deadline;
+        apic_timer_add_new_deadline(current_task->timeout_deadline);
+        __move_running_task_to_thread_queue(&waiting_for_time_tasks, current_task);
+        switch_task();
+        unlock_scheduler(flags);
+        precise_time_t tsc = rdtsc();
+        if (tsc <= deadline)
+        {
+            sc_ret_errno = EINTR;
+            *arg1 = (deadline - tsc) / tsc_cycles_per_second;
+            *arg2 = ((deadline - tsc) * 1000000000 / tsc_cycles_per_second) % 1000000000;
+            break;
+        }
+        *arg1 = 0;
+        *arg2 = 0;
+        sc_ret_errno = 0;
+        break;
 
     sc_case(SYS_POLL, 3, struct pollfd*, nfds_t, int)
         SC_LOG("syscall SYS_POLL(%p, %lu, %d)", arg1, arg2, arg3);
