@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 #include "../cpu/memory.h"
 #include "../memalloc/virtual_memory_allocator.h"
+#include "../pic/timer.h"
 #include "ioctl.h"
 #include <string.h>
 #include "queue.h"
@@ -974,6 +975,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             if (arg5)
             {
                 current_task->timeout_deadline = rdtsc() + arg5->tv_nsec * tsc_cycles_per_second / 1000000000 + arg5->tv_sec * tsc_cycles_per_second;
+                apic_timer_add_new_deadline(current_task->timeout_deadline);
                 __move_running_task_to_thread_queue(&waiting_for_time_tasks, current_task);
                 switch_task();
                 unlock_scheduler(sd_flags);

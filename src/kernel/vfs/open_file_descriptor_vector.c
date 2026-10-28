@@ -8,6 +8,7 @@
 #include "../multitasking/multitasking.h"
 #include "../multitasking/queue.h"
 #include "vnode.h"
+#include "../pic/timer.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -199,6 +200,7 @@ void __task_monitor_entry(thread_t* task, open_file_descriptor_t* entry)
 void __task_start_polling(thread_t* task, uint64_t timeout)
 {
     current_task->timeout_deadline = timeout == NO_TIMEOUT ? NO_TIMEOUT : rdtsc() + timeout;
+    apic_timer_add_new_deadline(current_task->timeout_deadline);
     __move_task_to_queue(&waiting_for_time_tasks, task);
 }
 

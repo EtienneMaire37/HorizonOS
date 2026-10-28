@@ -9,6 +9,7 @@ initrd_file_t* kernel_symbols_file = NULL;
 #include "../multitasking/syscall.h"
 #include "int.h"
 #include "irq.h"
+#include "../pic/pic.h"
 #include "../gdt/gdt.h"
 #include "../multitasking/multitasking.h"
 #include "../panic/panic.h"
@@ -17,7 +18,7 @@ initrd_file_t* kernel_symbols_file = NULL;
 
 void interrupt_handler(interrupt_registers_t* registers)
 {
-    // To fix race condition where an nmi fires when inside an irq disabling lock
+    // To fix a race condition where an nmi fires when inside an irq disabling lock
     if (registers->interrupt_number == NON_MASKABLE_INTERRUPT)
     {
         // DEBUG
@@ -68,20 +69,17 @@ void interrupt_handler(interrupt_registers_t* registers)
 
     if (registers->interrupt_number < 32 + 16)  // * PIC IRQs
     {
-        // uint8_t irq_number = registers->interrupt_number - 32;
+        uint8_t irq_number = registers->interrupt_number - 32;
 
-        // if (irq_number == 7 && !(pic_get_isr() >> 7))
-        //     return_from_isr();
-        // if (irq_number == 15 && !(pic_get_isr() >> 15))
-        // {
-        //     outb(PIC1_CMD, PIC_EOI);
-	    //     io_wait();
-        //     return_from_isr();
-        // }
+        if (irq_number == 7 && !(pic_get_isr() >> 7))
+            return_from_isr();
+        if (irq_number == 15 && !(pic_get_isr() >> 15))
+        {
+            outb(PIC1_CMD, PIC_EOI);
+            return_from_isr();
+        }
 
-        // pic_send_eoi(irq_number);
-
-        // * Already disabled the PIC so only spurious interrupts can happen
+        pic_send_eoi(irq_number);
 
         return_from_isr();
     }
