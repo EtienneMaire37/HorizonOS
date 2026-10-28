@@ -603,6 +603,10 @@ void _start()
     vfs_create("null", dev_node, S_IFCHR | 0666, 0, 0, null_read, null_write);
     vfs_create("tty", dev_node, S_IFCHR | 0666, 0, 0, console_read, console_write, .isatty = true);
     vfs_create("console", dev_node, S_IFCHR | 0666, 0, 0, NULL, NULL);
+
+    // TODO: Make them symlinks to /dev/tty
+    vfs_create("stdin", dev_node, S_IFCHR | 0444, 0, 0, console_read, console_write, .isatty = true);
+    vfs_create("stdout", dev_node, S_IFCHR | 0222, 0, 0, console_read, console_write, .isatty = true);
     
     vnode_delete_ref(&dev_node);
     

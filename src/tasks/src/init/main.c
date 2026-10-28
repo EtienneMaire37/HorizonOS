@@ -11,9 +11,9 @@ int main(int argc, char** argv)
 {
     setsid();
 
-    if (open("/dev/tty", O_RDONLY) != 0) abort();
-    if (open("/dev/tty", O_WRONLY) != 1) abort();
-    if (open("/dev/tty", O_WRONLY) != 2) abort();
+    if (open("/dev/stdin", O_RDONLY) != 0) abort();
+    if (open("/dev/stdout", O_WRONLY) != 1) abort();
+    if (open("/dev/stdout", O_WRONLY) != 2) abort();
 
     printf("Loaded console file descriptors\n");
 
