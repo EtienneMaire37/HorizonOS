@@ -186,7 +186,7 @@ int vfs_dup3(int oldfd, int newfd, int flags)
 
 void __task_monitor_entry(thread_t* task, open_file_descriptor_t* entry)
 {
-    assert(entry && task);
+    ASSERT(entry && task);
     if (!vfs_isatty_ofd(entry))
         __copy_task_to_thread_queue(&_waiting_for_stdin_tasks, task);
     else
@@ -211,7 +211,7 @@ void __task_stop_polling(thread_t* task)
         {
             ll_item_t* cur = it;
             thread_queue_t* tq = cur->data;
-            assert(tq);
+            ASSERT(tq);
             it = it->next;
             __thread_queue_remove(tq, ll_find_item_by_data(tq, task));
             ll_remove(&task->_poll_tqs, cur);
@@ -221,12 +221,12 @@ void __task_stop_polling(thread_t* task)
     if (task->queue == &waiting_for_time_tasks)
         __move_task_to_queue(&running_tasks, task);
     // else
-    //     assert(task->queue == &dead_tasks || task->queue == &reapable_tasks);
+    //     ASSERT(task->queue == &dead_tasks || task->queue == &reapable_tasks);
 }
 
 bool __vfs_willblock(open_file_descriptor_t* entry, short events)
 {
-    assert(events == POLLIN || events == POLLOUT);
+    ASSERT(events == POLLIN || events == POLLOUT);
     switch (events)
     {
     case POLLIN:
@@ -262,3 +262,4 @@ int __vfs_hup(open_file_descriptor_t* entry)
     (void)entry;
     return 0;
 }
+

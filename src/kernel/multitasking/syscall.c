@@ -549,12 +549,18 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         current_task->forked_pid = task_generate_pid();
         pid_t forked_pid = current_task->forked_pid;
         __move_running_task_to_thread_queue(&forked_tasks, current_task);
-        unlock_scheduler(flags);
         switch_task();
+        unlock_scheduler(flags);
         if (current_task->pid == forked_pid)
+        {
+            SC_LOG("[fork child]");
             sc_ret(1) = 0;
+        }
         else
+        {
+            SC_LOG("[fork parent]");
             sc_ret(1) = forked_pid;
+        }
         break;
     sc_case(SYS_SIGACTION, 3, int, const struct sigaction*, struct sigaction*)
         SC_LOG("syscall SYS_SIGACTION(%d, %p, %p)", arg1, arg2, arg3);
@@ -635,17 +641,20 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         if (arg3 & WNOHANG || first_pid)
         {
-            sc_ret(1) = first_pid;
-            sc_ret_errno = 0;
-            if (first_pid)
+            thread_t* task = first_pid ? __find_task_by_pid_anywhere(first_pid) : NULL;
+            if (task)
             {
-                thread_t* task = __find_task_by_pid_anywhere(first_pid);
-                ASSERT(task);
-                if (arg2) *arg2 = task->return_value;
-                __move_task_to_queue(&reapable_tasks, task);
+                sc_ret(1) = first_pid;
+                sc_ret_errno = 0;
+                if (first_pid)
+                {
+                    ASSERT(task);
+                    if (arg2) *arg2 = task->return_value;
+                    __move_task_to_queue(&reapable_tasks, task);
+                }
+                unlock_scheduler(flags);
+                break;
             }
-            unlock_scheduler(flags);
-            break;
         }
         current_task->wait_pid = arg1;
         current_task->pgid_on_waitpid = current_task->pgid;

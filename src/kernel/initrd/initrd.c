@@ -1,5 +1,4 @@
 #include "initrd.h"
-#include "../util/assert.h"
 #include "../debug/out.h"
 #include "../files/ustar.h"
 #include "../vfs/fs/initrd.h"
@@ -16,7 +15,7 @@ void initrd_parse(uint64_t initrd_start, uint64_t initrd_size)
 
     LOG(INFO, "Initrd address : %#" PRIx64" | Initrd size : %" PRIu64 " bytes", initrd_start, initrd_size);
 
-    ASSERT(sizeof(ustar_header_t) == 512);
+    _Static_assert(sizeof(ustar_header_t) == 512, "ustar_header_t was incorrectly packed");
     ustar_header_t* header = (ustar_header_t*)initrd_start;
     while (((intptr_t)header - (intptr_t)initrd_start) <= (intptr_t)initrd_size - 512)
     {

@@ -50,10 +50,12 @@ void __move_task_to_running_queue(thread_queue_t* queue, thread_t* item)
 {
     ASSERT(queue && item);
     thread_queue_item_t* it = ll_find_item_by_data(queue, item);
-    ASSERT(it);
-    __multitasking_add_task(item);
-    __thread_queue_remove(queue, it);
-    item->queue = &running_tasks;
+    if (it)
+    {
+        __multitasking_add_task(item);
+        __thread_queue_remove(queue, it);
+        item->queue = &running_tasks;
+    }
 }
 
 void __move_task_to_running_queue_by_item(thread_queue_t* queue, thread_queue_item_t* item)

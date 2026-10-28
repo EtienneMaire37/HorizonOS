@@ -411,8 +411,9 @@ void fork_task(thread_t* task)
     // tq_hashmap_log(pid_to_children_tq_hashmap);
 
     __multitasking_add_task(new_task);
-    unlock_scheduler(eflags);
     task_count++;
+    __move_task_to_running_queue(&forked_tasks, task);
+    unlock_scheduler(eflags);
 }
 
 void cleanup_tasks()
@@ -428,7 +429,6 @@ void cleanup_tasks()
             cur_forked_task = cur_forked_task->next;
             if (task_to_fork != current_task)
             {
-                __move_task_to_running_queue(&forked_tasks, task_to_fork);
                 // It's incredible how non thread safe this is
                 unlock_scheduler(flags);
                 fork_task(task_to_fork);
