@@ -152,7 +152,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_ISATTY, 1, int)
         SC_LOG("syscall SYS_ISATTY(%d)", arg1);
-        sc_ret(0) = vfs_isatty(arg1);
+        sc_ret_errno = vfs_isatty(arg1);
         break;
     sc_case(SYS_VM_MAP, 6, void*, size_t, int, int, int, off_t)
         SC_LOG("syscall SYS_VM_MAP(%p, %zu, %#x, %#x, %d, %" PRId64 ")", arg1, arg2, arg3, arg4, arg5, arg6);
@@ -718,11 +718,13 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_GETPID, 0)
         SC_LOG("syscall SYS_GETPID()");
-        sc_ret(0) = (uint64_t)current_task->pid;
+        sc_ret(1) = (uint64_t)current_task->pid;
+        sc_ret_errno = 0;
         break;
     sc_case(SYS_GETPPID, 0)
         SC_LOG("syscall SYS_GETPPID()");
-        sc_ret(0) = (uint64_t)current_task->ppid;
+        sc_ret(1) = (uint64_t)current_task->ppid;
+        sc_ret_errno = 0;
         break;
     sc_case(SYS_GETHOSTNAME, 2, char*, size_t)
         SC_LOG("syscall SYS_GETHOSTNAME(%p, %zu)", arg1, arg2);

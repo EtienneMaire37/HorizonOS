@@ -208,11 +208,15 @@ namespace mlibc
 
 	pid_t sys_getpid()
 	{
-		return (pid_t)syscall0_1(SYS_GETPID);
+		uint64_t pid;
+		syscall0_2(SYS_GETPID, &pid);
+		return (pid_t)pid;
 	}
 	pid_t sys_getppid()
 	{
-		return (pid_t)syscall0_1(SYS_GETPPID);
+		uint64_t pid;
+		syscall0_2(SYS_GETPPID, &pid);
+		return (pid_t)pid;
 	}
 
 	int sys_gethostname(char* buffer, size_t bufsize)
