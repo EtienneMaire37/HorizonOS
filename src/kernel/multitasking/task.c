@@ -48,7 +48,7 @@ thread_t* __task_create_empty()
 
     task->wait_pid = -1;
 
-    task->cwd = vnode_copy_ref(vfs_root_node);
+    task->cwd = vnode_dup_strong_ref(vfs_root_node);
 
     task->queue = NULL;
 
@@ -100,7 +100,7 @@ void task_destroy(thread_t* task)
     ASSERT(task->_poll_tqs == TQ_INIT);
     fpu_state_destroy(&task->fpu_state);
     task_free_vas((physical_address_t)task->cr3);
-    vnode_delete_ref(&task->cwd);
+    vnode_delete_strong_ref(&task->cwd);
     unlock_scheduler(eflags);
     ofdv_closeall(&task->open_file_table);
 
@@ -379,7 +379,7 @@ void fork_task(thread_t* task)
     new_task->cr3 = task_create_empty_vas((new_task->ring == 0) ? PG_SUPERVISOR : PG_USER);
     new_task->rsp = task->rsp;
 
-    vnode_copy_ref(new_task->cwd);
+    vnode_dup_strong_ref(new_task->cwd);
 
     eflags = lock_scheduler();
     new_task->fpu_state = fpu_state_create_copy(task->fpu_state);
@@ -537,18 +537,18 @@ void kill_task(thread_t* task, int ret)
     unlock_scheduler(flags);
 }
 
-vnode_ref_t task_get_cwd(thread_t* task)
+vnode_strong_ref_t task_get_cwd(thread_t* task)
 {
     // TODO: Add lock to thread structure directly!!!!!
     // FIXME ASAP
     uint32_t flags = lock_scheduler();
-    vnode_ref_t ret = __task_get_cwd(task);
+    vnode_strong_ref_t ret = __task_get_cwd(task);
     unlock_scheduler(flags);
     return ret;
 }
-vnode_ref_t __task_get_cwd(thread_t* task)
+vnode_strong_ref_t __task_get_cwd(thread_t* task)
 {
-    return vnode_copy_ref(task->cwd);
+    return vnode_dup_strong_ref(task->cwd);
 }
 
 void __kill_task(thread_t* task, int ret)

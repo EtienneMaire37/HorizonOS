@@ -14,8 +14,9 @@ bool has_fpu;
 uint8_t* fpu_default_state = NULL;
 uint32_t xsave_area_size, xsave_area_pages;
 
-#include "fpu.h"
-#include "sse.h"
+
+uint64_t fpu_state_component_bitmap = 0;
+bool xsave_supported = false, fxsave_supported = false;
 
 #include "../memalloc/page_frame_allocator.h"
 #include "../debug/out.h"

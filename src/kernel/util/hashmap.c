@@ -1,7 +1,7 @@
 #include "hashmap.h"
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
+#include "../util/assert.h"
 #include "../random/pcg.h"
 #include "../multitasking/multitasking.h"
 
@@ -68,6 +68,7 @@ void hashmap_set_item(hashmap_t* hmp, uint64_t key, void* value)
 	return;
 
 new_item:
+	;
 	hashmap_item_t* item = (hashmap_item_t*)malloc(sizeof(hashmap_item_t));
 	ASSERT(item);
 	item->key = key;

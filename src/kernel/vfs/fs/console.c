@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-ssize_t console_read(inode_ref_t node, void* buf, size_t count, off_t off)
+ssize_t console_read(inode_strong_ref_t node, void* buf, size_t count, off_t off)
 {
     (void)node;
     (void)off;
@@ -33,7 +33,7 @@ ssize_t console_read(inode_ref_t node, void* buf, size_t count, off_t off)
         ((uint8_t*)buf)[i] = utf32_to_bios_oem(utf32_buffer_getchar(&keyboard_buffered_input_buffer));
     return ret;
 }
-ssize_t console_write(inode_ref_t node, void* buf, size_t count, off_t off)
+ssize_t console_write(inode_strong_ref_t node, void* buf, size_t count, off_t off)
 {
     (void)node;
     (void)off;

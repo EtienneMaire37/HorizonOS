@@ -86,51 +86,51 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     sc_case(SYS_READ, 3, int, void*, size_t)
         SC_LOG("syscall SYS_READ(%d, %p, %zu)", arg1, arg2, arg3);
         sc_validate_pointer(arg2);
-        open_file_descriptor_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
+        open_file_descriptor_strong_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
         if (!open_file.ptr)
         {
             sc_ret_errno = EBADF;
             sc_ret(1) = (uint64_t)-1;
             break;
         }
-        ASSERT(open_file.ptr->read);
-        ssize_t ret = open_file.ptr->read(open_file.ptr, arg2, arg3);
+        ASSERT(open_file.ptr->ptr->read);
+        ssize_t ret = open_file.ptr->ptr->read(open_file.ptr->ptr, arg2, arg3);
         if (ret < 0)
         {
             sc_ret_errno = (uint64_t)-ret;
             ret = -1;
         }
-        open_file_descriptor_delete_ref(&open_file);
+        open_file_descriptor_delete_strong_ref(&open_file);
         sc_ret(1) = (uint64_t)ret;
         break;
     sc_case(SYS_WRITE, 3, int, void*, size_t)
         SC_LOG("syscall SYS_WRITE(%d, %p, %zu)", arg1, arg2, arg3);
         sc_validate_pointer(arg2);
-        open_file_descriptor_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
+        open_file_descriptor_strong_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
         if (!open_file.ptr)
         {
             sc_ret_errno = EBADF;
             sc_ret(1) = (uint64_t)-1;
             break;
         }
-        ASSERT(open_file.ptr->write);
-        ssize_t ret = open_file.ptr->write(open_file.ptr, arg2, arg3);
+        ASSERT(open_file.ptr->ptr->write);
+        ssize_t ret = open_file.ptr->ptr->write(open_file.ptr->ptr, arg2, arg3);
         if (ret < 0)
         {
             sc_ret_errno = (uint64_t)-ret;
             ret = -1;
         }
-        open_file_descriptor_delete_ref(&open_file);
+        open_file_descriptor_delete_strong_ref(&open_file);
         sc_ret(1) = (uint64_t)ret;
         break;
 	sc_case(SYS_READLINK, 3, const char*, char*, size_t)
         SC_LOG("syscall SYS_READLINK(%s, %p, %zu)", arg1, arg2, arg3);
         sc_validate_pointer(arg1);
         sc_validate_pointer(arg2);
-        vnode_ref_t cwd = task_get_cwd(current_task);
+        vnode_strong_ref_t cwd = task_get_cwd(current_task);
         int _errno;
-        vnode_ref_t vnode = vfs_get_vnode_from_path(&_errno, 0, 0, arg1, vfs_root_node, cwd, false);
-        vnode_delete_ref(&cwd);
+        vnode_strong_ref_t vnode = vfs_get_vnode_from_path(&_errno, 0, 0, arg1, vfs_root_node, cwd, false);
+        vnode_delete_strong_ref(&cwd);
         if (!vnode.ptr)
         {
             sc_ret_errno = _errno;
@@ -142,7 +142,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             break;
         }
         ssize_t ret = vnode_read(vnode, arg2, arg3, 0);
-        vnode_delete_ref(&vnode);
+        vnode_delete_strong_ref(&vnode);
         sc_ret_errno = ret < 0 ? -ret : 0;
         sc_ret(1) = ret;
         break;
@@ -234,7 +234,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_SEEK, 3, int, off_t, int)
         SC_LOG("syscall SYS_SEEK(%d, %" PRId64 ", %d)", arg1, arg2, arg3);
-        open_file_descriptor_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
+        open_file_descriptor_strong_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
         if (!open_file.ptr)
         {
             sc_ret_errno = EBADF;
@@ -243,16 +243,16 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
         if (arg3 != SEEK_SET && arg3 != SEEK_CUR && arg3 != SEEK_END)
         {
-            open_file_descriptor_delete_ref(&open_file);
+            open_file_descriptor_delete_strong_ref(&open_file);
             sc_ret_errno = EINVAL;
             sc_ret(1) = (uint64_t)((off_t)-1);
             break;
         }
-        struct stat st = open_file.ptr->st;
+        struct stat st = open_file.ptr->ptr->st;
         // ESPIPE fd is associated with a pipe, socket, or FIFO.
         if (S_ISFIFO(st.st_mode) || S_ISSOCK(st.st_mode))
         {
-            open_file_descriptor_delete_ref(&open_file);
+            open_file_descriptor_delete_strong_ref(&open_file);
             sc_ret_errno = ESPIPE;
             sc_ret(1) = (uint64_t)((off_t)-1);
             break;
@@ -263,7 +263,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         case SEEK_SET:
             goto do_seek;
         case SEEK_CUR:
-            offset += open_file.ptr->offset;
+            offset += open_file.ptr->ptr->offset;
             goto do_seek;
         case SEEK_END:
             offset += st.st_size;
@@ -274,18 +274,18 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         do_seek:
             if (offset < 0) // || offset >= entry->tnode.file->inode->st.st_size)
             {
-                open_file_descriptor_delete_ref(&open_file);
+                open_file_descriptor_delete_strong_ref(&open_file);
                 sc_ret_errno = EINVAL;
                 sc_ret(1) = (uint64_t)((off_t)-1);
                 break;
             }
-            open_file.ptr->offset = offset;
-            open_file_descriptor_delete_ref(&open_file);
+            open_file.ptr->ptr->offset = offset;
+            open_file_descriptor_delete_strong_ref(&open_file);
             sc_ret_errno = 0;
             sc_ret(1) = (uint64_t)offset;
             break;
         }
-        open_file_descriptor_delete_ref(&open_file);
+        open_file_descriptor_delete_strong_ref(&open_file);
         sc_ret_errno = 0;
         break;
     sc_case(SYS_OPENAT, 4, int, const char*, int, unsigned int)
@@ -301,7 +301,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             break;
         }
 
-        open_file_descriptor_ref_t dir_open_file = { NULL };
+        open_file_descriptor_strong_ref_t dir_open_file = { NULL };
         if (arg1 != AT_FDCWD)
         {
             dir_open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
@@ -310,20 +310,20 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 sc_ret_errno = EBADF;
                 break;
             }
-            if (!S_ISDIR(dir_open_file.ptr->st.st_mode))
+            if (!S_ISDIR(dir_open_file.ptr->ptr->st.st_mode))
             {
-                open_file_descriptor_delete_ref(&dir_open_file);
+                open_file_descriptor_delete_strong_ref(&dir_open_file);
                 sc_ret_errno = ENOTDIR;
                 break;
             }
         }
-        vnode_ref_t cwd = (arg1 == AT_FDCWD) ? task_get_cwd(current_task) :
-                          (dir_open_file.ptr ? vnode_copy_ref(dir_open_file.ptr->vnode) : (vnode_ref_t){ NULL });
-        open_file_descriptor_delete_ref(&dir_open_file);
+        vnode_strong_ref_t cwd = (arg1 == AT_FDCWD) ? task_get_cwd(current_task) :
+                          (dir_open_file.ptr ? vnode_dup_strong_ref(dir_open_file.ptr->ptr->vnode) : (vnode_strong_ref_t){ NULL });
+        open_file_descriptor_delete_strong_ref(&dir_open_file);
 
         int _errno;
-        vnode_ref_t file_node = vfs_get_vnode_from_path(&_errno, 0, 0, arg2, vfs_root_node, cwd, (arg3 & O_NOFOLLOW) ? false : true);
-        vnode_delete_ref(&cwd);
+        vnode_strong_ref_t file_node = vfs_get_vnode_from_path(&_errno, 0, 0, arg2, vfs_root_node, cwd, (arg3 & O_NOFOLLOW) ? false : true);
+        vnode_delete_strong_ref(&cwd);
         if (!file_node.ptr)
         {
             if (_errno == ENOENT && (arg3 & O_CREAT))
@@ -336,7 +336,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         struct stat st = vnode_stat(file_node);
         if (S_ISLNK(st.st_mode))
         {
-            vnode_delete_ref(&file_node);
+            vnode_delete_strong_ref(&file_node);
             sc_ret_errno = ELOOP;
             break;
         }
@@ -344,12 +344,12 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         if ((arg3 & O_DIRECTORY) && !S_ISDIR(st.st_mode))
         {
             sc_ret_errno = ENOTDIR;
-            vnode_delete_ref(&file_node);
+            vnode_delete_strong_ref(&file_node);
             break;
         }
 
-        open_file_descriptor_ref_t open_file = vfs_create_new_file_descriptor_from_vnode(&_errno, arg3, file_node, &st);
-        vnode_delete_ref(&file_node);
+        open_file_descriptor_strong_ref_t open_file = vfs_create_new_file_descriptor_from_vnode(&_errno, arg3, file_node, &st);
+        vnode_delete_strong_ref(&file_node);
         if (!open_file.ptr)
         {
             sc_ret_errno = _errno;
@@ -357,7 +357,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         }
 
         int fd = ofdv_open(&current_task->open_file_table, (open_file_descriptor_entry_t){ .flags = arg3 & O_CLOEXEC ? FD_CLOEXEC : 0, .fd = open_file });
-        open_file_descriptor_delete_ref(&open_file);
+        open_file_descriptor_delete_strong_ref(&open_file);
         if (fd < 0)
         {
             sc_ret_errno = -fd;
@@ -374,7 +374,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
     sc_case(SYS_READ_ENTRIES, 3, int, void*, size_t)
         SC_LOG("syscall SYS_READ_ENTRIES(%d, %p, %zu)", arg1, arg2, arg3);
         sc_validate_pointer(arg2);
-        open_file_descriptor_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
+        open_file_descriptor_strong_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
         if (!open_file.ptr)
         {
             sc_ret_errno = ENOMEM;
@@ -397,7 +397,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             memcpy((void*)((char*)arg2 + bytes_read), &dir_entry, sizeof(dir_entry));
             bytes_read += sizeof(dir_entry);
         }
-        open_file_descriptor_delete_ref(&open_file);
+        open_file_descriptor_delete_strong_ref(&open_file);
         sc_ret(1) = bytes_read;
         break;
     sc_case(SYS_IOCTL, 3, int, unsigned long, void*)
@@ -413,9 +413,9 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         sc_validate_pointer(arg3);
         startup_data_struct_t data = startup_data_init_from_command(arg2, arg3);
         uint32_t flags = lock_scheduler();
-        vnode_ref_t cwd = __task_get_cwd(current_task);
+        vnode_strong_ref_t cwd = __task_get_cwd(current_task);
         thread_t* new_task = __multitasking_add_task_from_vfs(arg1, arg1, 3, false, &data, cwd);
-        vnode_delete_ref(&cwd);
+        vnode_delete_strong_ref(&cwd);
         if (!new_task)
         {
             LOG(TRACE, "EXECVE: Couldn't load executable");
@@ -488,9 +488,9 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             break;
         }
         char buf_cpy[PATH_MAX];
-        vnode_ref_t cwd = task_get_cwd(current_task);
+        vnode_strong_ref_t cwd = task_get_cwd(current_task);
         size_t ret = vfs_get_absolute_path_to_node(cwd, buf_cpy, sizeof(buf_cpy));
-        vnode_delete_ref(&cwd);
+        vnode_delete_strong_ref(&cwd);
         if (ret > arg2)
         {
             sc_ret_errno = ERANGE;
@@ -503,10 +503,10 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         SC_LOG("syscall SYS_CHDIR(\"%s\")", arg1);
         sc_validate_pointer(arg1);
         uint32_t flags = lock_scheduler();
-        vnode_ref_t old_cwd = __task_get_cwd(current_task);
-        vnode_delete_ref(&current_task->cwd);
+        vnode_strong_ref_t old_cwd = __task_get_cwd(current_task);
+        vnode_delete_strong_ref(&current_task->cwd);
         int _errno;
-        vnode_ref_t new_cwd = vfs_get_vnode_from_path(&_errno, 0, 0, arg1, vfs_root_node, old_cwd, true);
+        vnode_strong_ref_t new_cwd = vfs_get_vnode_from_path(&_errno, 0, 0, arg1, vfs_root_node, old_cwd, true);
         if (!new_cwd.ptr)
         {
             unlock_scheduler(flags);
@@ -525,23 +525,23 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         break;
     sc_case(SYS_FCHDIR, 1, int)
         SC_LOG("syscall SYS_FCHDIR(%d)", arg1);
-        open_file_descriptor_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
+        open_file_descriptor_strong_ref_t open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
         if (!open_file.ptr)
         {
             sc_ret_errno = EBADF;
             break;
         }
-        if (!S_ISDIR(open_file.ptr->st.st_mode))
+        if (!S_ISDIR(open_file.ptr->ptr->st.st_mode))
         {
             sc_ret_errno = ENOTDIR;
             break;
         }
         // TODO: Search permissions
         uint32_t flags = lock_scheduler();
-        vnode_delete_ref(&current_task->cwd);
-        current_task->cwd = vnode_copy_ref(open_file.ptr->vnode);
+        vnode_delete_strong_ref(&current_task->cwd);
+        current_task->cwd = vnode_dup_strong_ref(open_file.ptr->ptr->vnode);
         unlock_scheduler(flags);
-        open_file_descriptor_delete_ref(&open_file);
+        open_file_descriptor_delete_strong_ref(&open_file);
         break;
     sc_case(SYS_FORK, 0)
         SC_LOG("syscall SYS_FORK()");
@@ -754,7 +754,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret_errno = EINVAL;
             break;
         }
-        open_file_descriptor_ref_t dir_open_file = { NULL };
+        open_file_descriptor_strong_ref_t dir_open_file = { NULL };
         if (arg1 != AT_FDCWD)
         {
             dir_open_file = ofdv_get(&current_task->open_file_table, arg1).fd;
@@ -764,40 +764,40 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 break;
             }
         }
-        vnode_ref_t cwd = (arg1 == AT_FDCWD) ? task_get_cwd(current_task) : dir_open_file.ptr ? vnode_copy_ref(dir_open_file.ptr->vnode) : (vnode_ref_t){ NULL };
-        open_file_descriptor_delete_ref(&dir_open_file);
+        vnode_strong_ref_t cwd = (arg1 == AT_FDCWD) ? task_get_cwd(current_task) : dir_open_file.ptr ? vnode_dup_strong_ref(dir_open_file.ptr->ptr->vnode) : (vnode_strong_ref_t){ NULL };
+        open_file_descriptor_delete_strong_ref(&dir_open_file);
         if (!arg2[0])
         {
             if (arg3 & AT_EMPTY_PATH)
             {
                 *arg4 = vnode_stat(cwd);
-                vnode_delete_ref(&cwd);
+                vnode_delete_strong_ref(&cwd);
                 break;
             }
             else
             {
-                vnode_delete_ref(&cwd);
+                vnode_delete_strong_ref(&cwd);
                 sc_ret_errno = ENOENT;
                 break;
             }
         }
         if (!S_ISDIR(vnode_stat(cwd).st_mode))
         {
-            open_file_descriptor_delete_ref(&dir_open_file);
-            vnode_delete_ref(&cwd);
+            open_file_descriptor_delete_strong_ref(&dir_open_file);
+            vnode_delete_strong_ref(&cwd);
             sc_ret_errno = ENOTDIR;
             break;
         }
         int _errno;
-        vnode_ref_t vnode = vfs_get_vnode_from_path(&_errno, 0, 0, arg2, vfs_root_node, cwd, (arg3 & AT_SYMLINK_NOFOLLOW) ? false : true);
-        vnode_delete_ref(&cwd);
+        vnode_strong_ref_t vnode = vfs_get_vnode_from_path(&_errno, 0, 0, arg2, vfs_root_node, cwd, (arg3 & AT_SYMLINK_NOFOLLOW) ? false : true);
+        vnode_delete_strong_ref(&cwd);
         if (!vnode.ptr)
         {
             sc_ret_errno = _errno;
             break;
         }
         *arg4 = vnode_stat(vnode);
-        vnode_delete_ref(&vnode);
+        vnode_delete_strong_ref(&vnode);
         break;
     sc_case(SYS_ACCESS, 2, const char*, int)
         SC_LOG("syscall SYS_ACCESS(\"%s\", %#o)", arg1, arg2);
@@ -808,10 +808,10 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             sc_ret_errno = EINVAL;
             break;
         }
-        vnode_ref_t cwd = task_get_cwd(current_task);
+        vnode_strong_ref_t cwd = task_get_cwd(current_task);
         int _errno;
-        vnode_ref_t vnode = vfs_get_vnode_from_path(&_errno, 0, 0, arg1, vfs_root_node, cwd, true);
-        vnode_delete_ref(&cwd);
+        vnode_strong_ref_t vnode = vfs_get_vnode_from_path(&_errno, 0, 0, arg1, vfs_root_node, cwd, true);
+        vnode_delete_strong_ref(&cwd);
         if (!vnode.ptr)
         {
             sc_ret_errno = _errno;
@@ -820,7 +820,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
         mode_t mode = vnode_stat(vnode).st_mode;
         // TODO: Implement proper permission checks
         // The check is done using the calling process's real UID and GID, rather than the effective IDs as is done when actually attempting an operation (e.g., open(2)) on the file.
-        vnode_delete_ref(&vnode);
+        vnode_delete_strong_ref(&vnode);
         sc_ret_errno = 0;
         break;
     sc_case(SYS_GETPGID, 1, pid_t)
@@ -902,7 +902,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 break;
             }
             sc_ret(1) = entry.flags;
-            open_file_descriptor_delete_ref(&entry.fd);
+            open_file_descriptor_delete_strong_ref(&entry.fd);
             sc_ret_errno = 0;
             break;
         }
@@ -915,7 +915,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 break;
             }
             entry.flags = arg3;
-            open_file_descriptor_delete_ref(&entry.fd);
+            open_file_descriptor_delete_strong_ref(&entry.fd);
             sc_ret_errno = 0;
             break;
         }
@@ -927,8 +927,8 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 sc_ret_errno = EBADF;
                 break;
             }
-            sc_ret(1) = entry.fd.ptr->flags;
-            open_file_descriptor_delete_ref(&entry.fd);
+            sc_ret(1) = entry.fd.ptr->ptr->flags;
+            open_file_descriptor_delete_strong_ref(&entry.fd);
             sc_ret_errno = 0;
             break;
         }
@@ -1010,7 +1010,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 for (int i = 0; i < arg1; i++)
                 {
                     if (!FD_ISSET(i, &read_ret)) continue;
-                    open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr : NULL;
+                    open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr->ptr : NULL;
                     if (!entry)
                     {
                         FD_CLR(i, &read_ret);
@@ -1027,7 +1027,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 for (int i = 0; i < arg1; i++)
                 {
                     if (!FD_ISSET(i, &write_ret)) continue;
-                    open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr : NULL;
+                    open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr->ptr : NULL;
                     if (!entry)
                     {
                         FD_CLR(i, &write_ret);
@@ -1049,7 +1049,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                     for (int i = 0; i < arg1; i++)
                     {
                         if (!((arg2 ? FD_ISSET(i, arg2) : false) || (arg3 ? FD_ISSET(i, arg3) : false))) continue;
-                        open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr : NULL;
+                        open_file_descriptor_t* entry = (size_t)i < current_task->open_file_table.size ? current_task->open_file_table.data[i].fd.ptr->ptr : NULL;
                         if (!entry)
                             continue;
                         if (arg2 ? FD_ISSET(i, arg2) : false)
@@ -1218,7 +1218,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
             {
                 ret[i] = arg1[i];
                 struct pollfd* fds = &ret[i];
-                open_file_descriptor_t* entry = fds->fd >= 0 && (size_t)fds->fd < current_task->open_file_table.size ? current_task->open_file_table.data[fds->fd].fd.ptr : NULL;
+                open_file_descriptor_t* entry = fds->fd >= 0 && (size_t)fds->fd < current_task->open_file_table.size ? current_task->open_file_table.data[fds->fd].fd.ptr->ptr : NULL;
                 int set = 0;
                 if (entry)
                 {
@@ -1243,7 +1243,7 @@ uint64_t c_syscall_handler(interrupt_registers_t* registers, void** return_addre
                 for (nfds_t i = 0; i < arg2; i++)
                 {
                     struct pollfd* fds = &arg1[i];
-                    open_file_descriptor_t* entry = fds->fd >= 0 && (size_t)fds->fd < current_task->open_file_table.size ? current_task->open_file_table.data[fds->fd].fd.ptr : NULL;
+                    open_file_descriptor_t* entry = fds->fd >= 0 && (size_t)fds->fd < current_task->open_file_table.size ? current_task->open_file_table.data[fds->fd].fd.ptr->ptr : NULL;
                     if (!entry)
                         continue;
                     if ((fds->events & POLLIN) || (fds->events & POLLRDNORM))

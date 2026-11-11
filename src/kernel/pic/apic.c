@@ -1,6 +1,7 @@
 #include "defs.h"
 #include "../util/lambda.h"
 #include "../multicore/spinlock.h"
+#include "../debug/out.h"
 
 #include <assert.h>
 
@@ -12,7 +13,6 @@ spinlock_noint_t ioapic_lock = SPINLOCK_NOINT_INIT; // TODO: Implement a per I/O
 #include "../acpi/tables.h"
 #include "../paging/paging.h"
 #include "../cpu/memory.h"
-#include "../ps2/ps2.h"
 #include "../cpu/msr.h"
 #include "../memalloc/virtual_memory_allocator.h"
 

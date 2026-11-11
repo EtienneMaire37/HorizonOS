@@ -1,4 +1,5 @@
 #include "page_data.h"
+#include "../debug/out.h"
 #include "page_frame_allocator.h"
 #include "../paging/paging.h"
 #include <assert.h>

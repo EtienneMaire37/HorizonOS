@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stdint.h>
-#include "../cpu/util.h"
 #include <stdbool.h>
 
 #include "defs.h"
@@ -20,14 +19,14 @@ static const char* preferred_power_management_profile_text[8] =
 {
     "Unspecified",
     "Desktop",
-    "Laptop",
+    "Mobile",
     "Workstation",
     "Enterprise Server",
     "SOHO Server",
-    "Aplliance PC",
+    "Appliance PC",
     "Performance Server"
 };
 
 void acpi_find_tables();
-bool acpi_table_valid();
+bool acpi_table_valid(void* table_address);
 void* read_rsdt_ptr(uint32_t index);

@@ -1,6 +1,7 @@
-#include "gdt.h"
 #include <string.h>
-#include "../multitasking/task.h"
+#include "gdt.h"
+#include "../multitasking/thread_def.h"
+#include "../util/assert.h"
 
 uint64_t GDT[7];	// 5 + 2 for TSS
 struct tss_entry TSS;

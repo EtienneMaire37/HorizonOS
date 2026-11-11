@@ -29,7 +29,6 @@ char** environ = NULL;
 #include "cpu/registers.h"
 #include "graphics/linear_framebuffer.h"
 #include "cpu/cpuid.h"
-#include "fpu/sse.h"
 #include "debug/out.h"
 #include "vga/constants.h"
 
@@ -579,21 +578,21 @@ void _start()
     printf("Mounting initrd at root...\n");
     vfs_create_root_node();
     LOG(DEBUG, "Mounting root");
-    int _errno = vfs_mount(vfs_root_node, (vnode_ref_t){ NULL }, "initrd");
+    int _errno = vfs_mount(vfs_root_node, (vnode_strong_ref_t){ NULL }, "initrd");
     if (_errno)
     {
         pstrerror(_errno, "Couldn't mount root");
         abort();
     }
 
-    vnode_ref_t dev_node = vfs_get_vnode_from_path(&_errno, 0, 0, "/dev", (vnode_ref_t){ NULL }, (vnode_ref_t){ NULL }, false);
+    vnode_strong_ref_t dev_node = vfs_get_vnode_from_path(&_errno, 0, 0, "/dev", (vnode_strong_ref_t){ NULL }, (vnode_strong_ref_t){ NULL }, false);
     if (_errno)
     {
         pstrerror(_errno, "Couldn't find vnode for /dev");
         abort();
     }
 
-    _errno = vfs_mount(dev_node, (vnode_ref_t){ NULL }, "virt");
+    _errno = vfs_mount(dev_node, (vnode_strong_ref_t){ NULL }, "virt");
     if (_errno)
     {
         pstrerror(_errno, "Couldn't mount /dev");
@@ -608,7 +607,7 @@ void _start()
     vfs_create("stdin", dev_node, S_IFCHR | 0444, 0, 0, console_read, console_write, .isatty = true);
     vfs_create("stdout", dev_node, S_IFCHR | 0222, 0, 0, console_read, console_write, .isatty = true);
     
-    vnode_delete_ref(&dev_node);
+    vnode_delete_strong_ref(&dev_node);
     
     LOG(TRACE, "Done");
 

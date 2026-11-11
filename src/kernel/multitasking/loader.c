@@ -31,7 +31,7 @@ thread_t* multitasking_add_task_from_function(const char* name, void (*func)())
     return task;
 }
 
-thread_t* __multitasking_add_task_from_vfs(const char* name, const char* path, uint8_t ring, bool system, const startup_data_struct_t* data, vnode_ref_t cwd)
+thread_t* __multitasking_add_task_from_vfs(const char* name, const char* path, uint8_t ring, bool system, const startup_data_struct_t* data, vnode_strong_ref_t cwd)
 {
     LOG(INFO, "Loading ELF file \"%s\"", path);
 
@@ -40,7 +40,7 @@ thread_t* __multitasking_add_task_from_vfs(const char* name, const char* path, u
     ASSERT(ring == 3);
 
     int _errno;
-    vnode_ref_t file = vfs_get_vnode_from_path(&_errno, 0, 0, path, vfs_root_node, cwd, true);
+    vnode_strong_ref_t file = vfs_get_vnode_from_path(&_errno, 0, 0, path, vfs_root_node, cwd, true);
     if (!file.ptr)
     {
         LOG(ERROR, "No such file or directory");
@@ -51,11 +51,11 @@ thread_t* __multitasking_add_task_from_vfs(const char* name, const char* path, u
     uint8_t* file_data = malloc(file_size);
     if (!file_data)
     {
-        vnode_delete_ref(&file);
+        vnode_delete_strong_ref(&file);
         return NULL;
     }
     vnode_read(file, file_data, file_size, 0);
-    vnode_delete_ref(&file);
+    vnode_delete_strong_ref(&file);
 
     Elf64_Ehdr* header = (Elf64_Ehdr*)file_data;
     if (memcmp("\x7f""ELF", header->e_ident, 4) != 0)
@@ -95,7 +95,7 @@ thread_t* __multitasking_add_task_from_vfs(const char* name, const char* path, u
     task->ring = ring;
 
     task->system_task = system;
-    task->cwd = vnode_copy_ref(cwd);
+    task->cwd = vnode_dup_strong_ref(cwd);
 
     LOG(DEBUG, "Entry point : %#" PRIx64, header->e_entry);
 
@@ -213,19 +213,19 @@ thread_t* __multitasking_add_task_from_vfs(const char* name, const char* path, u
     if (dynamic)
     {
 
-        vnode_ref_t ld_so = vfs_get_vnode_from_path(&_errno, 0, 0, "/usr/lib/ld.so", vfs_root_node, cwd, true);
+        vnode_strong_ref_t ld_so = vfs_get_vnode_from_path(&_errno, 0, 0, "/usr/lib/ld.so", vfs_root_node, cwd, true);
         ASSERT(ld_so.ptr);
 
         ssize_t ldso_size = vnode_stat(ld_so).st_size;
         uint8_t* ldso_data = malloc(ldso_size);
         if (!ldso_data)
         {
-            vnode_delete_ref(&ld_so);
+            vnode_delete_strong_ref(&ld_so);
             free(file_data);
             return NULL;
         }
         vnode_read(ld_so, ldso_data, ldso_size, 0);
-        vnode_delete_ref(&ld_so);
+        vnode_delete_strong_ref(&ld_so);
 
         ld_so_header = (Elf64_Ehdr*)ldso_data;
         ASSERT(ld_so_header);

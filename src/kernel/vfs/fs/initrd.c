@@ -17,7 +17,7 @@ ino_t initrd_generate_ino()
     return num++;
 }
 
-int initrd_explore(vnode_ref_t vnode)
+int initrd_explore(vnode_strong_ref_t vnode)
 {
     char path[PATH_MAX];
     vfs_get_relative_path_to_node_from_mountpoint(vnode, path, sizeof(path));
@@ -33,7 +33,7 @@ int initrd_explore(vnode_ref_t vnode)
     }
     return 0;
 }
-ssize_t initrd_read(inode_ref_t inode, void* buf, size_t count, off_t offset)
+ssize_t initrd_read(inode_strong_ref_t inode, void* buf, size_t count, off_t offset)
 {
     ASSERT(inode.ptr);
     if (offset < 0) return -EINVAL;
@@ -47,7 +47,7 @@ ssize_t initrd_read(inode_ref_t inode, void* buf, size_t count, off_t offset)
     memcpy(buf, (S_ISREG(file->st.st_mode) ? file->data : (uint8_t*)file->link) + offset, count);
     return count;
 }
-ssize_t initrd_write(inode_ref_t inode, void* buf, size_t count, off_t offset)
+ssize_t initrd_write(inode_strong_ref_t inode, void* buf, size_t count, off_t offset)
 {
     (void)inode;
     (void)buf;
@@ -56,7 +56,7 @@ ssize_t initrd_write(inode_ref_t inode, void* buf, size_t count, off_t offset)
     return -EROFS;
 }
 
-int initrd_create(const char* name, vnode_ref_t parent, struct stat* st, void** data, void (**free_data)(void*))
+int initrd_create(const char* name, vnode_strong_ref_t parent, struct stat* st, void** data, void (**free_data)(void*))
 {
     (void)name;
     (void)parent;
@@ -66,9 +66,9 @@ int initrd_create(const char* name, vnode_ref_t parent, struct stat* st, void** 
     return EROFS;
 }
 
-inode_ref_t initrd_create_root_inode(mountpoint_t* mp)
+inode_strong_ref_t initrd_create_root_inode(mountpoint_t* mp)
 {
-    mountpoint_ref_t mp_ref = (mountpoint_ref_t){ mp };
+    mountpoint_strong_ref_t mp_ref = (mountpoint_strong_ref_t){ mp };
     struct stat st;
     st.st_atim = (struct timespec){ 0, 0 };
     st.st_ctim = (struct timespec){ 0, 0 };
@@ -85,7 +85,7 @@ inode_ref_t initrd_create_root_inode(mountpoint_t* mp)
 
     st.st_size = 0;
 
-    inode_ref_t inode = vfs_create_new_inode(&st, NULL, NULL, mp_ref, false, NULL, NULL);
+    inode_strong_ref_t inode = vfs_create_new_inode(&st, NULL, NULL, mp_ref, false, NULL, NULL);
     if (!inode.ptr) return inode;
     inode.ptr->st.st_nlink = 1;
     return inode;

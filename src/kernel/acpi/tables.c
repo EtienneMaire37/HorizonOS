@@ -1,11 +1,10 @@
 #include <stdint.h>
 #include <string.h>
 #include "defs.h"
-#include "../cpu/util.h"
 #include <stdbool.h>
 #include <limine.h>
-#include "../multitasking/multitasking.h"
 #include "../util/error.h"
+#include "../debug/out.h"
 
 struct rsdp_table* rsdp;
 struct rsdt_table* rsdt;
@@ -18,12 +17,8 @@ acpi_revision_t acpi_revision = 0xff;
 uint32_t sdt_count;
 
 #include "../boot/limine.h"
-
 #include "tables.h"
-
 #include "../paging/paging.h"
-#include "../cpu/memory.h"
-#include "../ps2/ps2.h"
 
 bool acpi_table_valid(void* table_address)
 {

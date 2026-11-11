@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "../io/io.h"
 #include "../terminal/themes.h"
+#include "constants.h"
 
 // ! VGA Registers are not guaranteed to work under UEFI
 

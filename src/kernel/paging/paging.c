@@ -5,8 +5,9 @@ uint64_t PHYS_MAP_BASE = 0;
 uint8_t physical_address_width = 36; // M
 bool pat_enabled = false;
 
-#include "paging.h"
 #include <string.h>
+#include "../debug/out.h"
+#include "paging.h"
 #include "../memalloc/page_frame_allocator.h"
 #include "../memalloc/page_data.h"
 

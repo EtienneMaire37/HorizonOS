@@ -1,8 +1,7 @@
 #include "queue.h"
 #include "multitasking.h"
 #include "task.h"
-
-#include <stdlib.h>
+#include "../util/assert.h"
 
 thread_queue_t dead_tasks = TQ_INIT;
 thread_queue_t reapable_tasks = TQ_INIT;

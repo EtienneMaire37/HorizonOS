@@ -1,8 +1,17 @@
 #pragma once
 
+#include "../util/refcount.h"
+
 typedef struct mountpoint mountpoint_t;
 
-typedef struct mountpoint_ref 
+DEFINE_REFCOUNT_INC1(mountpoint)
+
+typedef struct
 {
-    mountpoint_t* _Atomic ptr;
-} mountpoint_ref_t;
+    
+} mountpoint_create_params_t;
+
+DEFINE_REFCOUNT_INC2(mountpoint, mountpoint_create_params_t)
+
+void ___mountpoint_free(mountpoint_t* mp);
+mountpoint_t* ___mountpoint_create(mountpoint_create_params_t params);

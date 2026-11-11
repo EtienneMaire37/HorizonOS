@@ -1,4 +1,5 @@
 #include "sigset.h"
+#include "../util/assert.h"
 
 sigset_t sigset_bitwise_or(sigset_t s1, sigset_t s2)
 {

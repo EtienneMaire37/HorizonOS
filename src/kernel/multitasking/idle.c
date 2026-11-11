@@ -3,7 +3,7 @@
 
 void idle_main()
 {
-    // TODO: Improve scheduler to refresh the TSC deadlines every 20ms or so and keep track of time slices
+    // TODO: Improve scheduler to refresh TSC deadlines every 20ms or so and keep track of time slices
     while (true)
         hlt();
     __builtin_unreachable();

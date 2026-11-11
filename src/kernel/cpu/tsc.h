@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../time/time.h"
 #include "../cpu/cpuid.h"
 
 extern uint64_t tsc_cycles_per_second;

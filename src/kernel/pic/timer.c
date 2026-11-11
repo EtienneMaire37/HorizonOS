@@ -1,10 +1,14 @@
 #include "timer.h"
 
-#include "../cmos/rtc.h"
+#include "../time/time.h"
+#include "../time/ktime.h"
+#include "../cmos/cmos.h"
 #include "../cpu/tsc.h"
 #include "../cpu/util.h"
 #include "../util/vector.h"
+#include "../multicore/spinlock.h"
 
+#include <sys/types.h>
 #include <string.h>
 
 DEFINE_VECTOR(u64, uint64_t)

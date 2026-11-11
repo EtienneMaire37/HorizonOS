@@ -23,7 +23,7 @@ int ofdv_open(open_file_descriptor_vector_t* vec, open_file_descriptor_entry_t e
     {
         if (!vec->data[i].fd.ptr)
         {
-            open_file_descriptor_copy_ref(entry.fd);
+            open_file_descriptor_dup_strong_ref(entry.fd);
             vec->data[i] = entry;
             release_spinlock_noint(&vec->lock, flags);
             return i;
@@ -43,7 +43,7 @@ int ofdv_open(open_file_descriptor_vector_t* vec, open_file_descriptor_entry_t e
         vec->data = data;
     }
 
-    open_file_descriptor_copy_ref(entry.fd);
+    open_file_descriptor_dup_strong_ref(entry.fd);
     int idx = vec->size++;
     vec->data[idx] = entry;
     release_spinlock_noint(&vec->lock, flags);
@@ -58,7 +58,7 @@ open_file_descriptor_entry_t ofdv_get(open_file_descriptor_vector_t* vec, int fd
     open_file_descriptor_entry_t ret = { .flags = 0, .fd.ptr = NULL };
     if ((size_t)fd < vec->size)
         ret = vec->data[fd];
-    open_file_descriptor_copy_ref(ret.fd);
+    open_file_descriptor_dup_strong_ref(ret.fd);
     release_spinlock_noint(&vec->lock, flags);
     return ret;
 }
@@ -76,7 +76,7 @@ int ofdv_close(open_file_descriptor_vector_t* vec, int fd)
     uint32_t flags = acquire_spinlock_noint(&vec->lock);
     int ret = (size_t)fd < vec->size ? 0 : EBADF;
     if (!ret)
-        open_file_descriptor_delete_ref(&vec->data[fd].fd);
+        open_file_descriptor_delete_strong_ref(&vec->data[fd].fd);
     release_spinlock_noint(&vec->lock, flags);
     return ret;
 }
@@ -84,7 +84,7 @@ void ofdv_closeall(open_file_descriptor_vector_t* vec)
 {
     uint32_t flags = acquire_spinlock_noint(&vec->lock);
     for (size_t i = 0; i < vec->size; i++)
-        open_file_descriptor_delete_ref(&vec->data[i].fd);
+        open_file_descriptor_delete_strong_ref(&vec->data[i].fd);
     free(vec->data);
     vec->data = NULL;
     vec->allocated = vec->size = 0;
@@ -112,7 +112,7 @@ open_file_descriptor_vector_t ofdv_copyall(open_file_descriptor_vector_t* vec, b
         if (cloexec && (vec->data[i].flags & FD_CLOEXEC))
             ret.data[i].fd.ptr = NULL;
         else
-            open_file_descriptor_copy_ref(vec->data[i].fd);
+            open_file_descriptor_dup_strong_ref(vec->data[i].fd);
     }
     release_spinlock_noint(&vec->lock, flags);
     return ret;
@@ -127,9 +127,9 @@ int vfs_isatty_ofd(open_file_descriptor_t* ofd)
             ret = ENOTTY;
         else
         {
-            inode_ref_t inode = inode_stack_top_inode(&ofd->vnode.ptr->inodes);
-            ret = inode.ptr ? (inode.ptr->isatty ? 0 : ENOTTY) : ENOTTY;
-            inode_delete_ref(&inode);
+            inode_strong_ref_t inode = inode_stack_top_inode(&ofd->vnode.ptr->ptr->inodes);
+            ret = inode.ptr ? (inode.ptr->ptr->isatty ? 0 : ENOTTY) : ENOTTY;
+            inode_delete_strong_ref(&inode);
         }
     }
     else
@@ -140,8 +140,8 @@ int vfs_isatty_ofd(open_file_descriptor_t* ofd)
 int vfs_isatty(int fd)
 {
     open_file_descriptor_entry_t entry = ofdv_get(&current_task->open_file_table, fd);
-    int ret = vfs_isatty_ofd(entry.fd.ptr);
-    open_file_descriptor_delete_ref(&entry.fd);
+    int ret = vfs_isatty_ofd(entry.fd.ptr->ptr);
+    open_file_descriptor_delete_strong_ref(&entry.fd);
     return ret;
 }
 
@@ -149,7 +149,7 @@ int vfs_dup(int fd)
 {
     open_file_descriptor_entry_t entry = ofdv_get(&current_task->open_file_table, fd);
     int ret = ofdv_open(&current_task->open_file_table, entry);
-    open_file_descriptor_delete_ref(&entry.fd);
+    open_file_descriptor_delete_strong_ref(&entry.fd);
     return ret;
 }
 int vfs_dup3(int oldfd, int newfd, int flags)
@@ -176,12 +176,12 @@ int vfs_dup3(int oldfd, int newfd, int flags)
             current_task->open_file_table.data[i].fd.ptr = NULL;
     }
 
-    open_file_descriptor_delete_ref(&current_task->open_file_table.data[newfd].fd);
-    current_task->open_file_table.data[newfd].fd = open_file_descriptor_copy_ref(entry.fd);
+    open_file_descriptor_delete_strong_ref(&current_task->open_file_table.data[newfd].fd);
+    current_task->open_file_table.data[newfd].fd = open_file_descriptor_dup_strong_ref(entry.fd);
     current_task->open_file_table.data[newfd].flags = flags & O_CLOEXEC ? FD_CLOEXEC : 0;
     
     release_spinlock_noint(&current_task->open_file_table.lock, eflags);
-    open_file_descriptor_delete_ref(&entry.fd);
+    open_file_descriptor_delete_strong_ref(&entry.fd);
     return 0;
 }
 
