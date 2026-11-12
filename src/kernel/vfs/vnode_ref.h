@@ -15,5 +15,5 @@ typedef struct
 
 DEFINE_REFCOUNT_INC2(vnode, vnode_create_params_t)
 
-void ___vnode_free(vnode_t* vnode);
+void ___vnode_free(vnode_strong_ref_t vnode);
 vnode_t* ___vnode_create(vnode_create_params_t params);

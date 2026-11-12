@@ -40,7 +40,7 @@ typedef struct
     open_file_descriptor_strong_ref_t fd;
 } open_file_descriptor_entry_t;
 
-void ___open_file_descriptor_free(open_file_descriptor_t* ofd);
+void ___open_file_descriptor_free(open_file_descriptor_strong_ref_t ofd);
 open_file_descriptor_t* ___open_file_descriptor_create(open_file_descriptor_create_params_t params);
 
 open_file_descriptor_strong_ref_t vfs_create_new_file_descriptor_from_vnode(int* _errno, int flags, vnode_strong_ref_t vnode, struct stat* st);

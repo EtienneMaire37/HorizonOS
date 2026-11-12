@@ -13,5 +13,5 @@ typedef struct
 
 DEFINE_REFCOUNT_INC2(mountpoint, mountpoint_create_params_t)
 
-void ___mountpoint_free(mountpoint_t* mp);
+void ___mountpoint_free(mountpoint_strong_ref_t mp);
 mountpoint_t* ___mountpoint_create(mountpoint_create_params_t params);

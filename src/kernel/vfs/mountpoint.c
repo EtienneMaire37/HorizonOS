@@ -4,8 +4,9 @@
 
 DEFINE_REFCOUNT_IMPL(mountpoint, ___mountpoint_create, ___mountpoint_free, mountpoint_create_params_t)
 
-void ___mountpoint_free(mountpoint_t* mountpoint)
+void ___mountpoint_free(mountpoint_strong_ref_t mp)
 {
+    mountpoint_t* mountpoint = mp.ptr->ptr;
     void (*free_data)(void* data) = mountpoint->free_data;
     if (free_data)
         free_data(mountpoint->data);

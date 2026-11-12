@@ -77,8 +77,9 @@ open_file_descriptor_strong_ref_t vfs_create_new_file_descriptor_from_vnode(int*
     return ofd;
 }
 
-void ___open_file_descriptor_free(open_file_descriptor_t* ofd)
+void ___open_file_descriptor_free(open_file_descriptor_strong_ref_t _ofd)
 {
+    open_file_descriptor_t* ofd = _ofd.ptr->ptr;
     if (ofd->vnode.ptr)
     {
         mountpoint_strong_ref_t mp = inode_stack_top_mountpoint(&ofd->vnode.ptr->ptr->inodes);

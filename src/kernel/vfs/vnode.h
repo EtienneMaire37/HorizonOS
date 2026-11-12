@@ -29,7 +29,6 @@ struct vnode
 #define vnode_move_reference(vnode, field)       ___vnode_move_reference((vnode), offsetof(vnode_t, field))
 
 extern vnode_strong_ref_t vfs_root_node;
-extern _Atomic  size_t vfs_total_nodes;
 
 typedef struct
 {
@@ -62,7 +61,6 @@ void vfs_create_root_node();
 vnode_strong_ref_t ___vnode_dereference_vnode(vnode_strong_ref_t node, size_t field_offset, bool locked);
 void ___vnode_move_reference(vnode_strong_ref_t* ref, size_t field_offset);
 
-void ___vnode_free(vnode_t* vnode);
 int vfs_add_new_child_node(vnode_strong_ref_t node, const char* name, const struct stat* st, void* fs_specific, void (*free_fs_specific_data)(void*));
 int _vfs_add_new_child_node_ex(vnode_strong_ref_t node, const char* name, vfs_add_new_child_node_ex_params_t params);
 int vfs_add_new_child_node__hardlink(vnode_strong_ref_t node, const char* name, inode_strong_ref_t inode);
@@ -75,7 +73,6 @@ void vfs_log_structure(vnode_strong_ref_t node);
 size_t vfs_get_absolute_path_to_node(vnode_strong_ref_t node, char* buf, size_t bufsiz);
 // Only call with the mountpoint_locked
 size_t vfs_get_relative_path_to_node_from_mountpoint(vnode_strong_ref_t ref, char* buf, size_t bufsiz);
-bool vfs_verify_tree_integrity();
 vnode_strong_ref_t vfs_get_vnode_from_path(int* _errno, uid_t uid, gid_t gid, const char* path, vnode_strong_ref_t root, vnode_strong_ref_t cwd, bool follow_symlinks);
 int vfs_unmount(vnode_strong_ref_t ref, bool lazy);
 

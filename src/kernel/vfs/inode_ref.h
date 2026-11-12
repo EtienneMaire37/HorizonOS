@@ -22,5 +22,5 @@ typedef struct
 
 DEFINE_REFCOUNT_INC2(inode, inode_create_params_t)
 
-void ___inode_free(inode_t* inode);
+void ___inode_free(inode_strong_ref_t inode);
 inode_t* ___inode_create(inode_create_params_t params);
